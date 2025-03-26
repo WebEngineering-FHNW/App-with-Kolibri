@@ -1,1 +1,0 @@
-HTML-Page: [Observable HttpGet Joke Example](https://mattwolf-corporation.github.io/ip6_lambda-calculus-in-js/src/observable/observableExamples/observableHttpGetJokeExample/viewObservableHttpGetJokeExample.html)
