@@ -1,9 +1,9 @@
 
-# Kolibri Web Toolbox
+# Kolibri Fork "App with Kolibri"
 
 If you want to use Kolibri, please have a look at the  
 
-[Kolibri Home Page](https://webengineering-fhnw.github.io/Kolibri/index.html)
+[Home Page](https://webengineering-fhnw.github.io/App-with-Kolibri/index.html)
 
 where you find how to "install" and use the Kolibri and how
 you become owner of the code without the need for any license.
@@ -13,8 +13,7 @@ Kolibri does _not_ require node.js or npm or any of such tools.
 ## Notes for developers
 
 ### Sources
-**UPDATE (Mar 25): the source are now under src as usual**
-since the GitHub publishing restrictions no longer apply.
+The src dir is under docs such that we can publish the sources directly.
 
 ### Styling
 Kolibri comes with its own 
