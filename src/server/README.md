@@ -9,6 +9,8 @@ which as of March 2015 was v22.14.0.
 
 **NPM is not required and should not even be installed**.
 
+Please also note, that there is no package.json and no node_modules folder!
+
 ## Warning
 
 When deploying server-side code make sure that the
