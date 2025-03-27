@@ -6,7 +6,7 @@ import path from 'node:path';
 
 export {handleFileRequest};
 
-console.warn("Make sure to run the server under user with limited file permission!");
+console.warn("Make sure to run the server under user with limited file permissions!");
 
 const mimeType = {
     '.ico':  'image/x-icon',
