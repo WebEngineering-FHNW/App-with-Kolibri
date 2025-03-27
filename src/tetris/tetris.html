@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>3D Tetris</title>
+    <link href="tetris.css" rel="stylesheet"/>
+</head>
+<body>
+<main id="main" class="scene3d noSelection">
+    <div class="coords" style="
+            --coords-rotate-x:  85;
+            --coords-rotate-y: -15;
+            top:                60cqh;
+    ">
+        <div class="floor"><div class="toplight"></div></div>
+        <div class="plane show xz-plane"></div>
+        <div class="plane show yz-plane"></div>
+<!--    tetrominos to be added here -->
+    </div>
+</main>
+<footer>
+    Use mouse or touch to rotate the coords.
+    Arrow keys to move the tetromino.
+    Shift + arrow keys to rotate.
+</footer>
+
+<script type="module" src="starter.js"></script>
+</body>
+</html>
