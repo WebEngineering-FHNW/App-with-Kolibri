@@ -70,6 +70,7 @@ const Tetronimo = (shapeIndex, tetroId) => {
              y: pos.y + offset.y ,
              z: pos.z + offset.z ,
           } );
+          box.boxClass = shapeName;
       });
     };
     position.onChange(updateBoxPositions);
