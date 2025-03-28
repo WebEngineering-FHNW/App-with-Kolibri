@@ -1,72 +1,63 @@
-import {registerForMouseAndTouch}                               from "./scene3D/scene.js";
-import {normalize, swapXZ, swapYZ}                              from "./controller.js";
-import {makeRandomTetromino}                                    from "./model.js";
-import {Scheduler}                                              from "../kolibri/dataflow/dataflow.js";
-import {Walk}                                                   from "../kolibri/sequence/constructors/range/range.js";
+import {registerForMouseAndTouch}  from "./scene3D/scene.js";
+import {normalize, swapXZ, swapYZ} from "./controller.js";
+import {makeRandomTetromino}       from "./model.js";
+import {Scheduler}                 from "../kolibri/dataflow/dataflow.js";
+import {Walk}                      from "../kolibri/sequence/constructors/range/range.js";
+import {dom}                       from "../kolibri/util/dom.js";
 
 registerForMouseAndTouch(main);
 
 
 
-const showTetronimoInDOM = tetronimo => {
-    const parent   = document.querySelector(`.scene3d .coords`);
-    const viewHtml = `
-            <div class="tetromino ${tetronimo.shapeName}" data-id="${tetronimo.id}" style="--tetromino-x: 0;--tetromino-y: 0;--tetromino-z: 0;">
-                <div class="box" style="--x: 0;--y: 0;--z: 0;"><div></div><div></div><div></div><div></div><div></div><div></div></div>
-                <div class="box" style="--x: 0;--y: 0;--z: 0;"><div></div><div></div><div></div><div></div><div></div><div></div></div>
-                <div class="box" style="--x: 0;--y: 0;--z: 0;"><div></div><div></div><div></div><div></div><div></div><div></div></div>
-                <div class="box" style="--x: 0;--y: 0;--z: 0;"><div></div><div></div><div></div><div></div><div></div><div></div></div>
+const boxFaceDivs = 6..times( _=> "<div class='face'></div>").join("");
+const ghostView = (() => {
+    const parent    = document.querySelector(`.scene3d .coords`);
+    const boxDivStr = `<div class="box ghost"> ${ boxFaceDivs } </div>`;
+    const [ ghostDiv ] = dom(`
+            <div class="tetromino" >
+                ${ 4..times(_=> boxDivStr) } 
             </div>
-        `;
-    parent.innerHTML += viewHtml;
-};
+        `);
+    parent.append(ghostDiv);
+    return ghostDiv;
+})();
 
-
-const move  = tetro => {
-    const position = tetro.position.getValue();
-    document.querySelector(`[data-id="${ tetro.id }"]`).setAttribute("style",
-            `--tetromino-x: ${position.x};
-             --tetromino-y: ${position.y};
-             --tetromino-z: ${position.z};`
-    );
-    document.querySelector(`[data-id="${ tetro.id}"].ghost`)?.setAttribute("style",
-            `--tetromino-x: ${position.x};
-             --tetromino-y: ${position.y};
-             --tetromino-z: 0;`
-    );
-};
-const align = tetro => {
-    const tetroView = document.querySelector(`[data-id="${ tetro.id }"]`);
-    const ghostView = document.querySelector(`[data-id="${ tetro.id }"].ghost`);
-    tetro.shape.setValue(normalize(tetro.shape.getValue()));
-    tetroView.querySelectorAll(".box").forEach((box, idx) => {
-        const boxOffset = tetro.shape.getValue()[idx];
-        box.setAttribute("style",
-                `--x: ${boxOffset.x}; 
-                 --y: ${boxOffset.y};
-                 --z: ${boxOffset.z};`
-        );
+const tetronimoProjector = tetronimo => {
+    const parent    = document.querySelector(`.scene3d .coords`);
+    const boxDivStr = `<div class="box ${tetronimo.shapeName}"> ${ boxFaceDivs} </div>`;
+    const [ tetroDiv ] = dom(`
+            <div class="tetromino" data-id="${tetronimo.id}" >
+                ${ 4..times(_=> boxDivStr) } 
+            </div>
+        `);
+    // data binding
+    const boxDivs   = tetroDiv .children;
+    const ghostDivs = ghostView.children;
+    tetronimo.boxes.forEach( (box, idx) => {
+        box.position.onChange( pos => {
+            boxDivs[idx]  .setAttribute("style", `--x: ${pos.x};--y: ${pos.y};--z: ${pos.z};`);
+            ghostDivs[idx].setAttribute("style", `--x: ${pos.x};--y: ${pos.y};--z: 0;`);
+        });
     });
-    ghostView?.querySelectorAll(".box").forEach((box, idx) => {
-        const boxOffset = tetro.shape.getValue()[idx];
-        box.setAttribute("style",
-                `--x: ${boxOffset.x};
-                 --y: ${boxOffset.y};
-                 --z: 0;`
-        );
-    });
+    parent.append(tetroDiv);
 };
 
-const toppleRoll  = tetro => tetro.shape.setValue(swapXZ(tetro.shape.getValue())) ;
-const topplePitch = tetro => tetro.shape.setValue(swapYZ(tetro.shape.getValue()));
-const rotateYaw   = tetro => {
-    toppleRoll(tetro);
-    topplePitch(tetro);
-    topplePitch(tetro);
-    topplePitch(tetro);
-    toppleRoll(tetro);
-    toppleRoll(tetro);
-    toppleRoll(tetro);
+const align = (tetro, newShape) => {
+    tetro.shape.setValue(normalize(newShape));
+
+};
+
+const toppleRoll  = shape => swapXZ(shape);
+const topplePitch = shape => swapYZ(shape);
+const rotateYaw   = shape => {
+    shape = toppleRoll (shape);
+    shape = topplePitch(shape);
+    shape = topplePitch(shape);
+    shape = topplePitch(shape);
+    shape = toppleRoll (shape);
+    shape = toppleRoll (shape);
+    shape = toppleRoll (shape);
+    return shape;
 };
 
 document.onkeydown = keyEvt => {
@@ -74,48 +65,31 @@ document.onkeydown = keyEvt => {
     if (keyEvt.shiftKey) {
         switch (keyEvt.key) {
             case "Shift":       break; // ignore the initial shift signal
-            case "ArrowRight":  rotateYaw(currentTetromino);   align(currentTetromino);   break;
-            case "ArrowLeft":   toppleRoll(currentTetromino);  align(currentTetromino);   break;
-            case "ArrowUp":     topplePitch(currentTetromino); align(currentTetromino);   break;
-            case "ArrowDown":   moveDown();                    move(currentTetromino);    break; // might change current tetro
+            case "ArrowRight":  align(currentTetromino, rotateYaw  (currentTetromino.shape.getValue())  );   break;
+            case "ArrowLeft":   align(currentTetromino, toppleRoll (currentTetromino.shape.getValue()) );   break;
+            case "ArrowUp":     align(currentTetromino, topplePitch(currentTetromino.shape.getValue()));   break;
+            case "ArrowDown":   moveDown(); break;
             default:            console.warn("unknown key", keyEvt.key);
         }
     } else {
         const pos = currentTetromino.position;
         const val = pos.getValue();
         switch (keyEvt.key) {
-            case "ArrowLeft":   pos.setValue( {x: val.x -1, y: val.y, z: val.z} );move(currentTetromino);break;
-            case "ArrowRight":  pos.setValue( {x: val.x +1, y: val.y, z: val.z} );move(currentTetromino);break;
-            case "ArrowUp":     pos.setValue( {x: val.x, y: val.y -1, z: val.z} );move(currentTetromino);break;
-            case "ArrowDown":   pos.setValue( {x: val.x, y: val.y +1, z: val.z} );move(currentTetromino);break;
+            case "ArrowLeft":   pos.setValue( {x: val.x -1, y: val.y, z: val.z} );break;
+            case "ArrowRight":  pos.setValue( {x: val.x +1, y: val.y, z: val.z} );break;
+            case "ArrowUp":     pos.setValue( {x: val.x, y: val.y -1, z: val.z} );break;
+            case "ArrowDown":   pos.setValue( {x: val.x, y: val.y +1, z: val.z} );break;
             default:            console.warn("unknown key", keyEvt.key);
         }
     }
 };
 
-const addGhost    = (currentTetromino) => {
-    const dataId = currentTetromino.id;
-    const tetroView = document.querySelector(`[data-id="${dataId}"]`);
-    const clone     = tetroView.cloneNode(true);
-    clone.classList.add("ghost");
-    tetroView.parentElement.appendChild(clone);
-};
-const removeGhost = currentTetromino => {
-    if ( ! currentTetromino) return;
-    const dataId = currentTetromino.id;
-    const tetroView = document.querySelector(`[data-id="${dataId}"].ghost`);
-    tetroView?.remove();
-};
-
 
 let currentTetromino;
 const makeNextTetro = () => {
-    removeGhost(currentTetromino);
     currentTetromino = makeRandomTetromino();
-    showTetronimoInDOM(currentTetromino);
-    addGhost(currentTetromino);
-    align(currentTetromino);
-    move(currentTetromino);  // todo: publish to server
+    tetronimoProjector(currentTetromino);
+    align(currentTetromino, currentTetromino.shape.getValue());
 };
 
 const scheduler = Scheduler();
@@ -154,11 +128,9 @@ function moveDown() {
 const fallTask = done => {
     moveDown();
     if (endOfGame()) {
-        // handle end of game
-        console.log("The End");
+        console.log("The End");// handle end of game
         return;
     }
-    move(currentTetromino); // todo: send info to server
     // re-schedule fall Task
     setTimeout( () => scheduler.add(fallTask), 1 * 1000 );
     done();
@@ -166,11 +138,3 @@ const fallTask = done => {
 
 makeNextTetro();
 scheduler.add(fallTask);
-
-// inspection setting
-// removeGhost(tetroNum);
-// --tetroNum
-// currentTetromino = tetrominos[tetroNum];
-// addGhost(tetroNum);
-// currentTetromino.position.z = 0;
-// move(currentTetromino);
