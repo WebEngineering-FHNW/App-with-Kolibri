@@ -141,6 +141,14 @@ footer {
     background-color: white;
 }
 
+.shape3d .face  {
+    background-color: magenta;
+}
+
+.shapeQ .face  {
+    background-color: yellow;
+}
+
 .ghost .face  {
     background-color: transparent;
     border:           none;

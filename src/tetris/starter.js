@@ -1,13 +1,11 @@
-import {registerForMouseAndTouch}  from "./scene3D/scene.js";
-import {normalize, swapXZ, swapYZ} from "./controller.js";
-import {makeRandomTetromino}       from "./model.js";
+import {registerForMouseAndTouch}                          from "./scene3D/scene.js";
+import {intersects, disallowed, normalize, swapXZ, swapYZ} from "./controller.js";
+import {makeRandomTetromino, Tetronimo}                    from "./model.js";
 import {Scheduler}                 from "../kolibri/dataflow/dataflow.js";
 import {Walk}                      from "../kolibri/sequence/constructors/range/range.js";
 import {dom}                       from "../kolibri/util/dom.js";
 
 registerForMouseAndTouch(main);
-
-
 
 const boxFaceDivs = 6..times( _=> "<div class='face'></div>").join("");
 const ghostView = (() => {
@@ -31,19 +29,58 @@ const tetronimoProjector = tetronimo => {
             </div>
         `);
     // data binding
-    const boxDivs   = tetroDiv .children;
+    const boxDivs   = [...tetroDiv.children]; // make shallow copy to keep the index positions
     const ghostDivs = ghostView.children;
     tetronimo.boxes.forEach( (box, idx) => {
-        box.position.onChange( pos => {
-            boxDivs[idx]  .setAttribute("style", `--x: ${pos.x};--y: ${pos.y};--z: ${pos.z};`);
-            ghostDivs[idx].setAttribute("style", `--x: ${pos.x};--y: ${pos.y};--z: 0;`);
+        box.onChange( (pos, _oldPos, selfRemove) => {
+                if(pos.z < 0) {             // for the view, this is the signal to remove the box div
+                    boxDivs[idx].remove();  // remove the view (div)
+                    if( tetroDiv.children.length < 1) { // if there are no more boxes for this tetro
+                        tetroDiv.remove();              // .. remove the whole tetro div
+                    }
+                    selfRemove(); // finally there is nothing more to listen to and we remove this very listener itself
+                    return;
+                }
+                boxDivs[idx]  .setAttribute("style",   `--x: ${pos.x};--y: ${pos.y};--z: ${pos.z};`);
+                ghostDivs[idx].setAttribute("style",   `--x: ${pos.x};--y: ${pos.y};--z: 0;`);
         });
     });
     parent.append(tetroDiv);
 };
 
-const align = (tetro, newShape) => {
-    tetro.shape.setValue(normalize(newShape));
+
+const spaceBoxes = [];
+
+const handleCollision = (currentTetromino, spaceBoxes) => {
+    currentTetromino.unlinkBoxes(); // boxes will still keep their data binding
+    spaceBoxes.push(...(currentTetromino.boxes)); // put the current tetro boxes in the space
+    checkAndHandleFullLevel(spaceBoxes);
+    makeNextTetro();
+};
+
+
+const alignShape = (tetronimo, newShape, spaceBoxes) => {
+        newShape = normalize(newShape);
+        const shadowTetromino = Tetronimo(0,-1);
+        shadowTetromino.setShape(newShape);
+        shadowTetromino.setPosition(tetronimo.getPosition());
+        if(disallowed(shadowTetromino)) { return; }
+        if (intersects(shadowTetromino, spaceBoxes)) {
+            handleCollision(tetronimo, spaceBoxes);
+        } else {
+            tetronimo.setShape(newShape);
+        }
+};
+const alignPosition = (tetronimo, newPosition, spaceBoxes) => {
+        const shadowTetromino = Tetronimo(0,-1);
+        shadowTetromino.setShape(tetronimo.getShape());
+        shadowTetromino.setPosition(newPosition);
+        if(disallowed(shadowTetromino)) { return; }
+        if (intersects(shadowTetromino, spaceBoxes)) {
+            handleCollision(tetronimo, spaceBoxes);
+        } else {
+            tetronimo.setPosition(newPosition);
+        }
 
 };
 
@@ -60,74 +97,78 @@ const rotateYaw   = shape => {
     return shape;
 };
 
+// relies on two external references: currentTetronimo and spaceBoxes
 document.onkeydown = keyEvt => {
     keyEvt.preventDefault();
+    const pos   = currentTetromino.getPosition();
+    const shape = currentTetromino.getShape();
     if (keyEvt.shiftKey) {
         switch (keyEvt.key) {
             case "Shift":       break; // ignore the initial shift signal
-            case "ArrowRight":  align(currentTetromino, rotateYaw  (currentTetromino.shape.getValue())  );   break;
-            case "ArrowLeft":   align(currentTetromino, toppleRoll (currentTetromino.shape.getValue()) );   break;
-            case "ArrowUp":     align(currentTetromino, topplePitch(currentTetromino.shape.getValue()));   break;
-            case "ArrowDown":   moveDown(); break;
+            case "ArrowRight":  alignShape(currentTetromino, rotateYaw  (shape), spaceBoxes);   break;
+            case "ArrowLeft":   alignShape(currentTetromino, toppleRoll (shape), spaceBoxes);   break;
+            case "ArrowUp":     alignShape(currentTetromino, topplePitch(shape), spaceBoxes);   break;
+            case "ArrowDown":   alignPosition(currentTetromino, {x: pos.x, y: pos.y, z: pos.z - 1}, spaceBoxes); break;
             default:            console.warn("unknown key", keyEvt.key);
         }
     } else {
-        const pos = currentTetromino.position;
-        const val = pos.getValue();
         switch (keyEvt.key) {
-            case "ArrowLeft":   pos.setValue( {x: val.x -1, y: val.y, z: val.z} );break;
-            case "ArrowRight":  pos.setValue( {x: val.x +1, y: val.y, z: val.z} );break;
-            case "ArrowUp":     pos.setValue( {x: val.x, y: val.y -1, z: val.z} );break;
-            case "ArrowDown":   pos.setValue( {x: val.x, y: val.y +1, z: val.z} );break;
+            case "ArrowLeft":   alignPosition(currentTetromino, {x: pos.x -1, y: pos.y, z: pos.z}, spaceBoxes );break;
+            case "ArrowRight":  alignPosition(currentTetromino, {x: pos.x +1, y: pos.y, z: pos.z}, spaceBoxes );break;
+            case "ArrowUp":     alignPosition(currentTetromino, {x: pos.x, y: pos.y -1, z: pos.z}, spaceBoxes );break;
+            case "ArrowDown":   alignPosition(currentTetromino, {x: pos.x, y: pos.y +1, z: pos.z}, spaceBoxes );break;
             default:            console.warn("unknown key", keyEvt.key);
         }
     }
 };
 
-
+/** @type { TetronimoType } */
 let currentTetromino;
 const makeNextTetro = () => {
     currentTetromino = makeRandomTetromino();
     tetronimoProjector(currentTetromino);
-    align(currentTetromino, currentTetromino.shape.getValue());
 };
 
-const scheduler = Scheduler();
 
-const spaceBoxes = [];
 
-const collides = tetronimo =>
-    tetronimo.boxes.some( ({ position: boxPos }) =>
-        boxPos.getValue().z < 0 ||
-        spaceBoxes.some( spaceBox =>
-           spaceBox.position.getValue().x === boxPos.getValue().x &&
-           spaceBox.position.getValue().y === boxPos.getValue().y &&
-           spaceBox.position.getValue().z === boxPos.getValue().z ));
 
-const endOfGame = () => currentTetromino.position.getValue().z === 12 && collides(currentTetromino) ;
+const isEndOfGame = (currentTetromino, spaceBoxes) =>
+    currentTetromino.getPosition().z === 12
+    && intersects(currentTetromino, spaceBoxes) ;
 
-const handleFullLevel = () => {
-    const isFull = level => spaceBoxes.filter( box => box.position.getValue().z === level).length === 7 * 7;
-    const fullLevels = Walk(12).takeWhere( level => isFull(level));
-    fullLevels.forEach$( level => {
-        console.log("full level", level);
-    })
+/**
+ * @impure side effects the spaceBoxes and the DOM if full level is detected
+ * @param {Array<BoxType>} spaceBoxes
+ */
+const checkAndHandleFullLevel = spaceBoxes => {
+
+    // const isFull = level => spaceBoxes.filter( box => box.getValue().z === level).length === 7 * 7; // assume no outside boxes
+    const isFull = level => spaceBoxes.filter( box => box.getValue().z === level).length > 5; // assume no outside boxes
+    const level = [...Walk(12)].findIndex(isFull);
+    if (level < 0 ) { return; }
+
+    // remove all boxes that are on this level from the spaceboxes and the view
+    const toRemove = spaceBoxes.filter(box => box.getValue().z === level); // remove duplication
+    toRemove.forEach( box => {
+        spaceBoxes.removeItem(box);
+        box.setValue( {x:-1,y:-1, z:-1} ); // will trigger the data binding to self-remove the view
+    });
+
+    // move the remaining higher boxes one level down
+    spaceBoxes.forEach( box => {
+        const pos = box.getValue();
+        if (pos.z > level) {
+            box.setValue( {x:pos.x,y:pos.y, z:pos.z-1} );
+        }
+    });
+    // there might be more full levels
+    checkAndHandleFullLevel(spaceBoxes);
 };
-
-function moveDown() {
-    const oldPos = currentTetromino.position.getValue();
-    currentTetromino.position.setValue( {x: oldPos.x, y: oldPos.y, z: oldPos.z -1 } );
-    if (collides(currentTetromino)) {
-        currentTetromino.position.setValue(oldPos);   // hold in old position
-        spaceBoxes.push(...(currentTetromino.boxes)); // put the current tetro boxes in the space
-        handleFullLevel();
-        makeNextTetro();
-    }
-}
 
 const fallTask = done => {
-    moveDown();
-    if (endOfGame()) {
+    const oldPos = currentTetromino.getPosition();
+    alignPosition(currentTetromino, {x: oldPos.x, y: oldPos.y, z: oldPos.z - 1}, spaceBoxes);
+    if (isEndOfGame(currentTetromino, spaceBoxes)) {
         console.log("The End");// handle end of game
         return;
     }
@@ -136,5 +177,6 @@ const fallTask = done => {
     done();
 };
 
+const scheduler = Scheduler();
 makeNextTetro();
 scheduler.add(fallTask);
