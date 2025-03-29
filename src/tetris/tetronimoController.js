@@ -45,7 +45,7 @@ const intersects = (tetronimo, spaceBoxes) =>
 const disallowed = tetronimo =>
     tetronimo.boxes.some( box =>{
         const pos = box.getValue();
-        if (pos.x < 0 || pos.x > 6) return true;// todo put board size in config
+        if (pos.x < 0 || pos.x > 6) return true;
         if (pos.y < 0 || pos.y > 6) return true;
         return false;
     });

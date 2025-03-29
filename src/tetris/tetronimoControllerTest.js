@@ -4,16 +4,9 @@
 import {TestSuite}                        from "../kolibri/util/test.js";
 import {Tetronimo}                        from "./model.js";
 import {intersects, normalize, rotateYaw} from "./tetronimoController.js";
+import {shapeEqual}                       from "./util.js";
 
 const controllerSuite = TestSuite("tetris/tetronimoControl");
-
-
-// todo: might go into Kolibri utils.
-const ownPropEqual = (objA, objB) =>
-    Object.getOwnPropertyNames(objA).every( name => objA[name] === objB[name]);
-
-const shapeEqual= (shapeA, shapeB) =>
-    shapeA.every( (positionA, idx) => ownPropEqual(positionA, shapeB[idx]) );
 
 controllerSuite.add("normalize", assert => {
     const normalizedShape0 = [
