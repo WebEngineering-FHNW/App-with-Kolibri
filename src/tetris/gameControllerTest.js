@@ -4,15 +4,9 @@
 import {TestSuite}                        from "../kolibri/util/test.js";
 import {checkAndHandleFullLevel}          from "./gameController.js";
 import {Observable}                       from "../kolibri/observable.js";
+import {ownPropEqual}                     from "./util.js";
 
 const controllerSuite = TestSuite("tetris/gameControl");
-
-// todo: might go into Kolibri utils.
-const ownPropEqual = (objA, objB) =>
-    Object.getOwnPropertyNames(objA).every( name => objA[name] === objB[name]);
-
-const shapeEqual= (shapeA, shapeB) =>
-    shapeA.every( (positionA, idx) => ownPropEqual(positionA, shapeB[idx]) );
 
 controllerSuite.add("full level", assert => {
     const spaceBoxes = [];

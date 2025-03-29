@@ -41,6 +41,7 @@ const currentTetrominoObs = Observable(makeRandomTetromino());
 const onNewCurrentTetronimo = currentTetrominoObs.onChange; // do not expose setter
 
 /**
+ * The game ends with collision at the top.
  * @pure
  * @type { (currentTetronimo:TetronimoType, spaceBoxes:Array<BoxType>) => Boolean }
  */
@@ -53,8 +54,8 @@ const isEndOfGame = (currentTetromino, spaceBoxes) =>
  * @impure side effects pretty much everything, directly or indirectly
  */
 const handleCollision = (currentTetromino, spaceBoxes) => {
-    currentTetromino.unlinkBoxes(); // boxes will still keep their data binding
-    spaceBoxes.push(...(currentTetromino.boxes)); // put the current tetro boxes in the space
+    currentTetromino.unlinkBoxes();                 // boxes will still keep their data binding
+    spaceBoxes.push(...(currentTetromino.boxes));   // put the current tetro boxes in the space
     checkAndHandleFullLevel(spaceBoxes);
     currentTetrominoObs.setValue(makeRandomTetromino());
 };
@@ -80,7 +81,7 @@ const checkAndHandleFullLevel = spaceBoxes => {
     spaceBoxes.forEach( box => {
         const pos = box.getValue();
         if (pos.z > level) {
-            box.setValue( {x:pos.x,y:pos.y, z:pos.z-1} );
+            box.setValue( moveDown(pos) );
         }
     });
     // there might be more full levels
@@ -114,9 +115,9 @@ const turnShapeImpl = (tetronimo, newShape, spaceBoxes) => {
  * we have to check the possible results of that move
  * and adapt according to the game rules.
  * @impure everything might change.
- * @param { TetronimoType }   tetronimo  - target
- * @param { Position3dType }  newPosition   - that new shape that might be applied to the target
- * @param { Array<BoxType>}   spaceBoxes - environment
+ * @param { TetronimoType }   tetronimo   - target
+ * @param { Position3dType }  newPosition - that new shape that might be applied to the target
+ * @param { Array<BoxType>}   spaceBoxes  - environment
  */
 const movePositionImpl = (tetronimo, newPosition, spaceBoxes) => {
     const shadowTetromino = Tetronimo(0, -1);
@@ -133,7 +134,9 @@ const movePositionImpl = (tetronimo, newPosition, spaceBoxes) => {
 };
 
 /**
- *
+ * Turns the current tetronimo into a new direction if allowed.
+ * @collaborator current tetronimo and spaceBoxes
+ * @impure everything might change.
  * @param { NewShapeType } turnFunction
  */
 const turnShape = turnFunction => {
@@ -142,7 +145,9 @@ const turnShape = turnFunction => {
     turnShapeImpl(currentTetronimo, turnFunction (shape), spaceBoxes);
 };
 /**
- *
+ * Moves the current tetronimo to a new position if allowed.
+ * @collaborator current tetronimo and spaceBoxes
+ * @impure everything might change.
  * @param { NewPositionType } moveFunction
  */
 const movePosition = moveFunction => {
@@ -151,16 +156,21 @@ const movePosition = moveFunction => {
     movePositionImpl(currentTetronimo, moveFunction (position), spaceBoxes);
 };
 
-
-
-
+/**
+ * Puts asynchronous tasks in strict sequence.
+ * @private local state
+ * @type { SchedulerType }
+ */
 const scheduler = Scheduler();
 
+/**
+ * @private
+ * Principle game loop implementation: let the current tetromino fall down slowly and check for end of game.
+ * @param { () => void } done - callback when one iteration is done
+ */
 const fallTask = done => {
-    const currentTetromino = currentTetrominoObs.getValue();
-    const oldPos = currentTetromino.getPosition();
-    movePositionImpl(currentTetromino, moveDown(oldPos), spaceBoxes);
-    if (isEndOfGame(currentTetromino, spaceBoxes)) {
+    movePosition(moveDown);
+    if (isEndOfGame(currentTetrominoObs.getValue(), spaceBoxes)) {
         console.log("The End");// handle end of game
         return;
     }
@@ -169,6 +179,9 @@ const fallTask = done => {
     done();
 };
 
+/**
+ * Start the game loop.
+ */
 const startGame = () => {
     scheduler.add(fallTask);
 };

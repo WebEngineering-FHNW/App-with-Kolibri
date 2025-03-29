@@ -1,8 +1,9 @@
 /**
  * @module tetris/tetronimoProjector
+ * Visualization plus view and data binding for tetronimo objects.
  */
 import {dom}
-    from "../kolibri/util/dom.js";
+                                 from "../kolibri/util/dom.js";
 import {moveBack, moveDown, moveForw, moveLeft, moveRight, rotateYaw, topplePitch, toppleRoll}
                                  from "./tetronimoController.js";
 import {movePosition, turnShape} from "./gameController.js";
@@ -33,7 +34,7 @@ const ghostView = (() => {
 
 /**
  * Visualize the tetronimo as divs in the DOM with boxes as DIVs.
- * Binds the box coordinates to CSS custom properties for visual positioning.
+ * Binds the box coordinates to CSS custom properties for visual positioning (data binding).
  * Removes boxes that fall below the floor.
  * @impure changes the DOM now and in the future when the tetronimo boxes change
  * @param { TetronimoType } tetronimo
@@ -67,7 +68,7 @@ const projectNewTetronimo = tetronimo => {
 };
 
 /**
- * Key binding for the game.
+ * Key binding for the game (view binding).
  * @collaborators document, game controller, and tetronimo controller
  * @impure prevents the key default behaviour, will indirectly change the game state and the visualization
  */
@@ -94,9 +95,3 @@ const registerKeyListener = () => {
         }
     };
 };
-
-
-
-
-
-

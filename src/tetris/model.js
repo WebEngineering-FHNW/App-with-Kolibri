@@ -1,5 +1,6 @@
 /**
  * @module tetris/model
+ * The data structure and types for a Tetronimo, constructors, and its constituent parts.
  */
 
 import "../kolibri/util/array.js"
@@ -88,7 +89,9 @@ const Tetronimo = (shapeIndex, tetroId) => {
     return { id, shapeName, setPosition, getPosition, setShape, getShape, boxes, unlinkBoxes };
 };
 
+/** @private local singleton state **/
 let runningTetroNum = 0;
+
 /**
  * @return { TetronimoType }
  */
