@@ -24,6 +24,21 @@
     Shift + arrow keys to rotate.
 </footer>
 
-<script type="module" src="starter.js"></script>
+<script type="module">
+
+    import {registerForMouseAndTouch}                 from "./scene3D/scene.js";
+    import {onNewCurrentTetronimo, startGame}         from "./gameController.js";
+    import {projectNewTetronimo, registerKeyListener} from "./tetronimoProjector.js";
+
+    const main = document.getElementById("main");
+
+    registerForMouseAndTouch(main); // the general handling of living in a 3D scene
+
+    registerKeyListener();          // the game-specific key bindings
+
+    startGame();
+    onNewCurrentTetronimo(projectNewTetronimo);
+
+</script>
 </body>
 </html>

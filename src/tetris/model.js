@@ -4,7 +4,7 @@
 
 import "../kolibri/util/array.js"
 import {Observable} from "../kolibri/observable.js";
-import {normalize}  from "./controller.js";
+import {normalize}  from "./tetronimoController.js";
 
 export { makeRandomTetromino, Tetronimo, zeroPosition };
 
@@ -165,15 +165,22 @@ const shape3d = [
     {x: 0, y: 0, z: 1},
 ];
 /** @type { ShapeType } */
-const shapeQ = [
+const shapeQR = [
     {x: 0, y: 0, z: 0},
     {x: 1, y: 0, z: 0},
     {x: 1, y: 1, z: 0},
     {x: 1, y: 1, z: 1},
 ];
+/** @type { ShapeType } */
+const shapeQL = [
+    {x: 0, y: 1, z: 0},
+    {x: 1, y: 1, z: 0},
+    {x: 1, y: 0, z: 0},
+    {x: 1, y: 0, z: 1},
+];
 
 /** @type { Array<ShapeType> } */
-const shapes     = [  shapeI,   shapeT,   shape0,   shapeS,   shapeZ,   shapeL,   shapeF,   shape3d,   shapeQ ];
+const shapes     = [  shapeI,   shapeT,   shape0,   shapeS,   shapeZ,   shapeL,   shapeF,   shape3d,   shapeQR,   shapeQL ];
 
 /** @type { Array<String> } */
-const shapeNames = [ "shapeI", "shapeT", "shape0", "shapeS", "shapeZ", "shapeL", "shapeF", "shape3d", "shapeQ"];
+const shapeNames = [ "shapeI", "shapeT", "shape0", "shapeS", "shapeZ", "shapeL", "shapeF", "shape3d", "shapeQR", "shapeQL"];
