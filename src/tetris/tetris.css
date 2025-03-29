@@ -145,8 +145,12 @@ footer {
     background-color: magenta;
 }
 
-.shapeQ .face  {
+.shapeQR .face  {
     background-color: yellow;
+}
+
+.shapeQL .face  {
+    background-color: lime;
 }
 
 .ghost .face  {

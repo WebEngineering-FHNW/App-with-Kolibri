@@ -1,2 +1,3 @@
 import "./modelTest.js"
-import "./controllerTest.js"
+import "./tetronimoControllerTest.js"
+import "./gameControllerTest.js"
