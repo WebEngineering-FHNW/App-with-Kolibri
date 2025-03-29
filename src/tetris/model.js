@@ -4,8 +4,9 @@
 
 import "../kolibri/util/array.js"
 import {Observable} from "../kolibri/observable.js";
+import {normalize}  from "./controller.js";
 
-export { makeRandomTetromino, Tetronimo, zeroPosition, Box };
+export { makeRandomTetromino, Tetronimo, zeroPosition };
 
 /**
  * @typedef Position3dType
@@ -21,30 +22,21 @@ export { makeRandomTetromino, Tetronimo, zeroPosition, Box };
 const zeroPosition = { x:0, y:0, z:0 };
 
 /**
- * @typedef BoxType
- * @property { IObservable<Position3dType> } position - absolute position in the 3D game space in logical space units
- * @property { String }                      boxClass - usually the shape name for coloring, not supposed to change
+ * @typedef { IObservable<Position3dType> } BoxType
  */
-
-/**
- * Box constructor starting a zero position.
- * @param  { String } boxClass
- * @return { BoxType }
- * @constructor
- */
-const Box = boxClass => {
-    const position = Observable(zeroPosition);
-    return { position, boxClass };
-};
 
 /**
  * @typedef TetronimoType
- * @property { Number }                      id       - must be unique
- * @property { IObservable<Position3dType> } position - anchoring position in the 3D game space in logical space units
- * @property { String }                      shapeName
- * @property { IObservable<ShapeType> }      shape    - relative logical units for the boxes that change with alignment
+ * @property { Number }                      id          - must be unique
+ * @property { () => Position3dType }        getPosition - anchoring position in the 3D game space in logical space units
+ * @property { (Position3dType) => void }    setPosition - anchoring position in the 3D game space in logical space units
+ * @property { String }                      shapeName   - will be used for the css styling
+ * @property { () => ShapeType }             getShape    - relative logical units for the boxes that change with alignment
+ * @property { (ShapeType) => void }         setShape    - relative logical units for the boxes that change with alignment
  * @property { [ BoxType, BoxType, BoxType, BoxType ] } boxes - absolute positions in logical space units
  * that are updated whenever the shape or the position changes. Box positions are independently observable.
+ * @property { () => void }                  unlinkBoxes - shape or position changes have nor more effect on the boxes,
+ * they move independently.
  */
 
 /**
@@ -56,26 +48,44 @@ const Box = boxClass => {
  */
 const Tetronimo = (shapeIndex, tetroId) => {
     if (shapeIndex < 0 || shapeIndex >= shapes.length) throw Error("no such shape with index "+shapeIndex);
-    const id        = tetroId;
-    const position  = Observable( { x: 0, y: 0, z: 12 } );
-    const shapeName = shapeNames[shapeIndex];
-    const shape     = Observable(shapes[shapeIndex]);
-    const boxes     = 4..times(_ => Box(shapeName));
+
+    let boxesUnlinked = false;
+    let position      = { x: 0, y: 0, z: 12 } ;
+    let shape         = normalize(shapes[shapeIndex]);
+
+    const id          = tetroId;
+    const shapeName   = shapeNames[shapeIndex];
+    const boxes       = 4..times(_ => Observable(zeroPosition)); // the box constructor
+
+    const unlinkBoxes = () => boxesUnlinked = true;
+
     const updateBoxPositions = () => {
+      if (boxesUnlinked) { console.error("with unlinked boxes, position or shape should no longer change") ;return;}
       boxes.forEach( (box, boxIndex) => {
-          const pos    = position.getValue();
-          const offset = shape   .getValue()[boxIndex];
-          box.position.setValue( {
+          const pos    = position;
+          const offset = shape[boxIndex];
+          box.setValue( {
              x: pos.x + offset.x ,
              y: pos.y + offset.y ,
              z: pos.z + offset.z ,
           } );
-          box.boxClass = shapeName;
       });
     };
-    position.onChange(updateBoxPositions);
-    shape   .onChange(updateBoxPositions);
-    return { id, position, shapeName, shape, boxes };
+    updateBoxPositions();
+
+    const getPosition = () => position;
+    const setPosition = newPosition => {
+        position = newPosition;
+        updateBoxPositions();
+    };
+
+    const getShape = () => shape;
+    const setShape = newShape => {
+        shape = normalize(newShape);
+        updateBoxPositions();
+    };
+
+    return { id, shapeName, setPosition, getPosition, setShape, getShape, boxes, unlinkBoxes };
 };
 
 let runningTetroNum = 0;
@@ -147,9 +157,23 @@ const shapeF = [
     {x: 0, y: 1, z: 0},
     {x: 0, y: 2, z: 0},
 ];
+/** @type { ShapeType } */
+const shape3d = [
+    {x: 0, y: 0, z: 0},
+    {x: 1, y: 0, z: 0},
+    {x: 0, y: 1, z: 0},
+    {x: 0, y: 0, z: 1},
+];
+/** @type { ShapeType } */
+const shapeQ = [
+    {x: 0, y: 0, z: 0},
+    {x: 1, y: 0, z: 0},
+    {x: 1, y: 1, z: 0},
+    {x: 1, y: 1, z: 1},
+];
 
 /** @type { Array<ShapeType> } */
-const shapes     = [  shapeI,   shapeT,   shape0,   shapeS,   shapeZ,   shapeL,   shapeF ];
+const shapes     = [  shapeI,   shapeT,   shape0,   shapeS,   shapeZ,   shapeL,   shapeF,   shape3d,   shapeQ ];
 
 /** @type { Array<String> } */
-const shapeNames = [ "shapeI", "shapeT", "shape0", "shapeS", "shapeZ", "shapeL", "shapeF"];
+const shapeNames = [ "shapeI", "shapeT", "shape0", "shapeS", "shapeZ", "shapeL", "shapeF", "shape3d", "shapeQ"];
