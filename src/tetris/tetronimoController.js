@@ -57,7 +57,7 @@ const swapXZ  = shape => shape.map( box => ({x:  -box.z, y: box.y, z:  box.x}));
 const swapYZ  = shape => shape.map( box => ({x:   box.x, y: box.z, z: -box.y}));
 
 /** @private implementation is just swapping the coordinates in a clever way **/
-const swapxY  = shape => shape.map( box => ({x:  box.y, y: -box.x, z: box.z}));
+const swapXY  = shape => shape.map( box => ({x:  box.y, y: -box.x, z: box.z}));
 
 /**
  * @typedef { (ShapeType) => ShapeType } NewShapeType
@@ -84,7 +84,7 @@ const topplePitch = swapYZ;
  * @pure returns a new shape
  * @type { NewShapeType }
  */
-const rotateYaw = swapxY;
+const rotateYaw = swapXY;
 
 /**
  * @typedef { (Position3dType) => Position3dType } NewPositionType
