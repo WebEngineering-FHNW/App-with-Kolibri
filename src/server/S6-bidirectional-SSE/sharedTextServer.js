@@ -14,7 +14,7 @@ const textObservable = Observable("");
 
 let eventId = 1;
 
-function handleSSE(req, res) {
+const handleSSE = (req, res) => {
     console.log("client accepts", req.headers['accept']);   // should contain "text/event-stream"
     let removeFromObservableOnNextUpdate = false;           // closure state for deferred removal
     const lastEventId = req.headers['last-event-id'];
@@ -49,15 +49,15 @@ function handleSSE(req, res) {
     };
     textObservable.onChange(sendText);
     sendText(textObservable.getValue());
-}
+};
 
-function handleTextUpdate(req, res) {
+const handleTextUpdate = (req, res) => {
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/plain');
     const text = new URL(baseURL + req.url).searchParams.get(updateActionParam);
     textObservable.setValue(text);
     res.end("ok");
-}
+};
 
 const server = createServer( (req, res) => {
   console.log(req.method, req.url);
