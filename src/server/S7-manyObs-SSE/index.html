@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Shared Text</title>
+    <style>
+        #out {
+            display: grid;
+            grid-template-columns: repeat( auto-fill, 20ch);
+        }
+    </style>
+</head>
+<body>
+<h1>Shared Text</h1>
+<div id="out"></div>
+
+<script type="module">
+    import {channelName, obsNameParam, updateActionName, updateActionParam} from "./sharedConstants.js";
+    import {dom, select}                                                    from "../../kolibri/util/dom.js";
+    import "../../kolibri/util/array.js";
+    import {Observable}                                                     from "../../kolibri/observable.js";
+
+    const serverBase = window.location.origin;
+
+    const eventSource = new EventSource(serverBase + '/' + channelName);
+    eventSource.addEventListener('message', event =>
+        console.warn("unknown event type", event)
+    );
+    eventSource.addEventListener('error', err =>
+        console.warn("SSE error", err)
+    );
+    eventSource.addEventListener(channelName, event => {
+        console.error("not supported", JSON.parse(event.data)[updateActionParam]);
+    });
+
+    const bindRemoteObservable = (model, obsName) => {
+        eventSource.addEventListener(channelName + "/" + obsName, event => {
+            model.setValue( {source:"remote", value: JSON.parse(event.data)[updateActionParam]} );
+        });
+        const notifyRemote = val => {
+            if (val.source === "remote") return; // guard against hysterese
+            const text = val.value;
+            if (text.length > 8000) {
+                console.error("update: max text length is 8000 but was " + text.length);
+                return;
+            }
+            fetch(serverBase + '/' + updateActionName + '?' + updateActionParam + '=' + text + "&" + obsNameParam + "=" + obsName); // url encoding is automatic
+        };
+        model.onChange( val => notifyRemote(val));
+    };
+
+    const projectRemotelyObservableTextInput = (model, obsName) => {
+        const [labelElem] = dom(`
+            <label>
+                ${obsName}
+                <input>
+            </label>`);
+        const [textInput] = select(labelElem, "input");
+        bindRemoteObservable(model, obsName);                                                   // remote binding
+        textInput.oninput = _ => model.setValue({source:"local", value: textInput.value});      // view binding
+        model.onChange( val => textInput.value = val.value);                                    // data binding
+        document.getElementById("out").append(labelElem);
+    };
+    100..times(n =>
+        projectRemotelyObservableTextInput( Observable({source:"remote", value:""}), "test" + n)
+    );
+
+
+</script>
+
+</body>
+</html>
