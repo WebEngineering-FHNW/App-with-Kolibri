@@ -65,22 +65,21 @@ const swapXY  = shape => shape.map( box => ({x:  box.y, y: -box.x, z: box.z}));
  */
 
 /**
- * Make new shape that reflects the effect of rolling to the right.
+ * Make new shape that reflects the effect of rolling to the left.
  * @pure returns a new shape
  * @type { NewShapeType }
  */
 const toppleRoll  = swapXZ;
 /**
- * Make new shape that reflects the effect of pitching downwards (dive).
+ * Make new shape that reflects the effect of pitching upwards (salto back).
  * @pure returns a new shape
  * @type { NewShapeType }
  */
 const topplePitch = swapYZ;
 
 /**
- * Make new shape that reflects the effect of rotating counter-clockwise around the z-axis,
- * which is just a combination of rolling and pitching like an airplane "yaw".
- * But you can also interpret this as looking at the shape with your head tilted to the right.
+ * Make new shape that reflects the effect of rotating counter-clockwise around the z-axis.
+ * You can also interpret this as looking at the shape with your head tilted to the right.
  * @pure returns a new shape
  * @type { NewShapeType }
  */
