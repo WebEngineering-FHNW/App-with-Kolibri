@@ -6,19 +6,36 @@
     <style>
         #out {
             display: grid;
-            grid-template-columns: repeat( auto-fill, 20ch);
+            grid-template-columns: repeat( auto-fill, 30ch);
+        }
+        label {
+            font-family:    system-ui;
+            font-size:      70%;
+            color:          #000a;
+            margin-top:     1em;
         }
     </style>
 </head>
 <body>
 <h1>Shared Text</h1>
+<button id="add">Add</button>
 <div id="out"></div>
 
 <script type="module">
-    import {channelName, obsNameParam, updateActionName, updateActionParam} from "./sharedConstants.js";
-    import {dom, select}                                                    from "../../kolibri/util/dom.js";
+    import {
+        channelName,
+        observableNamesKey,
+        obsNameParam,
+        readActionName,
+        updateActionName,
+        updateActionParam
+    } from "./sharedConstants.js";
+    import {dom, select}                                                                    from "../../kolibri/util/dom.js";
     import "../../kolibri/util/array.js";
     import {Observable}                                                     from "../../kolibri/observable.js";
+    import { defaultConsoleLogging }                                        from "../../kolibri/logger/loggingSupport.js";
+    import {clientId}                                                       from "../../kolibri/version.js";
+    defaultConsoleLogging("ch.fhnw",LOG_INFO);
 
     const serverBase = window.location.origin;
 
@@ -33,7 +50,10 @@
         console.error("not supported", JSON.parse(event.data)[updateActionParam]);
     });
 
+    const boundObs = {}; // model world
+
     const bindRemoteObservable = (model, obsName) => {
+        boundObs[obsName] = model;
         eventSource.addEventListener(channelName + "/" + obsName, event => {
             model.setValue( {source:"remote", value: JSON.parse(event.data)[updateActionParam]} );
         });
@@ -51,7 +71,7 @@
 
     const projectRemotelyObservableTextInput = (model, obsName) => {
         const [labelElem] = dom(`
-            <label>
+            <label id="${obsName}">
                 ${obsName}
                 <input>
             </label>`);
@@ -61,14 +81,47 @@
         model.onChange( val => textInput.value = val.value);                                    // data binding
         document.getElementById("out").append(labelElem);
     };
-    100..times(n =>
-        projectRemotelyObservableTextInput( Observable({source:"remote", value:""}), "test" + n)
-    );
 
-    /*
-    todo: make an observable that captures the available keys/names such that new clients can subscribe to their channels
 
-     */
+    // just in case there are issues with the initial read, which might be the case when the
+    // connection gets stale or the server is otherwise outdated or we have to catch up after
+    // a temporary silent time
+    // fetch(serverBase + '/' + readActionName + '?' + obsNameParam + "=" + observableNamesKey)
+    //     .then( res => res.json())
+    //     .then( data => console.log("initial read", data)
+    // );
+
+
+    // when there already is one, we should not override the value
+    const namesRemoteObservable = Observable({source:"remote", value:JSON.stringify([])});
+    bindRemoteObservable(namesRemoteObservable, observableNamesKey);
+
+    namesRemoteObservable.onChange( val => {
+       // if we created the new obsName ourselves, then we first get notified locally
+       // in any case, we get notified (possibly a second time) from remote
+       console.log(val);
+       const obsNames = JSON.parse(val.value);
+       // if there is a new one that we haven't projected, yet, we have to do so.
+       obsNames
+           .filter ( obsName => boundObs[obsName] === undefined)
+           .forEach( obsName => {
+               console.log("project", obsName);
+               projectRemotelyObservableTextInput( Observable({source:"remote", value:""}), obsName);
+           });
+       // todo: if we have more than what is in obsNames, we might want to delete..
+    });
+
+    // bind button -> simply add a new obsName and the rest falls in place
+    const [addButton] = select(document.body,"#add");
+    let runningId = 0;
+    addButton.onclick = _ => {
+        const names = JSON.parse(namesRemoteObservable.getValue().value);
+        names.push("name-" + clientId + "-" + runningId);
+        runningId++;
+        namesRemoteObservable.setValue( {source:"local", value: JSON.stringify(names)} );
+    };
+
+
 
 </script>
 
