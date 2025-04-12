@@ -84,7 +84,7 @@ const handleTextUpdate = (req, res) => {
         res.end(JSON.stringify("ok"));
     };
 
-    if (req.method === "GET") {                                     // get params from URL (currently not used)
+    if (req.method === "GET") {                                     // get params from URL
         const params = new URL(baseURL + req.url).searchParams;
         handleUpdate(params.get(updateActionParam), params.get(obsNameParam));
         return;
