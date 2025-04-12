@@ -65,32 +65,31 @@ const handleSSE = (req, res) => {
     keyValueObservable.onChange(sendText); // flush whenever some key has a new value and when connecting
 };
 
-const handleTextRead = (req, res) => { // probably not needed
+const handleTextRead = (req, res) => {
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');
     const obsName = new URL(baseURL + req.url).searchParams.get(obsNameParam);
-
-    const value = keyValueMap[obsName];
+    const value   = keyValueMap[obsName];
     res.end(JSON.stringify( { [readActionParam]: value } ));
 };
 
 // update actions may come as GET (for small values) or as POST (for larger values)
 const handleTextUpdate = (req, res) => {
     res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('Content-Type', 'application/json');
 
     const handleUpdate = (value, obsName) => {
         keyValueMap[obsName] = value;                               // store the value
         keyValueObservable.setValue({key: obsName, value: value});  // notify observers
-        res.end("ok");
+        res.end(JSON.stringify("ok"));
     };
 
-    if (req.method === "GET") { // get params from URL
+    if (req.method === "GET") {                                     // get params from URL (currently not used)
         const params = new URL(baseURL + req.url).searchParams;
         handleUpdate(params.get(updateActionParam), params.get(obsNameParam));
         return;
     }
-    if (req.method === "POST") { // get params from input stream
+    if (req.method === "POST") {                                    // get params from input stream
         let incomingData = "";
         req.on("data", input => incomingData += String(input));
         req.on("end",  input => {
@@ -103,7 +102,7 @@ const handleTextUpdate = (req, res) => {
     }
     console.error("unsupported request method", req.method);
     res.statusCode = 404;
-    res.end("unsupported request");
+    res.end(JSON.stringify("unsupported request"));
 };
 
 const server = createServer( (req, res) => {

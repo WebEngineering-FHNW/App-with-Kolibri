@@ -38,7 +38,7 @@
     import {clientId}                                                       from "../../kolibri/version.js";
     import {client} from "../../kolibri/rest/restClient.js";
     import {Scheduler} from "../../kolibri/dataflow/dataflow.js";
-    defaultConsoleLogging("ch.fhnw",LOG_INFO);
+    defaultConsoleLogging("ch.fhnw", LOG_INFO);
 
     const serverBase = window.location.origin;
 
@@ -52,6 +52,8 @@
     eventSource.addEventListener(channelName, event => {
         console.error("not supported", JSON.parse(event.data)[updateActionParam]);
     });
+
+    const remoteObsScheduler = Scheduler(); // a scheduler that puts all remote obs actions in sequence.
 
     /**
      * @typedef RemoteObservableType
@@ -68,13 +70,15 @@
             model.setValue( {source:"remote", value: JSON.parse(event.data)[updateActionParam]} );
         });
         const notifyRemote = val => {
-            if (val.source === "remote") return; // guard against hysterese
+            if ("remote" === val.source) return; // guard against hysterese
             const text = val.value;
             const data = {
                 [obsNameParam]      : obsName,
                 [updateActionParam] : text
             };
-            client(serverBase + '/' + updateActionName, "POST", data);
+            remoteObsScheduler.add( done =>
+                client(serverBase + '/' + updateActionName, "POST", data)
+                .then( _ => done()));
         };
         model.onChange( val => notifyRemote(val));
     };
@@ -107,43 +111,50 @@
     // just in case there are issues with the initial read, which might be the case when the
     // connection gets stale or the server is otherwise outdated or we have to catch up after
     // a temporary silent time
-    fetch(serverBase + '/' + readActionName + '?' + obsNameParam + "=" + observableNamesKey)
-        .then( res => res.json())
-        .then( data => {
-            console.log("initial read", data);
-            const obsNames = JSON.parse(data[readActionParam]);
-            projectAllUnknownObsNames(obsNames);
-        }
-    );
+    const ensureAllObsNames = () => {
+        remoteObsScheduler.add( done => {
+            fetch(serverBase + '/' + readActionName + '?' + obsNameParam + "=" + observableNamesKey)
+                .then(res => res.json())
+                .then(data => {
+                    console.log("initial check", data, data[readActionParam]);
+                    const obsNames = data && data[readActionParam] ? JSON.parse(data[readActionParam]) : [] ;
+                    projectAllUnknownObsNames(obsNames);
+                })
+                .then(_ => done());
+        });
+    };
+    ensureAllObsNames();
 
 
-    // when there already is one, we should not override the value
+
+    // when there already is one, we must not override the value
     const namesRemoteObservable = Observable({source:"remote", value:JSON.stringify([])});
     bindRemoteObservable(namesRemoteObservable, observableNamesKey);
 
-    namesRemoteObservable.onChange( data => {
-       // if we created the new obsName ourselves, then we first get notified locally
-       // in any case, we get notified (possibly a second time) from remote
-       console.log(data);
-       const obsNames = JSON.parse(data.value);
+    namesRemoteObservable.onChange(data => {
+        // if we created the new obsName ourselves, then we first get notified locally
+        // in any case, we get notified (possibly a second time) from remote
+        console.log("new list of observable names", data);
+        const obsNames = JSON.parse(data.value);
         projectAllUnknownObsNames(obsNames);
     });
 
-    // bind button -> simply add a new obsName and the rest falls in place
-    const [addButton] = select(document.body,"#add");
-    let runningId = 0;
-    addButton.onclick = _ => {
+
+    let runningId        = 0;
+    const addNextObsName = () => {
+        console.log(1, namesRemoteObservable.getValue().value);
         const names = JSON.parse(namesRemoteObservable.getValue().value);
         names.push("name-" + clientId + "-" + runningId);
         runningId++;
-        namesRemoteObservable.setValue( {source:"local", value: JSON.stringify(names)} );
+        namesRemoteObservable.setValue({source: "local", value: JSON.stringify(names)});
     };
 
+    // bind button -> simply add a new obsName and the rest falls in place
+    const [addButton] = select(document.body,"#add");
+    addButton.onclick = _ => addNextObsName();
+
     const [add100Button] = select(document.body,"#add100");
-    const scheduler = Scheduler();
-    add100Button.onclick = _evt => {
-        100..times( n =>  scheduler.addOk (addButton.click()) );
-    }
+    add100Button.onclick = _ => 100..times( _ => addNextObsName() );
 
 
 </script>
