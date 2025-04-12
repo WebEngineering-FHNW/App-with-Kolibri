@@ -99,6 +99,7 @@
 
     const projectAllUnknownObsNames = obsNames => {
         // if there is a new one that we haven't projected, yet, we have to do so.
+        console.log("obsnames", obsNames);
         obsNames
             .filter(obsName => boundObs[obsName] === undefined)
             .forEach(obsName => {
@@ -109,7 +110,7 @@
     };
 
     // just in case there are issues with the initial read, which might be the case when the
-    // connection gets stale or the server is otherwise outdated or we have to catch up after
+    // connection gets stale or the server is otherwise outdated, or we have to catch up after
     // a temporary silent time
     const ensureAllObsNames = () => {
         remoteObsScheduler.add( done => {
@@ -117,7 +118,8 @@
                 .then(res => res.json())
                 .then(data => {
                     console.log("initial check", data, data[readActionParam]);
-                    const obsNames = data && data[readActionParam] ? JSON.parse(data[readActionParam]) : [] ;
+                    const obsNames = data && data[readActionParam] ? data[readActionParam] : [] ;
+                    console.log(1, obsNames);
                     projectAllUnknownObsNames(obsNames);
                 })
                 .then(_ => done());
@@ -126,27 +128,26 @@
     ensureAllObsNames();
 
 
-
     // when there already is one, we must not override the value
-    const namesRemoteObservable = Observable({source:"remote", value:JSON.stringify([])});
+    const namesRemoteObservable = Observable({source:"remote", value:[]});
     bindRemoteObservable(namesRemoteObservable, observableNamesKey);
 
     namesRemoteObservable.onChange(data => {
         // if we created the new obsName ourselves, then we first get notified locally
         // in any case, we get notified (possibly a second time) from remote
         console.log("new list of observable names", data);
-        const obsNames = JSON.parse(data.value);
+        const obsNames = data.value;
+        console.log(2, obsNames);
         projectAllUnknownObsNames(obsNames);
     });
 
 
     let runningId        = 0;
     const addNextObsName = () => {
-        console.log(1, namesRemoteObservable.getValue().value);
-        const names = JSON.parse(namesRemoteObservable.getValue().value);
+        const names = namesRemoteObservable.getValue().value;
         names.push("name-" + clientId + "-" + runningId);
         runningId++;
-        namesRemoteObservable.setValue({source: "local", value: JSON.stringify(names)});
+        namesRemoteObservable.setValue({source: "local", value: names});
     };
 
     // bind button -> simply add a new obsName and the rest falls in place
