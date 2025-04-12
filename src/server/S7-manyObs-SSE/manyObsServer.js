@@ -4,24 +4,22 @@ node server/S7-manyObs-SSE/manyObsServer.js
 http://localhost:8080/server/S7-manyObs-SSE/index.html
 */
 
-import { createServer }      from 'node:http';
-import { handleFileRequest } from "../S2-file-server/fileRequestHandler.js";
+import {createServer}      from 'node:http';
+import {handleFileRequest} from "../S2-file-server/fileRequestHandler.js";
 
 import {
     channelName,
-    updateActionName,
-    updateActionParam,
     obsNameParam,
+    readActionName,
     readActionParam,
-    readActionName
-}                     from "./sharedConstants.js";
-import { Observable } from "../../kolibri/observable.js";
-
+    updateActionName,
+    updateActionParam
+}                   from "./sharedConstants.js";
+import {Observable} from "../../kolibri/observable.js";
 
 const port      = 8080;
 const hostname  = 'localhost';
 const baseURL   = `http://${hostname}:${port}`;
-
 
 const keyValueObservable = Observable({key:"",value:""}); // tell whether a key/value pair has changed
 
@@ -62,29 +60,50 @@ const handleSSE = (req, res) => {
         eventId++;
         res.write('id:'    + eventId + '\n');
         res.write('event:' + channelName + "/" + newKeyValuePair.key + '\n');
-        res.write('data:'  + JSON.stringify( { [updateActionParam]: newKeyValuePair.value } ) + '\n\n'); // todo: what if payload contains two newlines?
+        res.write('data:'  + JSON.stringify( { [updateActionParam]: keyValueMap[newKeyValuePair.key] } ) + '\n\n'); // todo: what if payload contains two newlines?
     };
     keyValueObservable.onChange(sendText); // flush whenever some key has a new value and when connecting
 };
 
 const handleTextRead = (req, res) => { // probably not needed
     res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('Content-Type', 'application/json');
     const obsName = new URL(baseURL + req.url).searchParams.get(obsNameParam);
 
     const value = keyValueMap[obsName];
     res.end(JSON.stringify( { [readActionParam]: value } ));
 };
 
+// update actions may come as GET (for small values) or as POST (for larger values)
 const handleTextUpdate = (req, res) => {
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/plain');
-    const value   = new URL(baseURL + req.url).searchParams.get(updateActionParam);
-    const obsName = new URL(baseURL + req.url).searchParams.get(obsNameParam);
 
-    keyValueMap[obsName] = value;
-    keyValueObservable.setValue( {key:obsName, value:value});
-    res.end("ok");
+    const handleUpdate = (value, obsName) => {
+        keyValueMap[obsName] = value;                               // store the value
+        keyValueObservable.setValue({key: obsName, value: value});  // notify observers
+        res.end("ok");
+    };
+
+    if (req.method === "GET") { // get params from URL
+        const params = new URL(baseURL + req.url).searchParams;
+        handleUpdate(params.get(updateActionParam), params.get(obsNameParam));
+        return;
+    }
+    if (req.method === "POST") { // get params from input stream
+        let incomingData = "";
+        req.on("data", input => incomingData += String(input));
+        req.on("end",  input => {
+            incomingData += input ? String(input) : "";
+            const data = JSON.parse(incomingData);
+            console.log("handling post", data);
+            handleUpdate(data[updateActionParam], data[obsNameParam]);
+        });
+        return;
+    }
+    console.error("unsupported request method", req.method);
+    res.statusCode = 404;
+    res.end("unsupported request");
 };
 
 const server = createServer( (req, res) => {
@@ -99,7 +118,7 @@ const server = createServer( (req, res) => {
       handleTextRead(req, res);
       return;
   }
-  if ( req.url.startsWith("/"+updateActionName+"?") ) {
+  if ( req.url.startsWith("/"+updateActionName) ) {
       handleTextUpdate(req, res);
       return;
   }
@@ -108,4 +127,5 @@ const server = createServer( (req, res) => {
 
 server.listen(port, () => {
   console.log(`Server running at ${baseURL}`);
+  console.log(`http://localhost:8080/server/S7-manyObs-SSE/index.html`);
 });
