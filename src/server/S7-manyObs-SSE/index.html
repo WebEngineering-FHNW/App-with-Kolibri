@@ -19,6 +19,7 @@
 <body>
 <h1>Shared Text</h1>
 <button id="add">Add</button>
+<button id="add100">Add100</button>
 <div id="out"></div>
 
 <script type="module">
@@ -26,7 +27,7 @@
         channelName,
         observableNamesKey,
         obsNameParam,
-        readActionName,
+        readActionName, readActionParam,
         updateActionName,
         updateActionParam
     } from "./sharedConstants.js";
@@ -35,6 +36,8 @@
     import {Observable}                                                     from "../../kolibri/observable.js";
     import { defaultConsoleLogging }                                        from "../../kolibri/logger/loggingSupport.js";
     import {clientId}                                                       from "../../kolibri/version.js";
+    import {client} from "../../kolibri/rest/restClient.js";
+    import {Scheduler} from "../../kolibri/dataflow/dataflow.js";
     defaultConsoleLogging("ch.fhnw",LOG_INFO);
 
     const serverBase = window.location.origin;
@@ -50,7 +53,14 @@
         console.error("not supported", JSON.parse(event.data)[updateActionParam]);
     });
 
-    const boundObs = {}; // model world
+    /**
+     * @typedef RemoteObservableType
+     * @param { "remote" | "local" } source - remote values are not published (again)
+     * @param { String } value              - non-String values have to be stringified
+     */
+
+    /** @type { Object.<String, IObservable<RemoteObservableType>> } */
+    const boundObs = {}; // model world of obsNames and their respective observables
 
     const bindRemoteObservable = (model, obsName) => {
         boundObs[obsName] = model;
@@ -60,11 +70,11 @@
         const notifyRemote = val => {
             if (val.source === "remote") return; // guard against hysterese
             const text = val.value;
-            if (text.length > 8000) {
-                console.error("update: max text length is 8000 but was " + text.length);
-                return;
-            }
-            fetch(serverBase + '/' + updateActionName + '?' + updateActionParam + '=' + text + "&" + obsNameParam + "=" + obsName); // url encoding is automatic
+            const data = {
+                [obsNameParam]      : obsName,
+                [updateActionParam] : text
+            };
+            client(serverBase + '/' + updateActionName, "POST", data);
         };
         model.onChange( val => notifyRemote(val));
     };
@@ -83,32 +93,40 @@
     };
 
 
+    const projectAllUnknownObsNames = obsNames => {
+        // if there is a new one that we haven't projected, yet, we have to do so.
+        obsNames
+            .filter(obsName => boundObs[obsName] === undefined)
+            .forEach(obsName => {
+                console.log("project", obsName);
+                projectRemotelyObservableTextInput(Observable({source: "remote", value: ""}), obsName);
+            });
+        // todo: if we have more than what is in obsNames, we might want to delete..
+    };
+
     // just in case there are issues with the initial read, which might be the case when the
     // connection gets stale or the server is otherwise outdated or we have to catch up after
     // a temporary silent time
-    // fetch(serverBase + '/' + readActionName + '?' + obsNameParam + "=" + observableNamesKey)
-    //     .then( res => res.json())
-    //     .then( data => console.log("initial read", data)
-    // );
+    fetch(serverBase + '/' + readActionName + '?' + obsNameParam + "=" + observableNamesKey)
+        .then( res => res.json())
+        .then( data => {
+            console.log("initial read", data);
+            const obsNames = JSON.parse(data[readActionParam]);
+            projectAllUnknownObsNames(obsNames);
+        }
+    );
 
 
     // when there already is one, we should not override the value
     const namesRemoteObservable = Observable({source:"remote", value:JSON.stringify([])});
     bindRemoteObservable(namesRemoteObservable, observableNamesKey);
 
-    namesRemoteObservable.onChange( val => {
+    namesRemoteObservable.onChange( data => {
        // if we created the new obsName ourselves, then we first get notified locally
        // in any case, we get notified (possibly a second time) from remote
-       console.log(val);
-       const obsNames = JSON.parse(val.value);
-       // if there is a new one that we haven't projected, yet, we have to do so.
-       obsNames
-           .filter ( obsName => boundObs[obsName] === undefined)
-           .forEach( obsName => {
-               console.log("project", obsName);
-               projectRemotelyObservableTextInput( Observable({source:"remote", value:""}), obsName);
-           });
-       // todo: if we have more than what is in obsNames, we might want to delete..
+       console.log(data);
+       const obsNames = JSON.parse(data.value);
+        projectAllUnknownObsNames(obsNames);
     });
 
     // bind button -> simply add a new obsName and the rest falls in place
@@ -121,6 +139,11 @@
         namesRemoteObservable.setValue( {source:"local", value: JSON.stringify(names)} );
     };
 
+    const [add100Button] = select(document.body,"#add100");
+    const scheduler = Scheduler();
+    add100Button.onclick = _evt => {
+        100..times( n =>  scheduler.addOk (addButton.click()) );
+    }
 
 
 </script>
