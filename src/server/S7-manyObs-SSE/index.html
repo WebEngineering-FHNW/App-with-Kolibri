@@ -23,140 +23,30 @@
 <div id="out"></div>
 
 <script type="module">
-    import {
-        channelName,
-        observableNamesKey,
-        obsNameParam,
-        readActionName, readActionParam,
-        updateActionName,
-        updateActionParam
-    } from "./sharedConstants.js";
-    import {dom, select}                                                                    from "../../kolibri/util/dom.js";
     import "../../kolibri/util/array.js";
-    import {Observable}                                                     from "../../kolibri/observable.js";
-    import { defaultConsoleLogging }                                        from "../../kolibri/logger/loggingSupport.js";
-    import {clientId}                                                       from "../../kolibri/version.js";
-    import {client} from "../../kolibri/rest/restClient.js";
-    import {Scheduler} from "../../kolibri/dataflow/dataflow.js";
+    import {dom, select}                    from "../../kolibri/util/dom.js";
+    import {defaultConsoleLogging}          from "../../kolibri/logger/loggingSupport.js";
+    import {TOPIC}                          from "./remoteObservableConstants.js";
+    import {active, RemoteObservableClient} from "./remoteObservableClient.js";
+
     defaultConsoleLogging("ch.fhnw", LOG_INFO);
 
-    const serverBase = window.location.origin;
-
-    const eventSource = new EventSource(serverBase + '/' + channelName);
-    eventSource.addEventListener('message', event =>
-        console.warn("unknown event type", event)
-    );
-    eventSource.addEventListener('error', err =>
-        console.warn("SSE error", err)
-    );
-    eventSource.addEventListener(channelName, event => {
-        console.error("not supported", JSON.parse(event.data)[updateActionParam]);
-    });
-
-    const remoteObsScheduler = Scheduler(); // a scheduler that puts all remote obs actions in sequence.
-
-    /**
-     * @typedef RemoteObservableType
-     * @param { "remote" | "local" } source - remote values are not published (again)
-     * @param { String } value              - non-String values have to be stringified
-     */
-
-    /** @type { Object.<String, IObservable<RemoteObservableType>> } */
-    const boundObs = {}; // model world of obsNames and their respective observables
-
-    const bindRemoteObservable = (model, obsName) => {
-        boundObs[obsName] = model;
-        eventSource.addEventListener(channelName + "/" + obsName, event => {
-            model.setValue( {source:"remote", value: JSON.parse(event.data)[updateActionParam]} );
-        });
-        const notifyRemote = val => {
-            if ("remote" === val.source) return; // guard against hysterese
-            const text = val.value;
-            const data = {
-                [obsNameParam]      : obsName,
-                [updateActionParam] : text
-            };
-            remoteObsScheduler.add( done =>
-                client(serverBase + '/' + updateActionName, "POST", data)
-                .then( _ => done()));
-        };
-        model.onChange( val => notifyRemote(val));
-    };
-
-    const projectRemotelyObservableTextInput = (model, obsName) => {
-        const [labelElem] = dom(`
-            <label id="${obsName}">
-                ${obsName}
-                <input>
-            </label>`);
+    const projectTextInput = ( /** @type { NamedRemoteObservableType } */ { id, observable } ) => {
+        const [labelElem] = dom(`<label id="${id}"> ${id} <input> </label>`);
         const [textInput] = select(labelElem, "input");
-        bindRemoteObservable(model, obsName);                                                   // remote binding
-        textInput.oninput = _ => model.setValue({source:"local", value: textInput.value});      // view binding
-        model.onChange( val => textInput.value = val.value);                                    // data binding
+        textInput .oninput   = _       => observable.setValue( active(textInput.value) );      // view binding
+        observable.onChange( ({value}) => textInput.value = value);                            // data binding
         document.getElementById("out").append(labelElem);
     };
 
-
-    const projectAllUnknownObsNames = obsNames => {
-        // if there is a new one that we haven't projected, yet, we have to do so.
-        console.log("obsnames", obsNames);
-        obsNames
-            .filter(obsName => boundObs[obsName] === undefined)
-            .forEach(obsName => {
-                console.log("project", obsName);
-                projectRemotelyObservableTextInput(Observable({source: "remote", value: ""}), obsName);
-            });
-        // todo: if we have more than what is in obsNames, we might want to delete..
-    };
-
-    // just in case there are issues with the initial read, which might be the case when the
-    // connection gets stale or the server is otherwise outdated, or we have to catch up after
-    // a temporary silent time
-    const ensureAllObsNames = () => {
-        remoteObsScheduler.add( done => {
-            fetch(serverBase + '/' + readActionName + '?' + obsNameParam + "=" + observableNamesKey)
-                .then(res => res.json())
-                .then(data => {
-                    console.log("initial check", data, data[readActionParam]);
-                    const obsNames = data && data[readActionParam] ? data[readActionParam] : [] ;
-                    console.log(1, obsNames);
-                    projectAllUnknownObsNames(obsNames);
-                })
-                .then(_ => done());
-        });
-    };
-    ensureAllObsNames();
-
-
-    // when there already is one, we must not override the value
-    const namesRemoteObservable = Observable({source:"remote", value:[]});
-    bindRemoteObservable(namesRemoteObservable, observableNamesKey);
-
-    namesRemoteObservable.onChange(data => {
-        // if we created the new obsName ourselves, then we first get notified locally
-        // in any case, we get notified (possibly a second time) from remote
-        console.log("new list of observable names", data);
-        const obsNames = data.value;
-        console.log(2, obsNames);
-        projectAllUnknownObsNames(obsNames);
-    });
-
+    const remoteObservableClient = RemoteObservableClient(window.location.origin, TOPIC, projectTextInput);
 
     let runningId        = 0;
-    const addNextObsName = () => {
-        const names = namesRemoteObservable.getValue().value;
-        names.push("name-" + clientId + "-" + runningId);
-        runningId++;
-        namesRemoteObservable.setValue({source: "local", value: names});
-    };
-
-    // bind button -> simply add a new obsName and the rest falls in place
     const [addButton] = select(document.body,"#add");
-    addButton.onclick = _ => addNextObsName();
+    addButton.onclick = _ => remoteObservableClient.addObsName(`text-${runningId++}`);
 
     const [add100Button] = select(document.body,"#add100");
-    add100Button.onclick = _ => 100..times( _ => addNextObsName() );
-
+    add100Button.onclick = _ => 100..times( _ => remoteObservableClient.addObsName(`text-${runningId++}`) );
 
 </script>
 

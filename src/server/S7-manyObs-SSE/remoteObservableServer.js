@@ -1,6 +1,6 @@
 /*
 cd src
-node server/S7-manyObs-SSE/manyObsServer.js
+node server/S7-manyObs-SSE/remoteObservableServer.js
 http://localhost:8080/server/S7-manyObs-SSE/index.html
 */
 
@@ -8,13 +8,13 @@ import {createServer}      from 'node:http';
 import {handleFileRequest} from "../S2-file-server/fileRequestHandler.js";
 
 import {
-    channelName,
-    obsNameParam,
-    readActionName,
-    readActionParam,
-    updateActionName,
-    updateActionParam
-}                   from "./sharedConstants.js";
+    TOPIC,
+    OBSERVABLE_ID_PARAM,
+    READ_ACTION_NAME,
+    READ_ACTION_PARAM,
+    UPDATE_ACTION_NAME,
+    UPDATE_ACTION_PARAM
+}                   from "./remoteObservableConstants.js";
 import {Observable} from "../../kolibri/observable.js";
 
 const port      = 8080;
@@ -59,8 +59,8 @@ const handleSSE = (req, res) => {
         }
         eventId++;
         res.write('id:'    + eventId + '\n');
-        res.write('event:' + channelName + "/" + newKeyValuePair.key + '\n');
-        res.write('data:'  + JSON.stringify( { [updateActionParam]: keyValueMap[newKeyValuePair.key] } ) + '\n\n'); // todo: what if payload contains two newlines?
+        res.write('event:' + TOPIC + "/" + newKeyValuePair.key + '\n');
+        res.write('data:' + JSON.stringify( { [UPDATE_ACTION_PARAM]: keyValueMap[newKeyValuePair.key] } ) + '\n\n'); // todo: what if payload contains two newlines?
     };
     keyValueObservable.onChange(sendText); // flush whenever some key has a new value and when connecting
 };
@@ -68,9 +68,9 @@ const handleSSE = (req, res) => {
 const handleTextRead = (req, res) => {
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');
-    const obsName = new URL(baseURL + req.url).searchParams.get(obsNameParam);
+    const obsName = new URL(baseURL + req.url).searchParams.get(OBSERVABLE_ID_PARAM);
     const value   = keyValueMap[obsName];
-    res.end(JSON.stringify( { [readActionParam]: value } ));
+    res.end(JSON.stringify( { [READ_ACTION_PARAM]: value } ));
 };
 
 // update actions may come as GET (for small values) or as POST (for larger values)
@@ -86,7 +86,7 @@ const handleTextUpdate = (req, res) => {
 
     if (req.method === "GET") {                                     // get params from URL
         const params = new URL(baseURL + req.url).searchParams;
-        handleUpdate(params.get(updateActionParam), params.get(obsNameParam));
+        handleUpdate(params.get(UPDATE_ACTION_PARAM), params.get(OBSERVABLE_ID_PARAM));
         return;
     }
     if (req.method === "POST") {                                    // get params from input stream
@@ -96,7 +96,7 @@ const handleTextUpdate = (req, res) => {
             incomingData += input ? String(input) : "";
             const data = JSON.parse(incomingData);
             console.log("handling post", data);
-            handleUpdate(data[updateActionParam], data[obsNameParam]);
+            handleUpdate(data[UPDATE_ACTION_PARAM], data[OBSERVABLE_ID_PARAM]);
         });
         return;
     }
@@ -107,17 +107,17 @@ const handleTextUpdate = (req, res) => {
 
 const server = createServer( (req, res) => {
   console.log(req.method, req.url);
-  if ( req.url === "/"+channelName) {
+  if (req.url === "/" + TOPIC) {
       handleSSE(req, res);
       return;
   }
   // todo: provide endpoint to get the whole map?
   // todo: provide endpoint to remove the observable (avoid memory leak)?
-  if ( req.url.startsWith("/"+readActionName+"?") ) { // probably not needed
+  if ( req.url.startsWith("/" + READ_ACTION_NAME + "?") ) { // probably not needed
       handleTextRead(req, res);
       return;
   }
-  if ( req.url.startsWith("/"+updateActionName) ) {
+  if ( req.url.startsWith("/" + UPDATE_ACTION_NAME) ) {
       handleTextUpdate(req, res);
       return;
   }
