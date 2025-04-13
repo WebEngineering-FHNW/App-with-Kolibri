@@ -23,3 +23,7 @@ export const READ_ACTION_NAME    = "getValue";
 /** response parameter that contains the value being read */
 export const READ_ACTION_PARAM   = "value";
 
+/** url path entry for the action that removes the remote observable with
+ * key {@link OBSERVABLE_ID_PARAM} from the map of stored key/values */
+export const REMOVE_ACTION_NAME    = "remove";
+

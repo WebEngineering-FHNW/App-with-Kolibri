@@ -2,16 +2,17 @@ import {
     OBSERVABLE_ID_PARAM,
     READ_ACTION_NAME,
     READ_ACTION_PARAM,
+    REMOVE_ACTION_NAME,
     UPDATE_ACTION_NAME,
     UPDATE_ACTION_PARAM
 }                      from "./remoteObservableConstants.js";
 import {Scheduler}     from "../../kolibri/dataflow/dataflow.js";
 import {client}        from "../../kolibri/rest/restClient.js";
 import {Observable}    from "../../kolibri/observable.js";
-import {clientId}      from "../../kolibri/version.js";
 import {LoggerFactory} from "../../kolibri/logger/loggerFactory.js";
+import "../../kolibri/util/array.js";
 
-export { RemoteObservableClient, passive, active }
+export { RemoteObservableClient, passive, active, POISON_PILL }
 
 const log = LoggerFactory("ch.fhnw.kolibri.remote.remoteObservableClient");
 
@@ -47,6 +48,12 @@ const passive = value => ( {mode: "passive", value} );
 const active = value => ( {mode:"active", value} );
 
 /**
+ * Local observers that see this value can remove themselves.
+ * @type { RemoteValueType }
+ */
+const POISON_PILL = ( {mode:undefined, value: undefined} );
+
+/**
  * @typedef { IObservable<RemoteValueType> } RemoteObservableType
  * @impure mutable value
  */
@@ -72,6 +79,7 @@ const active = value => ( {mode:"active", value} );
  * @property { ConsumerType<String> }                    addObservableForID - adding a new ID will
  *  publish the newly available ID (which should be **unique**)
  *  which in turn will trigger any projections (display and binding) first locally and then remotely
+ * @property { ConsumerType<String> }                    removeObservableForID - todo: fill
  */
 
 /**
@@ -92,6 +100,13 @@ const RemoteObservableClient = (baseUrl, topicName, projectionCallback) => {
     const boundObs = {}; //
 
     /**
+     * Store the various channel-specific event listeners in a way that we can later
+     * find them when they should be removed from the channel (the remote observable is no longer available)
+     * @type { Object.< String, Function>}
+     */
+    const channelListeners = {};
+
+    /**
      *  A scheduler that puts all async remote observable actions in strict sequence.
      *  This is needed because the UI might otherwise send async requests such that they appear
      *  out of order on the server side and/or the respective completion callbacks are out of order on the client side.
@@ -103,9 +118,10 @@ const RemoteObservableClient = (baseUrl, topicName, projectionCallback) => {
      * The remote observable that keeps the array of known IDs of dynamically created remote observables.
      * It publishes to all clients, which IDs are now available for projection (display and binding).
      * Always the full array of IDs is published (less efficient but more reliable than diffs).
+     * @note an empty array is a fully valid value while `undefined` indicates that no value has been set, yet.
      * @type { RemoteObservableType }
      * */
-    const remoteObservableOfIDs = Observable( passive( [] ) );
+    const remoteObservableOfIDs = Observable( passive( undefined ) );
 
     const eventSource = new EventSource(baseUrl + '/' + topicName);
 
@@ -124,24 +140,27 @@ const RemoteObservableClient = (baseUrl, topicName, projectionCallback) => {
      */
     const bindRemoteObservable = ( {id, observable} ) => {
         boundObs[id] = observable;
-        eventSource.addEventListener(topicName + "/" + id, event => {
+
+        const channelListener = event => {
             // scheduling the local effect means that we have at least some control over any conflicting updates that
             // might appear when we receive updates before any
             // locally buffered (and applied) changes have been published.
             // The UIs can be different for a small amount of time but should be identical when all events
             // have been delivered.
-            remoteObsScheduler.addOk( _ => {
+            remoteObsScheduler.addOk(_ => {
                 // when we receive a value, we make the value change passive such that it doesn't get send again
-                observable.setValue( passive(JSON.parse(event.data)[UPDATE_ACTION_PARAM] ) );
-            } )
-        });
+                observable.setValue(passive(JSON.parse(event.data)[UPDATE_ACTION_PARAM]));
+            });
+        };
+        eventSource.addEventListener(topicName + "/" + id, channelListener);
+        channelListeners[id] = channelListener;                      // store reference for later removal of listeners
+
         // at this point we are set up to receive any updates from the server and
         // often (but not always) also receive the last known value if the outgoing
         // server caches are not exhausted or outdated.
         if (undefined === observable.getValue().value ) { // we have not received any updates, yet
             remoteObsScheduler.add( done => {
-                fetch(baseUrl + '/' + READ_ACTION_NAME + '?' + OBSERVABLE_ID_PARAM + "=" + id)
-                    .then(res => res.json())
+                client(baseUrl + '/' + READ_ACTION_NAME, "POST", { [OBSERVABLE_ID_PARAM]: id } )
                     .then(data => {
                         const value = data && data[READ_ACTION_PARAM] ? data[READ_ACTION_PARAM] : undefined ;
                         if (undefined !== value) {
@@ -155,7 +174,7 @@ const RemoteObservableClient = (baseUrl, topicName, projectionCallback) => {
 
         /** @type { ConsumerType<RemoteValueType> } */
         const notifyRemote = ( {mode, value} ) => {
-            if ("passive" === mode) return; // guard against hysterese
+            if ("active" !== mode) return; // guard against hysterese
             const data = {
                 [OBSERVABLE_ID_PARAM] : id,
                 [UPDATE_ACTION_PARAM] : value
@@ -167,24 +186,51 @@ const RemoteObservableClient = (baseUrl, topicName, projectionCallback) => {
         observable.onChange( notifyRemote );
     };
 
-    const projectAllUnknownObsIDs = observableIDs => {
-        // if there is a new one that we haven't projected, yet, we have to do so.
+    const synchronizeObservableIDs = observableIDs => {
+        // if there is a new remote observable id that we haven't bound and projected, yet, we have to do so.
         observableIDs
-            .filter(  id => boundObs[id] === undefined)
-            .forEach( id => {
-                const remoteObservable = ({ id, observable: Observable(passive(undefined)) });
+            .filter(  id    => boundObs[id] === undefined)
+            .forEach( newID => {
+                const remoteObservable = ({ id: newID, observable: Observable(passive(undefined)) });
                 bindRemoteObservable( remoteObservable );
                 projectionCallback  ( remoteObservable );
             });
-        // todo: if we have more than what is in obsNames, we might want to delete..
+
+        // if we have any bound observables that are no longer in the list of observableIDs, they should be removed.
+        // There are a number of issues to consider when removing a bound remote observable
+        // - remove local SSE event listeners
+        // - clean up the map of bound observables
+        // - let the other listeners (mainly UI) know that this is a dead observable by sending the poison pill
+        // - notify the server about the removal such that he can clean up his data structures
+        Object.getOwnPropertyNames(boundObs)
+            .filter(  boundID =>
+                          boundID !== OBSERVABLE_IDs_KEY     &&         // the only key that is always observable
+                          false   === observableIDs.includes(boundID) ) // boundID is no longer observable
+            .forEach( oldID   => {
+                log.debug("remove bound ID " + oldID);
+
+                eventSource.removeEventListener(topicName + "/" + oldID, channelListeners[oldID]); // well, be a good citizen
+                delete channelListeners[oldID];
+
+                const observable = boundObs[oldID];
+                delete boundObs[oldID];
+
+                observable.setValue(POISON_PILL);
+
+                remoteObsScheduler.add( done => {                                       // allow the server to clean up
+                    client(baseUrl + '/' + REMOVE_ACTION_NAME, "POST", { [OBSERVABLE_ID_PARAM]: oldID } )
+                        .then(_ => done());
+                });
+            })
     };
 
     remoteObservableOfIDs.onChange( ({ /** @type { Array<String> } */ value }) => {
-        // if we created the new obsName ourselves, then we first get notified locally
+        // if we created the new obsName ourselves, then we first get notified locally.
         // in any case, we get notified (possibly a second time) from remote,
         // but then we already know the id and do not project a second time.
-        log.debug("new list of observable names (IDs) " + value);
-        projectAllUnknownObsIDs(value);
+        if (undefined === value) return;
+        log.info("new list of observable names (IDs) " + value.length);
+        synchronizeObservableIDs(value);
     });
 
     /**
@@ -194,21 +240,34 @@ const RemoteObservableClient = (baseUrl, topicName, projectionCallback) => {
      */
     const ensureAllObservableIDs = () => {
         remoteObsScheduler.add( done => {
-            fetch(baseUrl + '/' + READ_ACTION_NAME + '?' + OBSERVABLE_ID_PARAM + "=" + OBSERVABLE_IDs_KEY)
-                .then(res => res.json())
+            client(baseUrl + '/' + READ_ACTION_NAME, "POST", { [OBSERVABLE_ID_PARAM]: OBSERVABLE_IDs_KEY } )
                 .then(data => {
-                    const observableIDs = data && data[READ_ACTION_PARAM] ? data[READ_ACTION_PARAM] : [] ;
-                    log.debug("ensureAllObsNames: " + observableIDs);
-                    projectAllUnknownObsIDs(observableIDs);
+                    const allIds = data ? data[READ_ACTION_PARAM] : undefined;
+                    if (allIds) {
+                        synchronizeObservableIDs(allIds);
+                    } else {
+                        log.info("no ids known, yet");
+                    }
                 })
                 .then(_ => done());
         });
     };
 
     /** @type { ConsumerType<String> } */
-    const addObservableForID = newName => {
+    const addObservableForID = newID => {
+        const names = remoteObservableOfIDs.getValue().value ?? [] ; // value is undefined at start
+        names.push(newID);
+        remoteObservableOfIDs.setValue( active(names) );
+    };
+
+    /** @type { ConsumerType<String> } */
+    const removeObservableForID = oldID => {
         const names = remoteObservableOfIDs.getValue().value;
-        names.push(newName + "-" + clientId);
+        if (undefined === names || names.length < 1) {
+            log.warn("cannot remove from an empty array");
+            return;
+        }
+        names.removeItem(oldID);
         remoteObservableOfIDs.setValue( active(names) );
     };
 
@@ -216,5 +275,5 @@ const RemoteObservableClient = (baseUrl, topicName, projectionCallback) => {
     bindRemoteObservable( { id: OBSERVABLE_IDs_KEY, observable: remoteObservableOfIDs });
     ensureAllObservableIDs();
 
-    return { bindRemoteObservable, addObservableForID }
+    return { bindRemoteObservable, addObservableForID, removeObservableForID }
 };
