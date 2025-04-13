@@ -59,8 +59,8 @@ const active = value => ( {mode:"active", value} );
 
 /**
  * @typedef NamedRemoteObservableType
- * @param { String } id - should be unique
- * @param { RemoteObservableType } observable
+ * @property { String }               id - should be unique
+ * @property { RemoteObservableType } observable - an {@link IObservable } of {@link RemoteValueType}s
  */
 
 /**
@@ -69,8 +69,8 @@ const active = value => ( {mode:"active", value} );
  * @property { ConsumerType<NamedRemoteObservableType> } bindRemoteObservable - register the remote observable
  *  to send any value changes to the server (if value mode is "active") and receive any value changes
  *  from the server and proliferate locally
- * @property { ConsumerType<String> }                    addObsName - adding a new name will
- *  publish that name as a newly available ID (and should therefor be **unique**)
+ * @property { ConsumerType<String> }                    addObservableForID - adding a new ID will
+ *  publish the newly available ID (which should be **unique**)
  *  which in turn will trigger any projections (display and binding) first locally and then remotely
  */
 
@@ -125,9 +125,34 @@ const RemoteObservableClient = (baseUrl, topicName, projectionCallback) => {
     const bindRemoteObservable = ( {id, observable} ) => {
         boundObs[id] = observable;
         eventSource.addEventListener(topicName + "/" + id, event => {
-            // when we receive a value, we make the value change passive such that it doesn't get send again
-            observable.setValue( passive(JSON.parse(event.data)[UPDATE_ACTION_PARAM] ) );
+            // scheduling the local effect means that we have at least some control over any conflicting updates that
+            // might appear when we receive updates before any
+            // locally buffered (and applied) changes have been published.
+            // The UIs can be different for a small amount of time but should be identical when all events
+            // have been delivered.
+            remoteObsScheduler.addOk( _ => {
+                // when we receive a value, we make the value change passive such that it doesn't get send again
+                observable.setValue( passive(JSON.parse(event.data)[UPDATE_ACTION_PARAM] ) );
+            } )
         });
+        // at this point we are set up to receive any updates from the server and
+        // often (but not always) also receive the last known value if the outgoing
+        // server caches are not exhausted or outdated.
+        if (undefined === observable.getValue().value ) { // we have not received any updates, yet
+            remoteObsScheduler.add( done => {
+                fetch(baseUrl + '/' + READ_ACTION_NAME + '?' + OBSERVABLE_ID_PARAM + "=" + id)
+                    .then(res => res.json())
+                    .then(data => {
+                        const value = data && data[READ_ACTION_PARAM] ? data[READ_ACTION_PARAM] : undefined ;
+                        if (undefined !== value) {
+                            log.debug("initial value: " + id + " - "+ value);
+                            observable.setValue( passive( value) );
+                        }
+                    })
+                    .then( done );
+            });
+        }
+
         /** @type { ConsumerType<RemoteValueType> } */
         const notifyRemote = ( {mode, value} ) => {
             if ("passive" === mode) return; // guard against hysterese
@@ -147,7 +172,7 @@ const RemoteObservableClient = (baseUrl, topicName, projectionCallback) => {
         observableIDs
             .filter(  id => boundObs[id] === undefined)
             .forEach( id => {
-                const remoteObservable = ({ id, observable: Observable(passive("")) });
+                const remoteObservable = ({ id, observable: Observable(passive(undefined)) });
                 bindRemoteObservable( remoteObservable );
                 projectionCallback  ( remoteObservable );
             });
@@ -180,9 +205,8 @@ const RemoteObservableClient = (baseUrl, topicName, projectionCallback) => {
         });
     };
 
-
     /** @type { ConsumerType<String> } */
-    const addObsName = newName => {
+    const addObservableForID = newName => {
         const names = remoteObservableOfIDs.getValue().value;
         names.push(newName + "-" + clientId);
         remoteObservableOfIDs.setValue( active(names) );
@@ -192,5 +216,5 @@ const RemoteObservableClient = (baseUrl, topicName, projectionCallback) => {
     bindRemoteObservable( { id: OBSERVABLE_IDs_KEY, observable: remoteObservableOfIDs });
     ensureAllObservableIDs();
 
-    return { bindRemoteObservable, addObsName }
+    return { bindRemoteObservable, addObservableForID }
 };
