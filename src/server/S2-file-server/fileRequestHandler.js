@@ -6,7 +6,7 @@ import path from 'node:path';
 
 export {handleFileRequest};
 
-console.warn("Make sure to run the server under user with limited file permissions!");
+console.warn("Make sure to run the server under a user with limited file permissions!");
 
 const mimeType = {
     '.ico':  'image/x-icon',
@@ -55,12 +55,12 @@ const handleFileRequest = (req, res) => {
             if (err) {
                 // do not reveal the error stack !
                 const msg = `Error getting file: ${err.name} ${err.message}.`;
-                console.log(msg);
+                console.error(msg);
                 res.statusCode = 500;
                 res.end(msg);
                 return;
             }
-            console.log("Serving file", pathname);
+            console.debug("Serving file", pathname);
             res.setHeader('Content-Type', mimeType[ext]);
             res.end(data);
         });

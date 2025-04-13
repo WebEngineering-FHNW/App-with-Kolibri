@@ -26,8 +26,9 @@
     import "../../kolibri/util/array.js";
     import {dom, select}                    from "../../kolibri/util/dom.js";
     import {defaultConsoleLogging}          from "../../kolibri/logger/loggingSupport.js";
-    import {TOPIC}                          from "./remoteObservableConstants.js";
-    import {active, RemoteObservableClient} from "./remoteObservableClient.js";
+    import {TOPIC}                                       from "./remoteObservableConstants.js";
+    import {active, POISON_PILL, RemoteObservableClient} from "./remoteObservableClient.js";
+    import {clientId}                                    from "../../kolibri/version.js";
 
     defaultConsoleLogging("ch.fhnw", LOG_INFO);
 
@@ -39,10 +40,18 @@
      */
     const projectTextInput = namedObservable => {
         const { id, observable } = namedObservable;
-        const [labelElem] = dom(`<label id="${id}"> ${id} <input> </label>`);
+        const [labelElem] = dom(`<label id="${id}"> ${id} <input> <button>X</button></label>`);
         const [textInput] = select(labelElem, "input");
-        textInput .oninput   = _               => observable.setValue( active(textInput.value) );      // view binding
-        observable.onChange( ({value, mode:_}) => textInput.value = value ?? "");                      // data binding
+        const [delButton] = select(labelElem, "button");
+        textInput .oninput   = _       => observable.setValue( active(textInput.value) );      // view binding
+        delButton .onclick   = _       => remoteObservableClient.removeObservableForID(id);
+        observable.onChange( remoteVal => {                                                    // data binding
+            if (POISON_PILL === remoteVal) {
+                labelElem.remove();
+            } else {
+                textInput.value = remoteVal.value ?? "";
+            }
+        });
         document.getElementById("out").append(labelElem);
     };
 
@@ -50,10 +59,10 @@
 
     let runningId        = 0;
     const [addButton]    = select(document.body,"#add");
-    addButton.onclick    = _ => remoteObservableClient.addObservableForID(`text-${runningId++}`);
+    addButton.onclick    = _ => remoteObservableClient.addObservableForID(`text-${runningId++}-${clientId}`);
 
     const [add100Button] = select(document.body,"#add100");
-    add100Button.onclick = _ => 100..times( _ => remoteObservableClient.addObservableForID(`text-${runningId++}`) );
+    add100Button.onclick = _ => 100..times( _ => remoteObservableClient.addObservableForID(`text-${runningId++}-${clientId}`) );
 
 </script>
 
