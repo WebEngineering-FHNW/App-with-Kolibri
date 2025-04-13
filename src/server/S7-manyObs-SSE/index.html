@@ -31,22 +31,29 @@
 
     defaultConsoleLogging("ch.fhnw", LOG_INFO);
 
-    const projectTextInput = ( /** @type { NamedRemoteObservableType } */ { id, observable } ) => {
+    /**
+     * Projector: displays the remotely observable value and
+     * binds to remote data changes and local user input
+     * @impure will change DOM and bindings
+     * @param { NamedRemoteObservableType } namedObservable
+     */
+    const projectTextInput = namedObservable => {
+        const { id, observable } = namedObservable;
         const [labelElem] = dom(`<label id="${id}"> ${id} <input> </label>`);
         const [textInput] = select(labelElem, "input");
-        textInput .oninput   = _       => observable.setValue( active(textInput.value) );      // view binding
-        observable.onChange( ({value}) => textInput.value = value);                            // data binding
+        textInput .oninput   = _               => observable.setValue( active(textInput.value) );      // view binding
+        observable.onChange( ({value, mode:_}) => textInput.value = value ?? "");                      // data binding
         document.getElementById("out").append(labelElem);
     };
 
     const remoteObservableClient = RemoteObservableClient(window.location.origin, TOPIC, projectTextInput);
 
     let runningId        = 0;
-    const [addButton] = select(document.body,"#add");
-    addButton.onclick = _ => remoteObservableClient.addObsName(`text-${runningId++}`);
+    const [addButton]    = select(document.body,"#add");
+    addButton.onclick    = _ => remoteObservableClient.addObservableForID(`text-${runningId++}`);
 
     const [add100Button] = select(document.body,"#add100");
-    add100Button.onclick = _ => 100..times( _ => remoteObservableClient.addObsName(`text-${runningId++}`) );
+    add100Button.onclick = _ => 100..times( _ => remoteObservableClient.addObservableForID(`text-${runningId++}`) );
 
 </script>
 
