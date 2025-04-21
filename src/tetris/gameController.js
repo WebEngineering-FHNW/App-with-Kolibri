@@ -29,7 +29,7 @@ const spaceBoxes = [];
 
 /** @type { IObservable<TetronimoType> }
  * The current tetromino is the one that the player can control with the arrow keys and that falls down
- * at a given rate (1s). When it collides, a new one gets created and becomes the current tetronimo.
+ * at a given rate (1 s). When it collides, a new one gets created and becomes the current tetronimo.
  * Observable to keep the projected views separate from the controller.
  */
 const currentTetrominoObs = Observable(makeRandomTetromino());
@@ -41,7 +41,7 @@ const currentTetrominoObs = Observable(makeRandomTetromino());
 const onNewCurrentTetronimo = currentTetrominoObs.onChange; // do not expose setter
 
 /**
- * The game ends with collision at the top.
+ * The game ends with a collision at the top.
  * @pure
  * @type { (currentTetronimo:TetronimoType, spaceBoxes:Array<BoxType>) => Boolean }
  */
@@ -74,7 +74,7 @@ const checkAndHandleFullLevel = spaceBoxes => {
     const toRemove = spaceBoxes.filter(box => box.getValue().z === level); // remove duplication
     toRemove.forEach( box => {
         spaceBoxes.removeItem(box);
-        box.setValue( {x:-1,y:-1, z:-1} ); // will trigger listeners (e.g. the view) to self-remove
+        box.setValue( {x:-1,y:-1, z:-1} ); // will trigger listeners (e.g., the view) to self-remove
     });
 
     // move the remaining higher boxes one level down
@@ -90,7 +90,7 @@ const checkAndHandleFullLevel = spaceBoxes => {
 
 /**
  * When a tetronimo gets a new shape as the result of user input, we have to check the possible results of that move
- * and adapt according to the game rules.
+ * and adapt, according to the game rules.
  * @impure everything might change.
  * @param { TetronimoType } tetronimo  - target
  * @param { ShapeType }     newShape   - that new shape that might be applied to the target
@@ -157,7 +157,7 @@ const movePosition = moveFunction => {
 };
 
 /**
- * Puts asynchronous tasks in strict sequence.
+ * Puts asynchronous tasks in a strict sequence.
  * @private local state
  * @type { SchedulerType }
  */
@@ -165,7 +165,7 @@ const scheduler = Scheduler();
 
 /**
  * @private
- * Principle game loop implementation: let the current tetromino fall down slowly and check for end of game.
+ * Principle game loop implementation: let the current tetromino fall down slowly and check for the end of the game.
  * @param { () => void } done - callback when one iteration is done
  */
 const fallTask = done => {
