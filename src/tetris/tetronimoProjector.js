@@ -55,9 +55,9 @@ const projectNewTetronimo = tetronimo => {
                 if(pos.z < 0) {             // for the view, this is the signal to remove the box div
                     boxDivs[idx].remove();  // remove the view (div)
                     if( tetroDiv.children.length < 1) { // if there are no more boxes for this tetro
-                        tetroDiv.remove();              // .. remove the whole tetro div
+                        tetroDiv.remove();              // ... remove the whole tetro div
                     }
-                    selfRemove(); // finally there is nothing more to listen to and we remove this very listener itself
+                    selfRemove(); // finally, there is nothing more to listen to, and we remove this very listener itself
                     return;
                 }
                 boxDivs[idx]  .setAttribute("style",   `--x: ${pos.x};--y: ${pos.y};--z: ${pos.z};`);
@@ -70,7 +70,7 @@ const projectNewTetronimo = tetronimo => {
 /**
  * Key binding for the game (view binding).
  * @collaborators document, game controller, and tetronimo controller
- * @impure prevents the key default behaviour, will indirectly change the game state and the visualization
+ * @impure prevents the key default behavior, will indirectly change the game state and the visualization
  */
 const registerKeyListener = () => {
     document.onkeydown = keyEvt => {

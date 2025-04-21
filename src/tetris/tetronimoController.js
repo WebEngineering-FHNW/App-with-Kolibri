@@ -50,13 +50,13 @@ const disallowed = tetronimo =>
         return false;
     });
 
-/** @private implementation is just swapping the coordinates in a clever way **/
+/** @private implementation is just swapping the coordinates **/
 const swapXZ  = shape => shape.map( box => ({x:  -box.z, y: box.y, z:  box.x}));
 
-/** @private implementation is just swapping the coordinates in a clever way **/
+/** @private implementation is just swapping the coordinates **/
 const swapYZ  = shape => shape.map( box => ({x:   box.x, y: box.z, z: -box.y}));
 
-/** @private implementation is just swapping the coordinates in a clever way **/
+/** @private implementation is just swapping the coordinates **/
 const swapXY  = shape => shape.map( box => ({x:  box.y, y: -box.x, z: box.z}));
 
 /**
@@ -65,7 +65,7 @@ const swapXY  = shape => shape.map( box => ({x:  box.y, y: -box.x, z: box.z}));
  */
 
 /**
- * Make new shape that reflects the effect of rolling to the left.
+ * Make a new shape that reflects the effect of rolling to the left.
  * @pure returns a new shape
  * @type { NewShapeType }
  */
@@ -78,8 +78,8 @@ const toppleRoll  = swapXZ;
 const topplePitch = swapYZ;
 
 /**
- * Make new shape that reflects the effect of rotating counter-clockwise around the z-axis.
- * You can also interpret this as looking at the shape with your head tilted to the right.
+ * Make a new shape that reflects the effect of rotating counter-clockwise around the z-axis.
+ * You can also interpret this as looking at the shape with your head tilted to the left.
  * @pure returns a new shape
  * @type { NewShapeType }
  */
