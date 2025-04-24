@@ -8,7 +8,7 @@
  * We currently use only one topic since the amount of parallel SSE channels from the same
  * client is limited (6 with http/1, 100 with http/2).
  */
-export const TOPIC               = "remoteObservable";
+export const TOPIC_REMOTE_OBSERVABLE = "remoteObservable";
 
 /** request parameter that contains the id of the observable */
 export const OBSERVABLE_ID_PARAM = "id";

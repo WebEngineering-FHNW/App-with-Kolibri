@@ -6,9 +6,9 @@ const suite = TestSuite("observable/observableMap");
 
 suite.add("basic", assert => {
 
-    let observed             = null;
-    const projectionCallback = v => observed = v;
-    const map                = ObservableMap(projectionCallback);
+    let observed          = null;
+    const newNameCallback = v => observed = v;
+    const map             = ObservableMap(newNameCallback);
     assert.is(observed, null); // no callback on init
 
     map.addObservableForID("a");

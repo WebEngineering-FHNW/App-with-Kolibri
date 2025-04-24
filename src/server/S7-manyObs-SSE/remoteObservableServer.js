@@ -8,7 +8,7 @@ import {createServer}      from 'node:http';
 import {handleFileRequest} from "../S2-file-server/fileRequestHandler.js";
 
 import {
-    TOPIC,
+    TOPIC_REMOTE_OBSERVABLE,
     OBSERVABLE_ID_PARAM,
     READ_ACTION_NAME,
     READ_ACTION_PARAM,
@@ -77,7 +77,7 @@ const handleSSE = (req, res) => {
         }
         eventId++;
         res.write('id:'    + eventId + '\n');
-        res.write('event:' + TOPIC + "/" + newKeyValuePair.key + '\n'); // this produces "channels" as needed.
+        res.write('event:' + TOPIC_REMOTE_OBSERVABLE + "/" + newKeyValuePair.key + '\n'); // this produces "channels" as needed.
         res.write('data:' + JSON.stringify( { [UPDATE_ACTION_PARAM]: keyValueMap[newKeyValuePair.key] } ) + '\n\n'); // todo: what if payload contains two newlines?
     };
     keyValueObservable.onChange(sendText); // flush whenever some key has a new value and when connecting
@@ -148,7 +148,7 @@ const handleValueUpdate = (req, res) => {
 
 const server = createServer( (req, res) => {
   console.debug(req.method, req.url);
-  if (req.url === "/" + TOPIC) {
+  if (req.url === "/" + TOPIC_REMOTE_OBSERVABLE) {
       handleSSE(req, res);
       return;
   }
