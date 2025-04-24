@@ -179,16 +179,17 @@ const fallTask = done => {
  * @impure sets the currentTetrominoObs
  */
 const handleNewCurrentTetroObsAvailable = (createdTetrominoObs, projectNewTetronimo) => {
-    currentTetrominoObs = createdTetrominoObs;
+    currentTetrominoObs = createdTetrominoObs;                      // side effect! put the observable in module scope
     currentTetrominoObs.onChange(remoteCurrentTetroValue => {
         // at this point it cannot be the poison pill since the current tetro obs itself is never removed -
         // even though its value can be undefined, which means a new one has to be created
         console.log(remoteCurrentTetroValue);
-        const currentTetro = remoteCurrentTetroValue?.value; // unpack the remote mode/value
+        const currentTetro = remoteCurrentTetroValue?.value;        // unpack the remote mode/value
         if (!currentTetro) { // current tetro is undefined
             // todo: only if we are in charge, active (?)
             currentTetrominoObs.setValue(/** @type { RemoteValueType<TetronimoType> } */ active(makeRandomTetromino()));
             // since we set our own value, we will call ourselves again and land in the else branch
+            // while we make sure that other (remote) listeners are also notified
         } else {
             projectNewTetronimo(currentTetro);
         }
@@ -202,18 +203,18 @@ const handleNewCurrentTetroObsAvailable = (createdTetrominoObs, projectNewTetron
 const startGame = (factory, projectNewTetronimo) => {
 
     // will only get called once a new named Observable becomes available
-    const projectorCallback = namedValue => {
-        console.log(namedValue);
-        switch (namedValue.id) {
+    const onNewNamedObservable = namedObservable => {
+        console.log(namedObservable);
+        switch (namedObservable.id) {
             case TETROMINO_CURRENT:
-                handleNewCurrentTetroObsAvailable(namedValue.observable, projectNewTetronimo);
+                handleNewCurrentTetroObsAvailable(namedObservable.observable, projectNewTetronimo);
                 break;
             default:
-                console.warn("unknown named observable", namedValue);
+                console.warn("unknown named observable", namedObservable);
         }
 
         scheduler.add(fallTask); // only start the falling after all has been set up
     };
-    const coordinator = factory.Coordinator(projectorCallback);
+    const coordinator = factory.newMap(onNewNamedObservable);
     coordinator.addObservableForID(TETROMINO_CURRENT);
 };

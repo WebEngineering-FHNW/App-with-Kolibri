@@ -63,7 +63,7 @@ const POISON_PILL = ( {mode:undefined, value: undefined} );
  */
 
 /**
- * @typedef { ConsumerType<NamedRemoteObservableType<_T_>> } ProjectionCallbackType
+ * @typedef { ConsumerType<NamedRemoteObservableType<_T_>> } NewNameCallback
  * Will be called whenever a new named remote observable becomes available.
  * @template _T_
  * @impure will change DOM and bindings
@@ -96,7 +96,7 @@ const POISON_PILL = ( {mode:undefined, value: undefined} );
  * can add new remote observables and bind to existing ones.
  * @param { String } baseUrl   - start of a URL: protocol, server, port, base path without trailing slashes
  * @param { String } topicName - must be the same on client and server
- * @param { ProjectionCallbackType } projectionCallback - will change DOM and binding
+ * @param { NewNameCallback } projectionCallback - will change DOM and binding
  * @return { RemoteObservableClientType }
  * @constructor
  */
@@ -182,11 +182,11 @@ const RemoteObservableClient = (baseUrl, topicName, projectionCallback) => {
         }
 
         /** @type { ConsumerType<RemoteValueType> } */
-        const notifyRemote = ( {mode, value} ) => {
-            if ("active" !== mode) return; // guard against hysterese
+        const notifyRemote = ( remoteValue ) => {
+            if ("active" !== remoteValue?.mode) return; // guard against hysterese
             const data = {
                 [OBSERVABLE_ID_PARAM] : id,
-                [UPDATE_ACTION_PARAM] : value
+                [UPDATE_ACTION_PARAM] : remoteValue.value
             };
             remoteObsScheduler.add( done =>
                 client(baseUrl + '/' + UPDATE_ACTION_NAME, "POST", data)
@@ -233,7 +233,7 @@ const RemoteObservableClient = (baseUrl, topicName, projectionCallback) => {
             })
     };
 
-    remoteObservableOfIDs.onChange( ({ /** @type { Array<String> } */ newNames }) => {
+    remoteObservableOfIDs.onChange( ({ /** @type { Array<String> } */ value }) => {
         // if we created the new obsName ourselves, then we first get notified locally.
         // in any case, we get notified (possibly a second time) from remote,
         // but then we already know the id and do not project a second time.

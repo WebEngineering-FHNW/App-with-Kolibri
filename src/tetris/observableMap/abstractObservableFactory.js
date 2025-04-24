@@ -1,7 +1,7 @@
 /**
- * @typedef NamedObservableCoordinatorType
+ * @typedef ObservableMapType
  * Coordinating {@link NamedRemoteObservableType}s such that by their name, observables can be created
- * or removed such that any {@link ProjectionCallbackType}s will be notified appropriately.
+ * or removed such that any {@link NewNameCallback}s will be notified appropriately.
  *
  * @property { ConsumerType<String> }  addObservableForID - adding a new ID will
  *  publish the newly available ID (which should be **unique**)
@@ -12,7 +12,7 @@
  */
 
 /**
- * @typedef NamedObservableCoordinatorFactoryType
+ * @typedef ObservableMapFactoryType
  *
- * @property { (ProjectionCallbackType) => NamedObservableCoordinatorType } Coordinator -> constructor
+ * @property { (NewNameCallback) => ObservableMapType } newMap -> constructor
  */

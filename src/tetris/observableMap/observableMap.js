@@ -21,11 +21,11 @@ const log = LoggerFactory("ch.fhnw.kolibri.localObservableClient");
 
 /**
  * Create the {@link ObservableMapType map} that allows to add and remove observables by name (id).
- * @param { ProjectionCallbackType } projectionCallback - will change DOM and binding
+ * @param { NewNameCallback } newNameCallback - will change DOM and binding
  * @return { ObservableMapType }
  * @constructor
  */
-const ObservableMap = (projectionCallback) => {
+const ObservableMap = newNameCallback => {
 
     /**
      * world of managed named observables, keys are the IDs of the named observable
@@ -49,7 +49,7 @@ const ObservableMap = (projectionCallback) => {
             .forEach( newID => {
                 const newObservable = ({ id: newID, observable: Observable(passive(undefined)) });
                 boundObservablesByName[newID] = newObservable; // deviation from remote case: where we keep track of obs
-                projectionCallback  ( newObservable );
+                newNameCallback  ( newObservable );
             });
 
         // if we have any bound observables that are no longer in the list of observableIDs, they should be removed.

@@ -27,9 +27,10 @@
 <script type="module">
 
     import {registerForMouseAndTouch}                 from "./scene3D/scene.js";
-    import {startGame}         from "./gameController.js";
     import {projectNewTetronimo, registerKeyListener} from "./tetronimoProjector.js";
-    import {LocalObservableMapFactory}                from "./observableMap/localObservableMapFactory.js";
+    import {ProductionRemoteObservableMapFactory}     from "./observableMap/productionRemoteObservableMapFactory.js";
+    import {TOPIC_REMOTE_OBSERVABLE}                  from "../server/S7-manyObs-SSE/remoteObservableConstants.js";
+    import {startGame}                                from "./gameController.js";
 
     const main = document.getElementById("main");
 
@@ -37,7 +38,7 @@
 
     registerKeyListener();          // the game-specific key bindings
 
-    const factory = LocalObservableMapFactory();
+    const factory = ProductionRemoteObservableMapFactory(window.location.origin, TOPIC_REMOTE_OBSERVABLE);
     startGame(factory, projectNewTetronimo);
 
 </script>
