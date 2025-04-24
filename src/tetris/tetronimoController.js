@@ -24,12 +24,12 @@ const normalize = shape => {
 /**
  * Tells whether the tetronimo boxes intersect with any of the spaceBoxes.
  * @pure
- * @param { TetronimoType  } tetronimo
+ * @param { RemoteValueType<TetronimoType>  } tetronimo
  * @param { Array<BoxType> } spaceBoxes
  * @return { Boolean }
  */
 const intersects = (tetronimo, spaceBoxes) =>
-    tetronimo.boxes.some( boxPos =>
+    tetronimo.value.boxes.some( boxPos =>
         boxPos.getValue().z < 0 ||
         spaceBoxes.some( spaceBox =>
            spaceBox.getValue().x === boxPos.getValue().x &&
@@ -39,11 +39,11 @@ const intersects = (tetronimo, spaceBoxes) =>
 /**
  * Tells whether this tetronimo configuration should be forbidden (outside bounds).
  * @pure
- * @param { TetronimoType  } tetronimo
+ * @param { RemoteValueType<TetronimoType>  } tetronimo
  * @return { Boolean }
  */
 const disallowed = tetronimo =>
-    tetronimo.boxes.some( box =>{
+    tetronimo.value.boxes.some( box =>{
         const pos = box.getValue();
         if (pos.x < 0 || pos.x > 6) return true;
         if (pos.y < 0 || pos.y > 6) return true;

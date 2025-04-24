@@ -28,14 +28,16 @@ const OBSERVABLE_IDs_KEY  = "remoteObservableNames";
  *   a value might already exist on the remote, and we do not want to override the existing value.
  *   Passive mode is also needed to avoid re-sending a value change that we received from remote
  *   (which could otherwise lead to infinite loops).
- * @property { Object } value              - anything that can be put into {@link JSON.stringify }
+ * @template _T_
+ * @property { _T_ } value              - anything that can be put into {@link JSON.stringify }
  */
 
 /**
  * Create a {@link RemoteValueType remote value} in passive mode
  * @pure
  * @constructor
- * @type { (value:*) => RemoteValueType }
+ * @template _T_
+ * @type { (value:_T_) => RemoteValueType<_T_> }
  */
 const passive = value => ( {mode: "passive", value} );
 
@@ -43,31 +45,36 @@ const passive = value => ( {mode: "passive", value} );
  * Create a {@link RemoteValueType remote value} in active mode
  * @pure
  * @constructor
- * @type { (value:*) => RemoteValueType }
+ * @template _T_
+ * @type { (value:_T_) => RemoteValueType<_T_> }
  */
 const active = value => ( {mode:"active", value} );
 
 /**
  * Local observers that see this value can remove themselves.
- * @type { RemoteValueType }
+ * @type { RemoteValueType<void> }
  */
 const POISON_PILL = ( {mode:undefined, value: undefined} );
 
 /**
- * @typedef { IObservable<RemoteValueType> } RemoteObservableType
+ * @typedef { IObservable<RemoteValueType<_T_>> } RemoteObservableType
+ * @template _T_
  * @impure mutable value
  */
 
 /**
- * @typedef { ConsumerType<NamedRemoteObservableType> } ProjectionCallbackType
+ * @typedef { ConsumerType<NamedRemoteObservableType<_T_>> } ProjectionCallbackType
+ * Will be called whenever a new named remote observable becomes available.
+ * @template _T_
  * @impure will change DOM and bindings
  * @callback
  */
 
 /**
  * @typedef NamedRemoteObservableType
- * @property { String }               id - should be unique
- * @property { RemoteObservableType } observable - an {@link IObservable } of {@link RemoteValueType}s
+ * @template _T_
+ * @property { String }                    id - should be unique
+ * @property { RemoteObservableType<_T_> } observable - an {@link IObservable } of {@link RemoteValueType}s
  */
 
 /**
@@ -79,7 +86,9 @@ const POISON_PILL = ( {mode:undefined, value: undefined} );
  * @property { ConsumerType<String> }                    addObservableForID - adding a new ID will
  *  publish the newly available ID (which should be **unique**)
  *  which in turn will trigger any projections (display and binding) first locally and then remotely
- * @property { ConsumerType<String> }                    removeObservableForID - todo: fill
+ * @property { ConsumerType<String> }                    removeObservableForID - publish first locally and then remotely
+ * that a given id is no longer in the list of named remote observables, thus allowing all listeners to
+ * clean up any local bindings and remove all other bound resources, esp. projected views.
  */
 
 /**
@@ -107,7 +116,7 @@ const RemoteObservableClient = (baseUrl, topicName, projectionCallback) => {
     const channelListeners = {};
 
     /**
-     *  A scheduler that puts all async remote observable actions in strict sequence.
+     *  A scheduler that puts all async remote observable actions in a strict sequence.
      *  This is needed because the UI might otherwise send async requests such that they appear
      *  out of order on the server side and/or the respective completion callbacks are out of order on the client side.
      * @type {SchedulerType}
@@ -117,11 +126,11 @@ const RemoteObservableClient = (baseUrl, topicName, projectionCallback) => {
     /**
      * The remote observable that keeps the array of known IDs of dynamically created remote observables.
      * It publishes to all clients, which IDs are now available for projection (display and binding).
-     * Always the full array of IDs is published (less efficient but more reliable than diffs).
+     * It is always the full array of IDs is published (less efficient but more reliable than diffs).
      * @note an empty array is a fully valid value while `undefined` indicates that no value has been set, yet.
-     * @type { RemoteObservableType }
+     * @type { RemoteObservableType< Array<String> | undefined > }
      * */
-    const remoteObservableOfIDs = Observable( passive( undefined ) );
+    const remoteObservableOfIDs = Observable( /** @type { RemoteValueType< Array<String> | undefined> } */ passive( undefined ) );
 
     const eventSource = new EventSource(baseUrl + '/' + topicName);
 
@@ -155,7 +164,7 @@ const RemoteObservableClient = (baseUrl, topicName, projectionCallback) => {
         eventSource.addEventListener(topicName + "/" + id, channelListener);
         channelListeners[id] = channelListener;                      // store reference for later removal of listeners
 
-        // at this point we are set up to receive any updates from the server and
+        // at this point, we are set up to receive any updates from the server and
         // often (but not always) also receive the last known value if the outgoing
         // server caches are not exhausted or outdated.
         if (undefined === observable.getValue().value ) { // we have not received any updates, yet
@@ -197,7 +206,7 @@ const RemoteObservableClient = (baseUrl, topicName, projectionCallback) => {
             });
 
         // if we have any bound observables that are no longer in the list of observableIDs, they should be removed.
-        // There are a number of issues to consider when removing a bound remote observable
+        // There are a number of issues to consider when removing a bound remote observable:
         // - remove local SSE event listeners
         // - clean up the map of bound observables
         // - let the other listeners (mainly UI) know that this is a dead observable by sending the poison pill
@@ -224,7 +233,7 @@ const RemoteObservableClient = (baseUrl, topicName, projectionCallback) => {
             })
     };
 
-    remoteObservableOfIDs.onChange( ({ /** @type { Array<String> } */ value }) => {
+    remoteObservableOfIDs.onChange( ({ /** @type { Array<String> } */ newNames }) => {
         // if we created the new obsName ourselves, then we first get notified locally.
         // in any case, we get notified (possibly a second time) from remote,
         // but then we already know the id and do not project a second time.
@@ -257,7 +266,7 @@ const RemoteObservableClient = (baseUrl, topicName, projectionCallback) => {
     const addObservableForID = newID => {
         const names = remoteObservableOfIDs.getValue().value ?? [] ; // value is undefined at start
         names.push(newID);
-        remoteObservableOfIDs.setValue( active(names) );
+        remoteObservableOfIDs.setValue( /** @type { RemoteValueType< Array<String> > } */ active(names) );
     };
 
     /** @type { ConsumerType<String> } */
@@ -268,7 +277,7 @@ const RemoteObservableClient = (baseUrl, topicName, projectionCallback) => {
             return;
         }
         names.removeItem(oldID);
-        remoteObservableOfIDs.setValue( active(names) );
+        remoteObservableOfIDs.setValue( /** @type { RemoteValueType< Array<String> > } */ active(names) );
     };
 
     // we assume immediate start
