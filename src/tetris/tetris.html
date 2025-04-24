@@ -27,8 +27,9 @@
 <script type="module">
 
     import {registerForMouseAndTouch}                 from "./scene3D/scene.js";
-    import {onNewCurrentTetronimo, startGame}         from "./gameController.js";
+    import {startGame}         from "./gameController.js";
     import {projectNewTetronimo, registerKeyListener} from "./tetronimoProjector.js";
+    import {LocalObservableFactory}                   from "./observable/localObservableFactory.js";
 
     const main = document.getElementById("main");
 
@@ -36,8 +37,8 @@
 
     registerKeyListener();          // the game-specific key bindings
 
-    startGame();
-    onNewCurrentTetronimo(projectNewTetronimo);
+    const factory = LocalObservableFactory();
+    startGame(factory, projectNewTetronimo);
 
 </script>
 </body>

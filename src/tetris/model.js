@@ -42,7 +42,7 @@ const zeroPosition = { x:0, y:0, z:0 };
 
 /**
  * Constructor for a {@link TetronimoType}.
- * @param { Number } shapeIndex - index into shapes array
+ * @param { Number } shapeIndex - index into 'shapes' array
  * @param { Number } tetroId
  * @return { TetronimoType }
  * @constructor
@@ -56,7 +56,7 @@ const Tetronimo = (shapeIndex, tetroId) => {
 
     const id          = tetroId;
     const shapeName   = shapeNames[shapeIndex];
-    const boxes       = 4..times(_ => Observable(zeroPosition)); // the box constructor
+    const boxes       = 4..times(_ => Observable(zeroPosition)); // the box constructor // todo: Observable
 
     const unlinkBoxes = () => boxesUnlinked = true;
 

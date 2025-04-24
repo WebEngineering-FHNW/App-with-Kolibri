@@ -14,12 +14,15 @@ import {disallowed, intersects, moveDown, normalize} from "./tetronimoController
 import {makeRandomTetromino, Tetronimo}              from "./model.js";
 import {Walk}       from "../kolibri/sequence/constructors/range/range.js";
 import {Scheduler}  from "../kolibri/dataflow/dataflow.js";
-import {Observable} from "../kolibri/observable.js";
+import {active, passive}     from "../server/S7-manyObs-SSE/remoteObservableClient.js";
 
 export {
-    startGame, onNewCurrentTetronimo, turnShape, movePosition, // for general use outside
+    startGame, turnShape, movePosition, // for general use outside
     checkAndHandleFullLevel                                     // only for the unit-testing
 };
+
+const TETROMINO_CURRENT = "currentTetronimo";
+const PLAYER_ACTIVE     = "activePlayer";
 
 /** @type { Array<BoxType> }
  * Contains all the boxes that live in our 3D space after they have been unlinked from their tetronimo
@@ -27,37 +30,31 @@ export {
  */
 const spaceBoxes = [];
 
-/** @type { IObservable<TetronimoType> }
+/** @type { IObservable<RemoteValueType<TetronimoType>> }
  * The current tetromino is the one that the player can control with the arrow keys and that falls down
  * at a given rate (1 s). When it collides, a new one gets created and becomes the current tetronimo.
  * Observable to keep the projected views separate from the controller.
  */
-const currentTetrominoObs = Observable(makeRandomTetromino());
-
-/**
- * Allow listeners (esp. the view) to react on a newly available current tetronimo.
- * @type { (cb:ValueChangeCallback<TetronimoType>) => void }
- */
-const onNewCurrentTetronimo = currentTetrominoObs.onChange; // do not expose setter
+let currentTetrominoObs;
 
 /**
  * The game ends with a collision at the top.
  * @pure
- * @type { (currentTetronimo:TetronimoType, spaceBoxes:Array<BoxType>) => Boolean }
+ * @type { (currentTetronimo: RemoteValueType<TetronimoType>, spaceBoxes:Array<BoxType>) => Boolean }
  */
 const isEndOfGame = (currentTetromino, spaceBoxes) =>
-    currentTetromino.getPosition().z === 12
+    currentTetromino.value.getPosition().z === 12
     && intersects(currentTetromino, spaceBoxes) ;
 
 /**
- * @type { (currentTetronimo:TetronimoType, spaceBoxes:Array<BoxType>) => void }
+ * @type { (currentTetronimo:RemoteValueType<TetronimoType> , spaceBoxes:Array<BoxType>) => void }
  * @impure side effects pretty much everything, directly or indirectly
  */
 const handleCollision = (currentTetromino, spaceBoxes) => {
-    currentTetromino.unlinkBoxes();                 // boxes will still keep their data binding
-    spaceBoxes.push(...(currentTetromino.boxes));   // put the current tetro boxes in the space
+    currentTetromino.value.unlinkBoxes();                   // boxes will still keep their data binding
+    spaceBoxes.push(...(currentTetromino.value.boxes));     // put the current tetro boxes in the space
     checkAndHandleFullLevel(spaceBoxes);
-    currentTetrominoObs.setValue(makeRandomTetromino());
+    currentTetrominoObs.setValue(undefined);                // make room for new tetro
 };
 
 /**
@@ -65,7 +62,6 @@ const handleCollision = (currentTetromino, spaceBoxes) => {
  * @param {Array<BoxType>} spaceBoxes
  */
 const checkAndHandleFullLevel = spaceBoxes => {
-
     const isFull = level => spaceBoxes.filter( box => box.getValue().z === level).length === 7 * 7;
     const level = [...Walk(12)].findIndex(isFull);
     if (level < 0 ) { return; }
@@ -92,22 +88,22 @@ const checkAndHandleFullLevel = spaceBoxes => {
  * When a tetronimo gets a new shape as the result of user input, we have to check the possible results of that move
  * and adapt, according to the game rules.
  * @impure everything might change.
- * @param { TetronimoType } tetronimo  - target
- * @param { ShapeType }     newShape   - that new shape that might be applied to the target
- * @param { Array<BoxType>} spaceBoxes - environment
+ * @param { RemoteValueType<TetronimoType> } tetronimo  - target
+ * @param { ShapeType }                      newShape   - that new shape that might be applied to the target
+ * @param { Array<BoxType>}                  spaceBoxes - environment
  */
 const turnShapeImpl = (tetronimo, newShape, spaceBoxes) => {
     newShape              = normalize(newShape);
-    const shadowTetromino = Tetronimo(0, -1);
-    shadowTetromino.setShape(newShape);
-    shadowTetromino.setPosition(tetronimo.getPosition());
+    const shadowTetromino = /** @type { RemoteValueType<TetronimoType> } */ passive(Tetronimo(0, -1));
+    shadowTetromino.value.setShape(newShape);
+    shadowTetromino.value.setPosition(tetronimo.value.getPosition());
     if (disallowed(shadowTetromino)) {
         return;
     }
     if (intersects(shadowTetromino, spaceBoxes)) {
         handleCollision(tetronimo, spaceBoxes);
     } else {
-        tetronimo.setShape(newShape);
+        tetronimo.value.setShape(newShape);
     }
 };
 /**
@@ -115,21 +111,21 @@ const turnShapeImpl = (tetronimo, newShape, spaceBoxes) => {
  * we have to check the possible results of that move
  * and adapt according to the game rules.
  * @impure everything might change.
- * @param { TetronimoType }   tetronimo   - target
- * @param { Position3dType }  newPosition - that new shape that might be applied to the target
- * @param { Array<BoxType>}   spaceBoxes  - environment
+ * @param { RemoteValueType<TetronimoType> }    tetronimo   - target
+ * @param { Position3dType }                    newPosition - that new shape that might be applied to the target
+ * @param { Array<BoxType>}                     spaceBoxes  - environment
  */
 const movePositionImpl = (tetronimo, newPosition, spaceBoxes) => {
-    const shadowTetromino = Tetronimo(0, -1);
-    shadowTetromino.setShape(tetronimo.getShape());
-    shadowTetromino.setPosition(newPosition);
+    const shadowTetromino = /** @type { RemoteValueType<TetronimoType> } */ passive(Tetronimo(0, -1));
+    shadowTetromino.value.setShape(tetronimo.value.getShape());
+    shadowTetromino.value.setPosition(newPosition);
     if (disallowed(shadowTetromino)) {
         return;
     }
     if (intersects(shadowTetromino, spaceBoxes)) {
         handleCollision(tetronimo, spaceBoxes);
     } else {
-        tetronimo.setPosition(newPosition);
+        tetronimo.value.setPosition(newPosition);
     }
 };
 
@@ -141,7 +137,7 @@ const movePositionImpl = (tetronimo, newPosition, spaceBoxes) => {
  */
 const turnShape = turnFunction => {
     const currentTetronimo = currentTetrominoObs.getValue();
-    const shape = currentTetronimo.getShape();
+    const shape = currentTetronimo.value.getShape();
     turnShapeImpl(currentTetronimo, turnFunction (shape), spaceBoxes);
 };
 /**
@@ -152,7 +148,7 @@ const turnShape = turnFunction => {
  */
 const movePosition = moveFunction => {
     const currentTetronimo = currentTetrominoObs.getValue();
-    const position = currentTetronimo.getPosition();
+    const position = currentTetronimo.value.getPosition();
     movePositionImpl(currentTetronimo, moveFunction (position), spaceBoxes);
 };
 
@@ -169,9 +165,9 @@ const scheduler = Scheduler();
  * @param { () => void } done - callback when one iteration is done
  */
 const fallTask = done => {
-    movePosition(moveDown);
+    movePosition(moveDown);// todo: only if we are in charge,
     if (isEndOfGame(currentTetrominoObs.getValue(), spaceBoxes)) {
-        console.log("The End");// handle end of game
+        console.log("The End");// handle the end of the game
         return;
     }
     // re-schedule fall Task
@@ -180,8 +176,44 @@ const fallTask = done => {
 };
 
 /**
+ * @impure sets the currentTetrominoObs
+ */
+const handleNewCurrentTetroObsAvailable = (createdTetrominoObs, projectNewTetronimo) => {
+    currentTetrominoObs = createdTetrominoObs;
+    currentTetrominoObs.onChange(remoteCurrentTetroValue => {
+        // at this point it cannot be the poison pill since the current tetro obs itself is never removed -
+        // even though its value can be undefined, which means a new one has to be created
+        console.log(remoteCurrentTetroValue);
+        const currentTetro = remoteCurrentTetroValue?.value; // unpack the remote mode/value
+        if (!currentTetro) { // current tetro is undefined
+            // todo: only if we are in charge, active (?)
+            currentTetrominoObs.setValue(/** @type { RemoteValueType<TetronimoType> } */ active(makeRandomTetromino()));
+            // since we set our own value, we will call ourselves again and land in the else branch
+        } else {
+            projectNewTetronimo(currentTetro);
+        }
+    });
+
+};
+
+/**
  * Start the game loop.
  */
-const startGame = () => {
-    scheduler.add(fallTask);
+const startGame = (factory, projectNewTetronimo) => {
+
+    // will only get called once a new named Observable becomes available
+    const projectorCallback = namedValue => {
+        console.log(namedValue);
+        switch (namedValue.id) {
+            case TETROMINO_CURRENT:
+                handleNewCurrentTetroObsAvailable(namedValue.observable, projectNewTetronimo);
+                break;
+            default:
+                console.warn("unknown named observable", namedValue);
+        }
+
+        scheduler.add(fallTask); // only start the falling after all has been set up
+    };
+    const coordinator = factory.Coordinator(projectorCallback);
+    coordinator.addObservableForID(TETROMINO_CURRENT);
 };

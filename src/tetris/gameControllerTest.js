@@ -13,6 +13,7 @@ controllerSuite.add("full level", assert => {
     checkAndHandleFullLevel(spaceBoxes);
     assert.is(spaceBoxes.length, 0);
 
+    // todo: Observable
     (7*7).times( _ => spaceBoxes.push( Observable({x:0,y:0,z:0}) )); // lowest level is full
     spaceBoxes.push( Observable({x:0,y:0,z:2}) );                    // there is one element above
     assert.is(spaceBoxes.length, 7*7 + 1);
