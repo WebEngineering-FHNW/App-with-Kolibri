@@ -2,7 +2,7 @@
 import {Observable}    from "../../kolibri/observable.js";
 import {LoggerFactory} from "../../kolibri/logger/loggerFactory.js";
 import "../../kolibri/util/array.js";
-import {active, passive, POISON_PILL} from "../../server/S7-manyObs-SSE/remoteObservableClient.js";
+import {active, passive, POISON_PILL} from "../../server/S7-manyObs-SSE/remoteObservableMap.js";
 
 export { ObservableMap }
 
@@ -92,7 +92,6 @@ const ObservableMap = newNameCallback => {
         allIDs.removeItem(oldID);
         observableOfIDs.setValue( /** @type { RemoteValueType< Array<String> > } */ active(allIDs) );
     };
-
 
     return { addObservableForID, removeObservableForID }
 };

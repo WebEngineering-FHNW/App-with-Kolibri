@@ -6,6 +6,10 @@
     <link href="tetris.css" rel="stylesheet"/>
 </head>
 <body>
+<header>
+    <div id="PLAYER_ACTIVE"></div>
+    <button id="BUTTON_START">Start/Restart</button>
+</header>
 <main id="main" class="scene3d noSelection">
     <div class="coords" style="
             --coords-rotate-x:  85;
@@ -28,9 +32,12 @@
 
     import {registerForMouseAndTouch}                 from "./scene3D/scene.js";
     import {projectNewTetronimo, registerKeyListener} from "./tetronimoProjector.js";
-    import {ProductionRemoteObservableMapFactory}     from "./observableMap/productionRemoteObservableMapFactory.js";
+    import {RemoteObservableMapFactory}               from "./observableMap/remoteObservableMapFactory.js";
     import {TOPIC_REMOTE_OBSERVABLE}                  from "../server/S7-manyObs-SSE/remoteObservableConstants.js";
     import {startGame}                                from "./gameController.js";
+    import {defaultConsoleLogging}                    from "../kolibri/logger/loggingSupport.js";
+
+    defaultConsoleLogging("ch.fhnw", LOG_DEBUG);
 
     const main = document.getElementById("main");
 
@@ -38,7 +45,7 @@
 
     registerKeyListener();          // the game-specific key bindings
 
-    const factory = ProductionRemoteObservableMapFactory(window.location.origin, TOPIC_REMOTE_OBSERVABLE);
+    const factory = RemoteObservableMapFactory(window.location.origin, TOPIC_REMOTE_OBSERVABLE);
     startGame(factory, projectNewTetronimo);
 
 </script>

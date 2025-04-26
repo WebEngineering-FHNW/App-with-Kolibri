@@ -13,16 +13,21 @@
 import {disallowed, intersects, moveDown, normalize} from "./tetronimoController.js";
 import {makeRandomTetromino, Tetronimo}              from "./model.js";
 import {Walk}       from "../kolibri/sequence/constructors/range/range.js";
-import {Scheduler}  from "../kolibri/dataflow/dataflow.js";
-import {active, passive}     from "../server/S7-manyObs-SSE/remoteObservableClient.js";
+import {Scheduler}                                     from "../kolibri/dataflow/dataflow.js";
+import {active, passive, POISON_PILL, PREFIX_IMMORTAL} from "../server/S7-manyObs-SSE/remoteObservableMap.js";
+import {clientId}                                      from "../kolibri/version.js";
+import {LoggerFactory}                               from "../kolibri/logger/loggerFactory.js";
 
 export {
     startGame, turnShape, movePosition, // for general use outside
     checkAndHandleFullLevel                                     // only for the unit-testing
 };
 
+const log = LoggerFactory("ch.fhnw.tetris.gameController");
+
 const TETROMINO_CURRENT = "currentTetronimo";
-const PLAYER_ACTIVE     = "activePlayer";
+const PLAYER_ACTIVE     = PREFIX_IMMORTAL + "activePlayer";
+const PING              = "ping-" + clientId;
 
 /** @type { Array<BoxType> }
  * Contains all the boxes that live in our 3D space after they have been unlinked from their tetronimo
@@ -30,12 +35,26 @@ const PLAYER_ACTIVE     = "activePlayer";
  */
 const spaceBoxes = [];
 
-/** @type { IObservable<RemoteValueType<TetronimoType>> }
+/** @type { RemoteObservableType<TetronimoType | undefined> }
  * The current tetromino is the one that the player can control with the arrow keys and that falls down
  * at a given rate (1 s). When it collides, a new one gets created and becomes the current tetronimo.
  * Observable to keep the projected views separate from the controller.
  */
 let currentTetrominoObs;
+
+/** @type { RemoteObservableType<String | undefined> }
+ * Name (unique clientId) of the player that is currently in charge
+ */
+let activePlayerObs;
+
+/** @return Boolean */
+const weAreInCharge = () => activePlayerObs?.getValue()?.value === clientId;
+
+/**
+ * @impure puts us in charge and notifies all (remote) listeners.
+ * @warn assumes that {@link activePlayerObs} is available
+ */
+const takeCharge = () => activePlayerObs.setValue( /** @type { RemoteValueType<String> } */ active(clientId));
 
 /**
  * The game ends with a collision at the top.
@@ -165,6 +184,7 @@ const scheduler = Scheduler();
  * @param { () => void } done - callback when one iteration is done
  */
 const fallTask = done => {
+    if (! weAreInCharge()) { return; }
     movePosition(moveDown);// todo: only if we are in charge,
     if (isEndOfGame(currentTetrominoObs.getValue(), spaceBoxes)) {
         console.log("The End");// handle the end of the game
@@ -194,27 +214,96 @@ const handleNewCurrentTetroObsAvailable = (createdTetrominoObs, projectNewTetron
             projectNewTetronimo(currentTetro);
         }
     });
-
 };
 
+const monitorActivePlayer = (remoteObservable) => {
+    activePlayerObs = remoteObservable;                         // side effect! put the observable in module scope
+
+    activePlayerObs.onChange(({value}) => {                    // destructure remote value
+        // the value might be undefined when:
+        // - we have created the remote obs ourselves and the initial callback comes along (even after setup is finished)
+        // - there is a remote value but the setup is not yet finished
+        // In both cases, the real value will eventually come later
+        log.info(`+++ active player value: ${value} setupFinished: ${setupFinished}`);
+
+        if (! setupFinished || ! value) {
+            return;
+        }
+        // the real work comes here
+        // quick hack, don't judge me
+        const view = document.getElementById("PLAYER_ACTIVE");
+        view.textContent = weAreInCharge() ? "myself" : value ?? "unknown";
+
+        const button = document.getElementById("BUTTON_START");
+        button.disabled = ! weAreInCharge();
+
+
+    });
+};
+
+
+let observableGameMap;
+let setupFinished = false;
 /**
  * Start the game loop.
  */
 const startGame = (factory, projectNewTetronimo) => {
 
     // will only get called once a new named Observable becomes available
+    // lazily setting up the respective local observables when the obsMap notifies
+    // us about available named observables
     const onNewNamedObservable = namedObservable => {
-        console.log(namedObservable);
+        log.info(`new named observable '${namedObservable.id}'`);
         switch (namedObservable.id) {
             case TETROMINO_CURRENT:
                 handleNewCurrentTetroObsAvailable(namedObservable.observable, projectNewTetronimo);
                 break;
+            case PLAYER_ACTIVE:
+                monitorActivePlayer(namedObservable.observable);
+                break;
             default:
-                console.warn("unknown named observable", namedObservable);
+                log.warn(`unknown named observable with id:${namedObservable.id}`);
         }
 
-        scheduler.add(fallTask); // only start the falling after all has been set up
     };
-    const coordinator = factory.newMap(onNewNamedObservable);
-    coordinator.addObservableForID(TETROMINO_CURRENT);
+    observableGameMap = factory.newMap(onNewNamedObservable);
+
+    observableGameMap.ensureAllObservableIDs( _=> {
+        log.info("after initial setup");
+        setupFinished = true;
+
+        log.info("starting...");
+
+        if (!activePlayerObs) {
+            log.info(`no active player obs, creating one and putting ourselves in charge`);
+            observableGameMap.addObservableForID(PLAYER_ACTIVE);
+            takeCharge();
+        } else {
+            log.info(`active player obs was created from remote observable`);
+        }
+        document.querySelector("main").onmousedown = _ => takeCharge();
+
+        const button = document.getElementById("BUTTON_START");
+        // button.onclick = _ => fallTask( _=> {}); // make sure we have a current tetro
+        button.onclick = _ => alert("start to be implemented");
+
+    });
+
+
+    // todo: we should only add a new tetro at start
+    // - if there isn't one, yet (and we are in charge)
+    // observableGameMap.addObservableForID(TETROMINO_CURRENT);
+
+    // there is some game state that needs to be agreed upon by all clients:
+    // - the current tetronimo (id, shapeName)
+    // - the next available unique tetro id
+    // - the shape of the current tetronimo (changes with actions)
+    // - the position of the current tetronimo (changes with actions)
+    // - for each box (incl. the ones of the current tetronimo) their relative position
+    // - the list of all players (optional)
+    // - the currently active player
+
+
+
+
 };

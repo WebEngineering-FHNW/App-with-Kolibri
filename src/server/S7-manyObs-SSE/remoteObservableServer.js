@@ -15,8 +15,18 @@ import {
     UPDATE_ACTION_NAME,
     UPDATE_ACTION_PARAM,
     REMOVE_ACTION_NAME
-}                   from "./remoteObservableConstants.js";
-import {Observable} from "../../kolibri/observable.js";
+}                                             from "./remoteObservableConstants.js";
+import {Observable}                           from "../../kolibri/observable.js";
+import {addToAppenderList, setLoggingContext, setLoggingLevel} from "../../kolibri/logger/logging.js";
+import * as loglevel from "../../kolibri/logger/logLevel.js";
+import {ConsoleAppender}                                       from "../../kolibri/logger/appender/consoleAppender.js";
+import {LoggerFactory} from "../../kolibri/logger/loggerFactory.js";
+
+addToAppenderList(ConsoleAppender());
+setLoggingContext("ch.fhnw");
+setLoggingLevel(loglevel.LOG_INFO);
+
+const log = LoggerFactory("ch.fhnw.remote.remoteObservableServer");
 
 const port      = 8080;
 const hostname  = 'localhost';
@@ -46,27 +56,27 @@ let eventId = 1;
  * Handling all connection attempts, disconnection, errors and value publishing on the SSE.
  */
 const handleSSE = (req, res) => {
-    console.debug("client accepts", req.headers['accept']);   // should contain "text/event-stream"
+    log.debug(`client accepts ${req.headers['accept']}`);   // should contain "text/event-stream"
     let removeFromObservableOnNextUpdate = false;             // closure state for deferred removal
     const lastEventId = req.headers['last-event-id'];
     if (lastEventId) {                                      // we can resurrect the state of an old connection
-        console.info("got a last event id: " + lastEventId);
+        log.info("got a last event id: " + lastEventId);
         // todo: consider sending a notification to the client that he might want to re-read all data or
         // simply close and re-connect.
     } else {
         // we have a new connection - set up for what to do when the connection closes or fails.
         req.on('close', ()  => {
-            console.log("connection closed");
+            log.info("connection closed");
             removeFromObservableOnNextUpdate = true;
             res.end(); // not really needed. Just to be clean.
         });
         req.on('error', err => {
             if("aborted" === err.message) return; // socket closed => connection closed
-            console.log(err.stack);
+            log.info(err.stack);
             removeFromObservableOnNextUpdate = true;
             res.end(); // not really needed. Just to be clean.
         });
-        console.info("new SSE connection");
+        log.info("new SSE connection");
     }
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/event-stream');
@@ -134,20 +144,20 @@ const handleValueUpdate = (req, res) => {
         req.on("end",  input => {
             incomingData += input ? String(input) : "";
             const data = JSON.parse(incomingData);
-            console.debug("handling post", data);
+            log.debug(`handling post: ${data}`);
             keyValueMap[data[OBSERVABLE_ID_PARAM]] = data[UPDATE_ACTION_PARAM];                                 // store the value
             keyValueObservable.setValue( {key: data[OBSERVABLE_ID_PARAM], value: data[UPDATE_ACTION_PARAM]} );  // notify observers
             res.end(JSON.stringify("ok"));
         });
         return;
     }
-    console.error("unsupported request method", req.method);
+    log.error(`unsupported request method ${req.method}`);
     res.statusCode = 404;
     res.end(JSON.stringify("unsupported request"));
 };
 
 const server = createServer( (req, res) => {
-  console.debug(req.method, req.url);
+  log.debug(`${req.method} ${req.url}`);
   if (req.url === "/" + TOPIC_REMOTE_OBSERVABLE) {
       handleSSE(req, res);
       return;
@@ -170,4 +180,5 @@ const server = createServer( (req, res) => {
 server.listen(port, () => {
   console.log(`Server running at ${baseURL}`);
   console.log(`http://localhost:8080/server/S7-manyObs-SSE/index.html`);
+  console.log(`http://localhost:8080/tetris/index.html`);
 });

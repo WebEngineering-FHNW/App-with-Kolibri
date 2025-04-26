@@ -7,7 +7,24 @@
 }
 
 html {
-    overscroll-behavior: none;
+    overscroll-behavior:    none;
+    font-family:            system-ui;
+}
+
+header {
+    position:               fixed;
+    z-index:                10;
+    inset:                  1em 1em auto auto;
+    background-color:       #FFF2;
+    padding:                .5em 1em;
+    border-radius:          .5em;
+    color:                  aliceblue;
+    color-scheme:           dark;
+
+    display:                grid;
+    grid-template-columns:  1fr;
+    gap:                    .3em;
+    justify-items:          right;
 }
 
 body {

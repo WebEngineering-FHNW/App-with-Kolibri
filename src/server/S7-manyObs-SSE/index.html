@@ -26,9 +26,9 @@
     import "../../kolibri/util/array.js";
     import {dom, select}                    from "../../kolibri/util/dom.js";
     import {defaultConsoleLogging}                       from "../../kolibri/logger/loggingSupport.js";
-    import {TOPIC_REMOTE_OBSERVABLE}                     from "./remoteObservableConstants.js";
-    import {active, POISON_PILL, RemoteObservableClient} from "./remoteObservableClient.js";
-    import {clientId}                                    from "../../kolibri/version.js";
+    import {TOPIC_REMOTE_OBSERVABLE}                  from "./remoteObservableConstants.js";
+    import {active, POISON_PILL, RemoteObservableMap} from "./remoteObservableMap.js";
+    import {clientId}                                 from "../../kolibri/version.js";
 
     defaultConsoleLogging("ch.fhnw", LOG_INFO);
 
@@ -55,7 +55,7 @@
         document.getElementById("out").append(labelElem);
     };
 
-    const remoteObservableClient = RemoteObservableClient(window.location.origin, TOPIC_REMOTE_OBSERVABLE, projectTextInput);
+    const remoteObservableClient = RemoteObservableMap(window.location.origin, TOPIC_REMOTE_OBSERVABLE, projectTextInput);
 
     let runningId        = 0;
     const [addButton]    = select(document.body,"#add");
