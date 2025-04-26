@@ -12,12 +12,21 @@ import {Observable}    from "../../kolibri/observable.js";
 import {LoggerFactory} from "../../kolibri/logger/loggerFactory.js";
 import "../../kolibri/util/array.js";
 
-export { RemoteObservableClient, passive, active, POISON_PILL }
+// todo: think about remote observable map as a decorator of the local observable map
+// todo: refactor types in a common section that is to be shared between local and remote
 
-const log = LoggerFactory("ch.fhnw.kolibri.remote.remoteObservableClient");
+export { RemoteObservableMap, passive, active, POISON_PILL, POISON_PILL_VALUE, PREFIX_IMMORTAL }
+
+const log = LoggerFactory("ch.fhnw.kolibri.remote.remoteObservableMap");
+
+/**
+ * todo: docs
+ * @type {string}
+ */
+const PREFIX_IMMORTAL = "immortal-";
 
 /** request and response parameter that contains the key for accessing the list of all IDs of all remote observables */
-const OBSERVABLE_IDs_KEY  = "remoteObservableNames";
+const OBSERVABLE_IDs_KEY  = PREFIX_IMMORTAL  + "remoteObservableNames";
 
 /**
  * @typedef RemoteValueType
@@ -50,11 +59,12 @@ const passive = value => ( {mode: "passive", value} );
  */
 const active = value => ( {mode:"active", value} );
 
+const POISON_PILL_VALUE = "POISON_PILL_VALUE";
 /**
  * Local observers that see this value can remove themselves.
- * @type { RemoteValueType<void> }
+ * @type { RemoteValueType<String> }
  */
-const POISON_PILL = ( {mode:undefined, value: undefined} );
+const POISON_PILL = ( {mode:undefined, value: POISON_PILL_VALUE} );
 
 /**
  * @typedef { IObservable<RemoteValueType<_T_>> } RemoteObservableType
@@ -78,11 +88,8 @@ const POISON_PILL = ( {mode:undefined, value: undefined} );
  */
 
 /**
- * @typedef RemoteObservableClientType
+ * @typedef RemoteObservableMapType
  * @impure  publishes to remote
- * @property { ConsumerType<NamedRemoteObservableType> } bindRemoteObservable - register the remote observable
- *  to send any value changes to the server (if value mode is "active") and receive any value changes
- *  from the server and proliferate locally
  * @property { ConsumerType<String> }                    addObservableForID - adding a new ID will
  *  publish the newly available ID (which should be **unique**)
  *  which in turn will trigger any projections (display and binding) first locally and then remotely
@@ -92,15 +99,15 @@ const POISON_PILL = ( {mode:undefined, value: undefined} );
  */
 
 /**
- * Create the {@link RemoteObservableClientType client} that manages remote observables for a given topic such that we
+ * Create the {@link RemoteObservableMapType client} that manages remote observables for a given topic such that we
  * can add new remote observables and bind to existing ones.
  * @param { String } baseUrl   - start of a URL: protocol, server, port, base path without trailing slashes
  * @param { String } topicName - must be the same on client and server
- * @param { NewNameCallback } projectionCallback - will change DOM and binding
- * @return { RemoteObservableClientType }
+ * @param { NewNameCallback } newNameCallback - will change DOM and binding
+ * @return { RemoteObservableMapType }
  * @constructor
  */
-const RemoteObservableClient = (baseUrl, topicName, projectionCallback) => {
+const RemoteObservableMap = (baseUrl, topicName, newNameCallback) => {
 
     /**
      * world of managed named remote observables, keys are the IDs of the named observable
@@ -196,13 +203,18 @@ const RemoteObservableClient = (baseUrl, topicName, projectionCallback) => {
     };
 
     const synchronizeObservableIDs = observableIDs => {
+
+        observableIDs = [... new Set(observableIDs)]; // remove duplicates
+
+        log.debug(`sync IDs: new: '${observableIDs}', old: '${Object.getOwnPropertyNames(boundObs)}'`);
+
         // if there is a new remote observable id that we haven't bound and projected, yet, we have to do so.
         observableIDs
             .filter(  id    => boundObs[id] === undefined)
             .forEach( newID => {
                 const remoteObservable = ({ id: newID, observable: Observable(passive(undefined)) });
                 bindRemoteObservable( remoteObservable );
-                projectionCallback  ( remoteObservable );
+                newNameCallback  ( remoteObservable );
             });
 
         // if we have any bound observables that are no longer in the list of observableIDs, they should be removed.
@@ -213,7 +225,7 @@ const RemoteObservableClient = (baseUrl, topicName, projectionCallback) => {
         // - notify the server about the removal such that he can clean up his data structures
         Object.getOwnPropertyNames(boundObs)
             .filter(  boundID =>
-                          boundID !== OBSERVABLE_IDs_KEY     &&         // the only key that is always observable
+                          false   === boundID.startsWith(PREFIX_IMMORTAL)  &&  // do not remove immortal observables
                           false   === observableIDs.includes(boundID) ) // boundID is no longer observable
             .forEach( oldID   => {
                 log.debug("remove bound ID " + oldID);
@@ -238,7 +250,7 @@ const RemoteObservableClient = (baseUrl, topicName, projectionCallback) => {
         // in any case, we get notified (possibly a second time) from remote,
         // but then we already know the id and do not project a second time.
         if (undefined === value) return;
-        log.info("new list of observable names (IDs) " + value.length);
+        log.debug("new list of observable names (IDs) [" + value + "]");
         synchronizeObservableIDs(value);
     });
 
@@ -247,17 +259,17 @@ const RemoteObservableClient = (baseUrl, topicName, projectionCallback) => {
      * connection gets stale or the server is otherwise outdated, or we have to catch up after
      * a temporary silent time
      */
-    const ensureAllObservableIDs = () => {
+    const ensureAllObservableIDs = (continuationCallback) => {
         remoteObsScheduler.add( done => {
             client(baseUrl + '/' + READ_ACTION_NAME, "POST", { [OBSERVABLE_ID_PARAM]: OBSERVABLE_IDs_KEY } )
                 .then(data => {
                     const allIds = data ? data[READ_ACTION_PARAM] : undefined;
+                    log.debug(`ensure ObsIDs: ${allIds}`);
                     if (allIds) {
                         synchronizeObservableIDs(allIds);
-                    } else {
-                        log.info("no ids known, yet");
                     }
                 })
+                .then(_ => continuationCallback() )
                 .then(_ => done());
         });
     };
@@ -265,6 +277,10 @@ const RemoteObservableClient = (baseUrl, topicName, projectionCallback) => {
     /** @type { ConsumerType<String> } */
     const addObservableForID = newID => {
         const names = remoteObservableOfIDs.getValue().value ?? [] ; // value is undefined at start
+        if( names.includes(newID)) {
+            log.error(`trying to add the same id a second time ${newID}`);
+            return;
+        }
         names.push(newID);
         remoteObservableOfIDs.setValue( /** @type { RemoteValueType< Array<String> > } */ active(names) );
     };
@@ -273,7 +289,7 @@ const RemoteObservableClient = (baseUrl, topicName, projectionCallback) => {
     const removeObservableForID = oldID => {
         const names = remoteObservableOfIDs.getValue().value;
         if (undefined === names || names.length < 1) {
-            log.warn("cannot remove from an empty array");
+            log.warn(`cannot remove '${oldID}' from an empty array`);
             return;
         }
         names.removeItem(oldID);
@@ -282,7 +298,8 @@ const RemoteObservableClient = (baseUrl, topicName, projectionCallback) => {
 
     // we assume immediate start
     bindRemoteObservable( { id: OBSERVABLE_IDs_KEY, observable: remoteObservableOfIDs });
-    ensureAllObservableIDs();
+    // ensureAllObservableIDs();
 
-    return { bindRemoteObservable, addObservableForID, removeObservableForID }
+
+    return { addObservableForID, removeObservableForID, ensureAllObservableIDs }
 };

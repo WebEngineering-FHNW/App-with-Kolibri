@@ -4,8 +4,8 @@
 import {TestSuite}                        from "../kolibri/util/test.js";
 import {Tetronimo}                        from "./model.js";
 import {intersects, normalize, rotateYaw} from "./tetronimoController.js";
-import {shapeEqual}                       from "./util.js";
-import {passive}                          from "../server/S7-manyObs-SSE/remoteObservableClient.js";
+import {shapeEqual} from "./util.js";
+import {passive}    from "../server/S7-manyObs-SSE/remoteObservableMap.js";
 
 const controllerSuite = TestSuite("tetris/tetronimoControl");
 

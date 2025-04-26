@@ -1,6 +1,6 @@
 import {TestSuite}     from "../../kolibri/util/test.js";
 import {ObservableMap} from "./observableMap.js";
-import {POISON_PILL}   from "../../server/S7-manyObs-SSE/remoteObservableClient.js";
+import {POISON_PILL}   from "../../server/S7-manyObs-SSE/remoteObservableMap.js";
 
 const suite = TestSuite("observable/observableMap");
 

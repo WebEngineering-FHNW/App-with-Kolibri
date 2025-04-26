@@ -40,6 +40,9 @@ const ghostView = (() => {
  * @param { TetronimoType } tetronimo
  */
 const projectNewTetronimo = tetronimo => {
+    console.dir(tetronimo);
+    // todo: after having received a notification about a new tetro (maybe create by ourselves)
+    // ...
     const parent    = document.querySelector(`.scene3d .coords`);
     const boxDivStr = `<div class="box ${tetronimo.shapeName}"> ${ boxFaceDivs} </div>`;
     const [ tetroDiv ] = dom(`
