@@ -11,12 +11,14 @@ const log = LoggerFactory("ch.fhnw.kolibri.localObservableClient");
 /**
  * @typedef ObservableMapType
  * @impure  publishes to listeners, changes internal state
- * @property { ConsumerType<String> }                    addObservableForID - adding a new ID will
+ * @property { ConsumerType<String> }   addObservableForID - adding a new ID will
  *  publish the newly available ID (which should be **unique**)
  *  which in turn will trigger any projections (display and binding)
- * @property { ConsumerType<String> }                    removeObservableForID - publish
+ * @property { ConsumerType<String> }   removeObservableForID - publish
  * that a given id is no longer in the list of named remote observables, thus allowing all listeners to
  * clean up any local bindings and remove all other bound resources, esp. projected views.
+ * @property { ConsumerType<Function>  } ensureAllObservableIDs - will call back the
+ * provided callback function after all observable ids are properly loaded (can be async/lazy in the remote case)
  */
 
 /**
@@ -57,7 +59,7 @@ const ObservableMap = newNameCallback => {
         // - clean up the map of bound observables
         // - let the other listeners (mainly UI) know that this is a dead observable by sending the poison pill
         Object.getOwnPropertyNames(boundObservablesByName)
-            .filter(  boundID => false === observableIDs.includes(boundID) ) // boundID is no longer observable
+            .filter(  boundID => false === observableIDs.includes(boundID) ) // boundID is no longer observable // todo: check against remote version wrt prefix-immortal
             .forEach( oldID   => {
                 log.debug("remove bound ID " + oldID);
 
@@ -93,5 +95,8 @@ const ObservableMap = newNameCallback => {
         observableOfIDs.setValue( /** @type { RemoteValueType< Array<String> > } */ active(allIDs) );
     };
 
-    return { addObservableForID, removeObservableForID }
+    /** @type { ConsumerType<Function> } */
+    const  ensureAllObservableIDs = continuationCallback => continuationCallback();
+
+    return { addObservableForID, removeObservableForID, ensureAllObservableIDs }
 };

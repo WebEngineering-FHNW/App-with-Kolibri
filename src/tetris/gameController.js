@@ -229,14 +229,6 @@ const monitorActivePlayer = (remoteObservable) => {
         if (! setupFinished || ! value) {
             return;
         }
-        // the real work comes here
-        // quick hack, don't judge me
-        const view = document.getElementById("PLAYER_ACTIVE");
-        view.textContent = weAreInCharge() ? "myself" : value ?? "unknown";
-
-        const button = document.getElementById("BUTTON_START");
-        button.disabled = ! weAreInCharge();
-
 
     });
 };
@@ -244,10 +236,20 @@ const monitorActivePlayer = (remoteObservable) => {
 
 let observableGameMap;
 let setupFinished = false;
+
+/**
+ * @typedef GameControllerType
+ * @property { RemoteObservableType<String | undefined> } activePlayerObs
+ * @property { ProducerType<Boolean> } weAreInCharge
+ * @property { ProducerType<void>    } takeCharge
+ */
+
 /**
  * Start the game loop.
+ * @param { ProducerType<ObservableMapType> } observableMapCtor - constructor of an observable map (remote or local)
+ * @param { ConsumerType<GameControllerType> } afterStartCallback - what to do after start action is finished
  */
-const startGame = (factory, projectNewTetronimo) => {
+const startGame = (observableMapCtor, afterStartCallback) => {
 
     // will only get called once a new named Observable becomes available
     // lazily setting up the respective local observables when the obsMap notifies
@@ -266,26 +268,31 @@ const startGame = (factory, projectNewTetronimo) => {
         }
 
     };
-    observableGameMap = factory.newMap(onNewNamedObservable);
+
+    observableGameMap = observableMapCtor(onNewNamedObservable);
+
 
     observableGameMap.ensureAllObservableIDs( _=> {
-        log.info("after initial setup");
         setupFinished = true;
 
         log.info("starting...");
 
+        /** @return { GameControllerType } */
+        const gameController = () => ({ // we need to bind late
+            activePlayerObs,
+            weAreInCharge,
+            takeCharge,
+        });
+
         if (!activePlayerObs) {
-            log.info(`no active player obs, creating one and putting ourselves in charge`);
+            log.debug(`no active player obs, creating one and putting ourselves in charge`);
             observableGameMap.addObservableForID(PLAYER_ACTIVE);
             takeCharge();
         } else {
-            log.info(`active player obs was created from remote observable`);
+            log.debug(`active player obs was created from remote observable`);
         }
-        document.querySelector("main").onmousedown = _ => takeCharge();
+        afterStartCallback( gameController() );
 
-        const button = document.getElementById("BUTTON_START");
-        // button.onclick = _ => fallTask( _=> {}); // make sure we have a current tetro
-        button.onclick = _ => alert("start to be implemented");
 
     });
 
@@ -302,8 +309,6 @@ const startGame = (factory, projectNewTetronimo) => {
     // - for each box (incl. the ones of the current tetronimo) their relative position
     // - the list of all players (optional)
     // - the currently active player
-
-
 
 
 };

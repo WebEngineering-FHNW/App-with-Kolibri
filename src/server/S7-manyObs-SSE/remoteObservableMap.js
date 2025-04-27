@@ -15,7 +15,7 @@ import "../../kolibri/util/array.js";
 // todo: think about remote observable map as a decorator of the local observable map
 // todo: refactor types in a common section that is to be shared between local and remote
 
-export { RemoteObservableMap, passive, active, POISON_PILL, POISON_PILL_VALUE, PREFIX_IMMORTAL }
+export { RemoteObservableMapCtor, passive, active, POISON_PILL, POISON_PILL_VALUE, PREFIX_IMMORTAL }
 
 const log = LoggerFactory("ch.fhnw.kolibri.remote.remoteObservableMap");
 
@@ -88,26 +88,13 @@ const POISON_PILL = ( {mode:undefined, value: POISON_PILL_VALUE} );
  */
 
 /**
- * @typedef RemoteObservableMapType
- * @impure  publishes to remote
- * @property { ConsumerType<String> }                    addObservableForID - adding a new ID will
- *  publish the newly available ID (which should be **unique**)
- *  which in turn will trigger any projections (display and binding) first locally and then remotely
- * @property { ConsumerType<String> }                    removeObservableForID - publish first locally and then remotely
- * that a given id is no longer in the list of named remote observables, thus allowing all listeners to
- * clean up any local bindings and remove all other bound resources, esp. projected views.
- */
-
-/**
- * Create the {@link RemoteObservableMapType client} that manages remote observables for a given topic such that we
- * can add new remote observables and bind to existing ones.
+ * Creates a constructor for a remotely backed {@link ObservableMapType }
  * @param { String } baseUrl   - start of a URL: protocol, server, port, base path without trailing slashes
  * @param { String } topicName - must be the same on client and server
- * @param { NewNameCallback } newNameCallback - will change DOM and binding
- * @return { RemoteObservableMapType }
+ * @return { ProducerType<ObservableMapType> }
  * @constructor
  */
-const RemoteObservableMap = (baseUrl, topicName, newNameCallback) => {
+const RemoteObservableMapCtor = (baseUrl, topicName) => newNameCallback => {
 
     /**
      * world of managed named remote observables, keys are the IDs of the named observable

@@ -16,21 +16,18 @@ export {projectNewTetronimo, registerKeyListener }
  */
 const boxFaceDivs = 6..times( _=> "<div class='face'></div>").join("");
 
-/** @private adding a tetronimo to the DOM that mirrors the position of the current tetronimo but stays at z=0.
- * @impure adds to the DOM
- * @type {HTMLDivElement} the element that visualizes the ghost tetronimo
+/** @private creating a tetronimo that mirrors the position of the current tetronimo but stays at z=0.
+ * @ipure
+ * @return {HTMLCollection} the elements that visualize the ghost tetronimo
  */
-const ghostView = (() => {
-    const parent    = document.querySelector(`.scene3d .coords`);
+const ghostView = () => {
     const boxDivStr = `<div class="box ghost"> ${ boxFaceDivs } </div>`;
-    const [ ghostDiv ] = dom(`
+    return dom(`
             <div class="tetromino" >
                 ${ 4..times(_=> boxDivStr) } 
             </div>
         `);
-    parent.append(ghostDiv);
-    return ghostDiv;
-})();
+};
 
 /**
  * Visualize the tetronimo as divs in the DOM with boxes as DIVs.
@@ -52,7 +49,11 @@ const projectNewTetronimo = tetronimo => {
         `);
     // data binding
     const boxDivs   = [...tetroDiv.children]; // make shallow copy to keep the index positions
-    const ghostDivs = ghostView.children;
+
+    // todo: add ghost view here
+
+    // const ghostDivs = ghostView.children; // old
+
     tetronimo.boxes.forEach( (box, idx) => {
         box.onChange( (pos, _oldPos, selfRemove) => {
                 if(pos.z < 0) {             // for the view, this is the signal to remove the box div
@@ -74,9 +75,15 @@ const projectNewTetronimo = tetronimo => {
  * Key binding for the game (view binding).
  * @collaborators document, game controller, and tetronimo controller
  * @impure prevents the key default behavior, will indirectly change the game state and the visualization
+ * @param { GameControllerType } gameController
  */
-const registerKeyListener = () => {
-    document.onkeydown = keyEvt => {
+const registerKeyListener = (gameController) => {
+    document.onkeydown = keyEvt => {    // note: must be on document since not all elements listen for keydown
+        if(keyEvt.ctrlKey || keyEvt.metaKey) { return; }  // allow ctrl-alt-c and other dev tool keys
+        if(! gameController.weAreInCharge()) {
+            gameController.takeCharge();
+            return; // todo: think about whether we want keystrokes only to be applied after we have become in charge
+        }
         keyEvt.preventDefault();
         if (keyEvt.shiftKey) {
             switch (keyEvt.key) {
