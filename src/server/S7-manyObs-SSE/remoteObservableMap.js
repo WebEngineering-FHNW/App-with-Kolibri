@@ -74,7 +74,7 @@ const POISON_PILL = ( {mode:undefined, value: POISON_PILL_VALUE} );
 
 /**
  * @typedef { ConsumerType<NamedRemoteObservableType<_T_>> } NewNameCallback
- * Will be called whenever a new named remote observable becomes available.
+ * Will be called whenever a new, named remote observable becomes available.
  * @template _T_
  * @impure will change DOM and bindings
  * @callback
@@ -88,10 +88,11 @@ const POISON_PILL = ( {mode:undefined, value: POISON_PILL_VALUE} );
  */
 
 /**
- * Creates a constructor for a remotely backed {@link ObservableMapType }
+ * Creates a constructor for a remotely backed {@link ObservableMapCtorType } by
+ * "injecting" the base URL and the topic name through means of partial application.
  * @param { String } baseUrl   - start of a URL: protocol, server, port, base path without trailing slashes
  * @param { String } topicName - must be the same on client and server
- * @return { ProducerType<ObservableMapType> }
+ * @return { ObservableMapCtorType }
  * @constructor
  */
 const RemoteObservableMapCtor = (baseUrl, topicName) => newNameCallback => {
@@ -283,10 +284,8 @@ const RemoteObservableMapCtor = (baseUrl, topicName) => newNameCallback => {
         remoteObservableOfIDs.setValue( /** @type { RemoteValueType< Array<String> > } */ active(names) );
     };
 
-    // we assume immediate start
+    // we assume an immediate start
     bindRemoteObservable( { id: OBSERVABLE_IDs_KEY, observable: remoteObservableOfIDs });
-    // ensureAllObservableIDs();
-
 
     return { addObservableForID, removeObservableForID, ensureAllObservableIDs }
 };

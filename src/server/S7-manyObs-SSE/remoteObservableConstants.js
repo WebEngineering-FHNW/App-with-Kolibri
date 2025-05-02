@@ -5,7 +5,7 @@
 
 /**
  * Url path entry for registering the SSE channel that provides the service of remote observables.
- * We currently use only one topic since the amount of parallel SSE channels from the same
+ * We currently use only one topic since the number of parallel SSE channels from the same
  * client is limited (6 with http/1, 100 with http/2).
  */
 export const TOPIC_REMOTE_OBSERVABLE = "remoteObservable";

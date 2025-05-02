@@ -2,13 +2,16 @@
  * @module tetris/tetronimoProjector
  * Visualization plus view and data binding for tetronimo objects.
  */
-import {dom}
-                                 from "../kolibri/util/dom.js";
+import "../kolibri/util/array.js";
+import {dom} from "../kolibri/util/dom.js";
 import {moveBack, moveDown, moveForw, moveLeft, moveRight, rotateYaw, topplePitch, toppleRoll}
                                  from "./tetronimoController.js";
 import {movePosition, turnShape} from "./gameController.js";
+import {LoggerFactory}           from "../kolibri/logger/loggerFactory.js";
 
-export {projectNewTetronimo, registerKeyListener }
+export {projectNewTetronimo, registerKeyListener };
+
+const log = LoggerFactory("ch.fhnw.kolibri.tetris.tetronimoProjector");
 
 /** @private html representation of the 6 faces that make up a box
  * @type { String }
@@ -33,14 +36,14 @@ const ghostView = () => {
  * Visualize the tetronimo as divs in the DOM with boxes as DIVs.
  * Binds the box coordinates to CSS custom properties for visual positioning (data binding).
  * Removes boxes that fall below the floor.
- * @impure changes the DOM now and in the future when the tetronimo boxes change
+ * @pure
  * @param { TetronimoType } tetronimo
+ * @returns { Array<HTMLElement> } the bound tetronimo view
  */
 const projectNewTetronimo = tetronimo => {
-    console.dir(tetronimo);
+    log.debug(JSON.stringify(tetronimo));
     // todo: after having received a notification about a new tetro (maybe create by ourselves)
     // ...
-    const parent    = document.querySelector(`.scene3d .coords`);
     const boxDivStr = `<div class="box ${tetronimo.shapeName}"> ${ boxFaceDivs} </div>`;
     const [ tetroDiv ] = dom(`
             <div class="tetromino" data-id="${tetronimo.id}" >
@@ -49,7 +52,7 @@ const projectNewTetronimo = tetronimo => {
         `);
     // data binding
     const boxDivs   = [...tetroDiv.children]; // make shallow copy to keep the index positions
-
+    // console.log("boxDivs", boxDivs);
     // todo: add ghost view here
 
     // const ghostDivs = ghostView.children; // old
@@ -65,11 +68,12 @@ const projectNewTetronimo = tetronimo => {
                     return;
                 }
                 boxDivs[idx]  .setAttribute("style",   `--x: ${pos.x};--y: ${pos.y};--z: ${pos.z};`);
-                ghostDivs[idx].setAttribute("style",   `--x: ${pos.x};--y: ${pos.y};--z: 0;`);
+                // ghostDivs[idx].setAttribute("style",   `--x: ${pos.x};--y: ${pos.y};--z: 0;`);
         });
     });
-    parent.append(tetroDiv);
+    return [ /** @type { HTMLElement } */ tetroDiv ];
 };
+
 
 /**
  * Key binding for the game (view binding).
@@ -82,7 +86,7 @@ const registerKeyListener = (gameController) => {
         if(keyEvt.ctrlKey || keyEvt.metaKey) { return; }  // allow ctrl-alt-c and other dev tool keys
         if(! gameController.weAreInCharge()) {
             gameController.takeCharge();
-            return; // todo: think about whether we want keystrokes only to be applied after we have become in charge
+            return; // we want keystrokes only to be applied after we have become in charge
         }
         keyEvt.preventDefault();
         if (keyEvt.shiftKey) {

@@ -22,10 +22,15 @@ const log = LoggerFactory("ch.fhnw.kolibri.localObservableClient");
  */
 
 /**
+ * @typedef ObservableMapCtorType
  * Create the {@link ObservableMapType map} that allows to add and remove observables by name (id).
  * @param { NewNameCallback } newNameCallback - will change DOM and binding
  * @return { ObservableMapType }
  * @constructor
+ */
+
+/**
+ * @type { ObservableMapCtorType }
  */
 const ObservableMap = newNameCallback => {
 
