@@ -12,22 +12,23 @@
 
 import {disallowed, intersects, moveDown, normalize} from "./tetronimoController.js";
 import {makeRandomTetromino, Tetronimo}              from "./model.js";
-import {Walk}       from "../kolibri/sequence/constructors/range/range.js";
-import {Scheduler}                                     from "../kolibri/dataflow/dataflow.js";
-import {active, passive, POISON_PILL, PREFIX_IMMORTAL} from "../server/S7-manyObs-SSE/remoteObservableMap.js";
-import {clientId}                                      from "../kolibri/version.js";
+import {Walk}                                        from "../kolibri/sequence/constructors/range/range.js";
+import {Scheduler}                                   from "../kolibri/dataflow/dataflow.js";
+import {active, passive, PREFIX_IMMORTAL}            from "../server/S7-manyObs-SSE/remoteObservableMap.js";
+import {clientId}                                    from "../kolibri/version.js";
 import {LoggerFactory}                               from "../kolibri/logger/loggerFactory.js";
+import {projectNewTetronimo}                         from "./tetronimoProjector.js";
+import {select}                                      from "../kolibri/util/dom.js";
 
 export {
     startGame, turnShape, movePosition, // for general use outside
-    checkAndHandleFullLevel                                     // only for the unit-testing
+    checkAndHandleFullLevel             // exported only for the unit-testing
 };
 
 const log = LoggerFactory("ch.fhnw.tetris.gameController");
 
 const TETROMINO_CURRENT = "currentTetronimo";
 const PLAYER_ACTIVE     = PREFIX_IMMORTAL + "activePlayer";
-const PING              = "ping-" + clientId;
 
 /** @type { Array<BoxType> }
  * Contains all the boxes that live in our 3D space after they have been unlinked from their tetronimo
@@ -47,12 +48,13 @@ let currentTetrominoObs;
  */
 let activePlayerObs;
 
-/** @return Boolean */
+/** @type { () => Boolean } */
 const weAreInCharge = () => activePlayerObs?.getValue()?.value === clientId;
 
 /**
  * @impure puts us in charge and notifies all (remote) listeners.
  * @warn assumes that {@link activePlayerObs} is available
+ * @type { () => void }
  */
 const takeCharge = () => activePlayerObs.setValue( /** @type { RemoteValueType<String> } */ active(clientId));
 
@@ -185,9 +187,9 @@ const scheduler = Scheduler();
  */
 const fallTask = done => {
     if (! weAreInCharge()) { return; }
-    movePosition(moveDown);// todo: only if we are in charge,
+    movePosition(moveDown);
     if (isEndOfGame(currentTetrominoObs.getValue(), spaceBoxes)) {
-        console.log("The End");// handle the end of the game
+        log.info("The End");// handle the end of the game
         return;
     }
     // re-schedule fall Task
@@ -198,61 +200,53 @@ const fallTask = done => {
 /**
  * @impure sets the currentTetrominoObs
  */
-const handleNewCurrentTetroObsAvailable = (createdTetrominoObs, projectNewTetronimo) => {
+const handleNewCurrentTetroObsAvailable = (createdTetrominoObs) => {
     currentTetrominoObs = createdTetrominoObs;                      // side effect! put the observable in module scope
-    currentTetrominoObs.onChange(remoteCurrentTetroValue => {
-        // at this point it cannot be the poison pill since the current tetro obs itself is never removed -
-        // even though its value can be undefined, which means a new one has to be created
-        console.log(remoteCurrentTetroValue);
-        const currentTetro = remoteCurrentTetroValue?.value;        // unpack the remote mode/value
-        if (!currentTetro) { // current tetro is undefined
-            // todo: only if we are in charge, active (?)
-            currentTetrominoObs.setValue(/** @type { RemoteValueType<TetronimoType> } */ active(makeRandomTetromino()));
-            // since we set our own value, we will call ourselves again and land in the else branch
-            // while we make sure that other (remote) listeners are also notified
-        } else {
-            projectNewTetronimo(currentTetro);
-        }
-    });
 };
 
 const monitorActivePlayer = (remoteObservable) => {
     activePlayerObs = remoteObservable;                         // side effect! put the observable in module scope
-
-    activePlayerObs.onChange(({value}) => {                    // destructure remote value
-        // the value might be undefined when:
-        // - we have created the remote obs ourselves and the initial callback comes along (even after setup is finished)
-        // - there is a remote value but the setup is not yet finished
-        // In both cases, the real value will eventually come later
-        log.info(`+++ active player value: ${value} setupFinished: ${setupFinished}`);
-
-        if (! setupFinished || ! value) {
-            return;
-        }
-
-    });
 };
 
+/** @type { () => void } */
+const restart = () => {
+    // todo: do not allow starting a second time, resp. reset the game
+    scheduler.add( fallTask ); // start the game loop
+};
 
+/** lazy initialization of the observable map */
 let observableGameMap;
 let setupFinished = false;
 
 /**
  * @typedef GameControllerType
- * @property { RemoteObservableType<String | undefined> } activePlayerObs
- * @property { ProducerType<Boolean> } weAreInCharge
- * @property { ProducerType<void>    } takeCharge
+ * @property { RemoteObservableType<String>    } activePlayerObs
+ * @property { RemoteObservableType<Tetronimo> } currentTetrominoObs
+ * @property { () => Boolean } weAreInCharge
+ * @property { () => void    } takeCharge
+ * @property { () => void    } restart
  */
 
 /**
+ * @type { () => GameControllerType }
+ */
+const newGameController = () => ( { // we need to bind late such that the obs references are set
+    activePlayerObs,
+    currentTetrominoObs,
+    weAreInCharge,
+    takeCharge,
+    restart,
+});
+
+/**
  * Start the game loop.
- * @param { ProducerType<ObservableMapType> } observableMapCtor - constructor of an observable map (remote or local)
- * @param { ConsumerType<GameControllerType> } afterStartCallback - what to do after start action is finished
+ * @param { ObservableMapCtorType        } observableMapCtor  - constructor of an observable map (remote or local)
+ * @param { (GameControllerType) => void } afterStartCallback - what to do after start action is finished
  */
 const startGame = (observableMapCtor, afterStartCallback) => {
 
-    // will only get called once a new named Observable becomes available
-    // lazily setting up the respective local observables when the obsMap notifies
+    // will only get called once a new, named Observable becomes available.
+    // Lazily setting up the respective local observables when the obsMap notifies
     // us about available named observables
     const onNewNamedObservable = namedObservable => {
         log.info(`new named observable '${namedObservable.id}'`);
@@ -271,18 +265,8 @@ const startGame = (observableMapCtor, afterStartCallback) => {
 
     observableGameMap = observableMapCtor(onNewNamedObservable);
 
-
     observableGameMap.ensureAllObservableIDs( _=> {
         setupFinished = true;
-
-        log.info("starting...");
-
-        /** @return { GameControllerType } */
-        const gameController = () => ({ // we need to bind late
-            activePlayerObs,
-            weAreInCharge,
-            takeCharge,
-        });
 
         if (!activePlayerObs) {
             log.debug(`no active player obs, creating one and putting ourselves in charge`);
@@ -291,8 +275,14 @@ const startGame = (observableMapCtor, afterStartCallback) => {
         } else {
             log.debug(`active player obs was created from remote observable`);
         }
-        afterStartCallback( gameController() );
 
+        if (!currentTetrominoObs && weAreInCharge()) {
+            log.debug(`no current tetronimo obs, creating one`);
+            observableGameMap.addObservableForID(TETROMINO_CURRENT);
+        } else {
+            log.debug(`current tetronimo was created or will be created from remote observable`);
+        }
+        afterStartCallback( newGameController() );
 
     });
 

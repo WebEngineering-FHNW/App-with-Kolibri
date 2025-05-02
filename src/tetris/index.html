@@ -2,18 +2,19 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>3D Tetris</title>
+    <title>Collaborative 3D Tetris</title>
     <link href="tetris.css" rel="stylesheet"/>
 </head>
 <body>
 
 <script type="module">
 
-    import {TOPIC_REMOTE_OBSERVABLE}  from "../server/S7-manyObs-SSE/remoteObservableConstants.js";
-    import {startGame}                from "./gameController.js";
-    import {defaultConsoleLogging}    from "../kolibri/logger/loggingSupport.js";
+    import {TOPIC_REMOTE_OBSERVABLE} from "../server/S7-manyObs-SSE/remoteObservableConstants.js";
+    import {startGame}               from "./gameController.js";
+    import {defaultConsoleLogging}   from "../kolibri/logger/loggingSupport.js";
     import {RemoteObservableMapCtor} from "../server/S7-manyObs-SSE/remoteObservableMap.js";
     import {projectGame}             from "./gameProjector.js";
+    import {projectNewTetronimo}     from "./tetronimoProjector.js";
 
     defaultConsoleLogging("ch.fhnw", LOG_DEBUG);
 
