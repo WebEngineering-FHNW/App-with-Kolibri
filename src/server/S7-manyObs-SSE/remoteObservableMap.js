@@ -57,7 +57,9 @@ const passive = value => ( {mode: "passive", value} );
  * @template _T_
  * @type { (value:_T_) => RemoteValueType<_T_> }
  */
-const active = value => ( {mode:"active", value} );
+const active = value => ( {mode:"active", value} ); // todo: the remote value type screams for becoming an attribute type
+                                                    // active/passive is a property of the value
+                                                    // as a named observable they have an ID that we can use as a qualifier for stable binding
 
 const POISON_PILL_VALUE = "POISON_PILL_VALUE";
 /**

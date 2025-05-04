@@ -25,6 +25,7 @@ const projectControlPanel = gameController => {
 
     // data binding
     gameController.activePlayerObs.onChange(({value}) => {
+        value = value?.playerId;
         activePlayerDiv.textContent = gameController.weAreInCharge() ? "myself" : value ?? "unknown";
     });
     gameController.activePlayerObs.onChange(_remoteValue => {

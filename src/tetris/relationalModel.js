@@ -56,13 +56,13 @@
 
 /**
  * @typedef PlayerModelType
- * @property { IdPropertyType } id - the id of the player
- * @property { String }         name
+ * @property { IdPropertyType } id   - the id of the player, considered to be unique and stable, e.g. "PLAYER-4711"
+ * @property { String }         name - might change with user input as the player updates his name
  */
 
 /**
  * @typedef ActivePlayerModelType
- * @property { IdPropertyType } id - constant value "currentPlayer" (must be unique per game)
+ * @property { IdPropertyType } id       - constant value "PLAYER_ACTIVE" (must be unique per game)
  * @property { IdPropertyType } playerId - the id of the player that is considered the "active" one
  */
 

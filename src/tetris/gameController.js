@@ -19,6 +19,7 @@ import {clientId}                                    from "../kolibri/version.js
 import {LoggerFactory}                               from "../kolibri/logger/loggerFactory.js";
 import {projectNewTetronimo}                         from "./tetronimoProjector.js";
 import {select}                                      from "../kolibri/util/dom.js";
+import {ObservableList}                              from "../kolibri/observable.js";
 
 export {
     startGame, turnShape, movePosition, // for general use outside
@@ -28,7 +29,8 @@ export {
 const log = LoggerFactory("ch.fhnw.tetris.gameController");
 
 const TETROMINO_CURRENT = "currentTetronimo";
-const PLAYER_ACTIVE     = PREFIX_IMMORTAL + "activePlayer";
+const PLAYER_ACTIVE     = PREFIX_IMMORTAL + "PLAYER_ACTIVE"; // will never be removed once created
+const PLAYER_PREFIX     = "PLAYER-";
 
 /** @type { Array<BoxType> }
  * Contains all the boxes that live in our 3D space after they have been unlinked from their tetronimo
@@ -43,20 +45,28 @@ const spaceBoxes = [];
  */
 let currentTetrominoObs;
 
-/** @type { RemoteObservableType<String | undefined> }
- * Name (unique clientId) of the player that is currently in charge
+const SELF_PLAYER_ID = PLAYER_PREFIX + clientId;
+
+/**
+ * @type { RemoteObservableType<PlayerModelType | undefined> }
+ * The Player record that represents ourselves in the game.
+ */
+let selfPlayerObs;
+
+/** @type { RemoteObservableType<ActivePlayerModelType | undefined> }
+ * foreign key (playerId) to the id of the player that is currently in charge of the game.
  */
 let activePlayerObs;
 
 /** @type { () => Boolean } */
-const weAreInCharge = () => activePlayerObs?.getValue()?.value === clientId;
+const weAreInCharge = () => activePlayerObs?.getValue()?.value.playerId === SELF_PLAYER_ID;
 
 /**
  * @impure puts us in charge and notifies all (remote) listeners.
  * @warn assumes that {@link activePlayerObs} is available
  * @type { () => void }
  */
-const takeCharge = () => activePlayerObs.setValue( /** @type { RemoteValueType<String> } */ active(clientId));
+const takeCharge = () => activePlayerObs.setValue( /** @type { RemoteValueType<ActivePlayerModelType> } */ active({id:PLAYER_ACTIVE , playerId:SELF_PLAYER_ID}) );
 
 /**
  * The game ends with a collision at the top.
@@ -204,7 +214,7 @@ const handleNewCurrentTetroObsAvailable = (createdTetrominoObs) => {
     currentTetrominoObs = createdTetrominoObs;                      // side effect! put the observable in module scope
 };
 
-const monitorActivePlayer = (remoteObservable) => {
+const monitorActivePlayer = remoteObservable => {
     activePlayerObs = remoteObservable;                         // side effect! put the observable in module scope
 };
 
@@ -231,12 +241,28 @@ let setupFinished = false;
  * @type { () => GameControllerType }
  */
 const newGameController = () => ( { // we need to bind late such that the obs references are set
+    selfPlayerObs,
     activePlayerObs,
     currentTetrominoObs,
     weAreInCharge,
     takeCharge,
     restart,
 });
+
+/**
+ * @impure updates the selfPlayerObs
+ */
+const handleNewPlayer = namedObservable => {
+    // handle that a new player has joined
+    if (namedObservable.id === SELF_PLAYER_ID) {
+        // it is us
+        selfPlayerObs = namedObservable.observable;
+        return;
+    }
+    // it is someone else
+    log.info(`new player ${namedObservable.id}`); // to keep track of those, we would need an observable list of named observables
+};
+
 
 /**
  * Start the game loop.
@@ -250,6 +276,10 @@ const startGame = (observableMapCtor, afterStartCallback) => {
     // us about available named observables
     const onNewNamedObservable = namedObservable => {
         log.info(`new named observable '${namedObservable.id}'`);
+        if (namedObservable.id.startsWith(PLAYER_PREFIX)) {
+            handleNewPlayer(namedObservable);
+            return;
+        }
         switch (namedObservable.id) {
             case TETROMINO_CURRENT:
                 handleNewCurrentTetroObsAvailable(namedObservable.observable, projectNewTetronimo);
@@ -268,15 +298,22 @@ const startGame = (observableMapCtor, afterStartCallback) => {
     observableGameMap.ensureAllObservableIDs( _=> {
         setupFinished = true;
 
-        if (!activePlayerObs) {
+        if (selfPlayerObs) {
+            log.debug(`self player obs was created from remote observable`);
+        } else {
+            log.debug(`as expected, we are not yet represented as a player`);
+            observableGameMap.addObservableForID(PLAYER_PREFIX + clientId);
+        }
+
+        if (activePlayerObs) {
+            log.debug(`active player obs was created from remote observable`);
+        } else {
             log.debug(`no active player obs, creating one and putting ourselves in charge`);
             observableGameMap.addObservableForID(PLAYER_ACTIVE);
             takeCharge();
-        } else {
-            log.debug(`active player obs was created from remote observable`);
         }
 
-        if (!currentTetrominoObs && weAreInCharge()) {
+        if (!currentTetrominoObs) {
             log.debug(`no current tetronimo obs, creating one`);
             observableGameMap.addObservableForID(TETROMINO_CURRENT);
         } else {
