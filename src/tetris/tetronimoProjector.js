@@ -23,7 +23,7 @@ const boxFaceDivs = 6..times( _=> "<div class='face'></div>").join("");
  * @ipure
  * @return {HTMLCollection} the elements that visualize the ghost tetronimo
  */
-const ghostView = () => {
+const ghostView = () => { // might need to go to the game projector and be bound there (there should be one per game)
     const boxDivStr = `<div class="box ghost"> ${ boxFaceDivs } </div>`;
     return dom(`
             <div class="tetromino" >
@@ -42,7 +42,7 @@ const ghostView = () => {
  */
 const projectNewTetronimo = tetronimo => {
     log.debug(JSON.stringify(tetronimo));
-    // todo: after having received a notification about a new tetro (maybe create by ourselves)
+    // todo: after having received a notification about a new tetro (maybe created by ourselves)
     // ...
     const boxDivStr = `<div class="box ${tetronimo.shapeName}"> ${ boxFaceDivs} </div>`;
     const [ tetroDiv ] = dom(`
