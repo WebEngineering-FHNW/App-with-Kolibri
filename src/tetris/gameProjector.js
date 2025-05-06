@@ -19,17 +19,35 @@ const projectControlPanel = gameController => {
     <header>
         <div class="player">no player</div>
         <button>Start/Restart</button>
+        <div class="playerList">
+            <ul></ul>
+        </div>
     </header>`);
     const [activePlayerDiv] = select(view[0], "div.player");
     const [startButton]     = select(view[0], "button");
+    const [playerList]      = select(view[0], "div.playerList > ul");
 
     // data binding
-    gameController.activePlayerObs.onChange(({value}) => {
+    gameController.activePlayerObs.onChange( ({value}) => {
         value = value?.playerId;
         activePlayerDiv.textContent = gameController.weAreInCharge() ? "myself" : value ?? "unknown";
     });
-    gameController.activePlayerObs.onChange(_remoteValue => {
+    gameController.activePlayerObs.onChange( _remoteValue => {
         startButton.disabled = !gameController.weAreInCharge();
+    });
+
+    // this could go into a nested li-projector
+    gameController.playerListObs.onAdd( ({id, observable}) => { // named remote value
+        const [liView] = dom(`<li data-id="${id}"></li>`);
+        observable.onChange( ({value}) => { liView.textContent = value; });
+        playerList.append(liView);
+    });
+    gameController.playerListObs.onDel( ({id}) => { // named remote value
+        const liViews = view.querySelectorAll(`li[data-id="${id}"]`); // there should be exactly one but better be safe
+        for (const liView of liViews) {
+            liView.remove();
+            log.info(`removed view for player ${id}`);
+        }
     });
 
     // view Binding
