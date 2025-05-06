@@ -13,9 +13,15 @@
 import {disallowed, intersects, moveDown, normalize} from "./tetronimoController.js";
 import {makeRandomTetromino, Tetronimo}              from "./model.js";
 import {Walk}                                        from "../kolibri/sequence/constructors/range/range.js";
-import {Scheduler}                                   from "../kolibri/dataflow/dataflow.js";
-import {active, passive, PREFIX_IMMORTAL}            from "../server/S7-manyObs-SSE/remoteObservableMap.js";
-import {clientId}                                    from "../kolibri/version.js";
+import {Scheduler}                                     from "../kolibri/dataflow/dataflow.js";
+import {
+    active,
+    passive,
+    POISON_PILL,
+    POISON_PILL_VALUE,
+    PREFIX_IMMORTAL
+} from "../server/S7-manyObs-SSE/remoteObservableMap.js";
+import {clientId}                                      from "../kolibri/version.js";
 import {LoggerFactory}                               from "../kolibri/logger/loggerFactory.js";
 import {projectNewTetronimo}                         from "./tetronimoProjector.js";
 import {select}                                      from "../kolibri/util/dom.js";
@@ -57,6 +63,16 @@ let selfPlayerObs;
  * foreign key (playerId) to the id of the player that is currently in charge of the game.
  */
 let activePlayerObs;
+
+/** This is a local observable list to model the list of known players.
+ *  Each entry is a remotely observable player name, such that we can change
+ *  the name in place.
+ * @type {IObservableList<NamedRemoteObservableType<PlayerModelType>>}
+ */
+const playerListObs = ObservableList([]);
+// todo: this will need a bit of a different handling as a newly joining player needs the list^
+// of all current players, meaning the we need an immortal remote observable of known player IDs
+
 
 /**
  * Whether we are in charge of moving the current tetronimo.
@@ -235,8 +251,9 @@ let setupFinished = false;
 
 /**
  * @typedef GameControllerType
- * @property { RemoteObservableType<String>    } activePlayerObs
- * @property { RemoteObservableType<Tetronimo> } currentTetrominoObs
+ * @property { RemoteObservableType<String>    }                             activePlayerObs
+ * @property { RemoteObservableType<Tetronimo> }                             currentTetrominoObs
+ * @property { IObservableList<NamedRemoteObservableType<PlayerModelType>> } playerListObs
  * @property { () => Boolean } weAreInCharge
  * @property { () => void    } takeCharge
  * @property { () => void    } restart
@@ -248,6 +265,7 @@ let setupFinished = false;
 const newGameController = () => ( { // we need to bind late such that the obs references are set
     selfPlayerObs,
     activePlayerObs,
+    playerListObs,
     currentTetrominoObs,
     weAreInCharge,
     takeCharge,
@@ -255,7 +273,7 @@ const newGameController = () => ( { // we need to bind late such that the obs re
 });
 
 /**
- * @impure updates the selfPlayerObs
+ * @impure updates the selfPlayerObs and the playerListObs
  */
 const handleNewPlayer = namedObservable => {
     // handle that a new player has joined
@@ -265,7 +283,13 @@ const handleNewPlayer = namedObservable => {
         return;
     }
     // it is someone else
-    log.info(`new player ${namedObservable.id}`); // to keep track of those, we would need an observable list of named observables
+    log.info(`new player ${namedObservable.id}`); // to keep track of those, we need an observable list of named observables
+    playerListObs.add(namedObservable);
+    namedObservable.observable.onChange( remoteValue => { // centralized handling of removing players
+        if (POISON_PILL === remoteValue) {
+            playerListObs.del(namedObservable);
+        }
+    });
 };
 
 
