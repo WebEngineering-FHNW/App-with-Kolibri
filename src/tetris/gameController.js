@@ -58,8 +58,13 @@ let selfPlayerObs;
  */
 let activePlayerObs;
 
-/** @type { () => Boolean } */
-const weAreInCharge = () => activePlayerObs?.getValue()?.value.playerId === SELF_PLAYER_ID;
+/**
+ * Whether we are in charge of moving the current tetronimo.
+ * @type { () => Boolean }
+ * NB: when joining as a new player, the value might not yet be present,
+ * but we are, of course, not in charge in that situation.
+ */
+const weAreInCharge = () => activePlayerObs?.getValue()?.value?.playerId === SELF_PLAYER_ID;
 
 /**
  * @impure puts us in charge and notifies all (remote) listeners.
