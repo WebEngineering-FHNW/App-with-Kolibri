@@ -157,8 +157,7 @@ footer {
 .charF      .face {background-color: white;}
 .branch     .face {background-color: magenta;}
 .screwRight .face {background-color: yellow;}
-.screwLeft  .face {background-color: lime;
-}
+.screwLeft  .face {background-color: lime;}
 
 .ghost .face  {
     background-color: transparent;

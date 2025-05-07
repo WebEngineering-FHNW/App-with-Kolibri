@@ -1,8 +1,7 @@
 import {dom, select}                              from "../kolibri/util/dom.js";
 import {registerForMouseAndTouch}                 from "./scene3D/scene.js";
-import {projectNewTetronimo, registerKeyListener} from "./tetrominoProjector.js";
+import {registerKeyListener}                      from "./tetrominoProjector.js";
 import {active, POISON_PILL, POISON_PILL_VALUE}   from "../server/S7-manyObs-SSE/remoteObservableMap.js";
-import {makeRandomTetromino}                      from "./model.js";
 import {LoggerFactory}                            from "../kolibri/logger/loggerFactory.js";
 import {PLAYER_SELF_ID}                           from "./gameController.js";
 
@@ -63,17 +62,23 @@ const projectControlPanel = gameController => {
     gameController.playerListObs.onAdd( ({id, observable}) => { // named remote value
         const [liView] = dom(`<li data-id="${id}">...</li>`);
         observable.onChange( remoteValue => {
-            liView.textContent = remoteValue?.value ?? id;
+            if (POISON_PILL === remoteValue) {
+                liView.remove();
+                return;
+            }
+            /** @type { PlayerNameType } */ const playerName = remoteValue.value; // just for clarity
+            if(undefined === playerName) return;
+            liView.textContent = playerName
         });
         playerList.append(liView);
     });
-    gameController.playerListObs.onDel( ({id}) => { // named remote value
-        const liViews = playerList.querySelectorAll(`li[data-id="${id}"]`); // there should be exactly one but better be safe
-        for (const liView of liViews) {
-            liView.remove();
-            log.info(`removed view for player ${id}`);
-        }
-    });
+    // gameController.playerListObs.onDel( ({id}) => { // named remote value
+    //     const liViews = playerList.querySelectorAll(`li[data-id="${id}"]`); // there should be exactly one but better be safe
+    //     for (const liView of liViews) {
+    //         liView.remove();
+    //         log.info(`removed view for player ${id}`);
+    //     }
+    // });
 
     // view Binding
     selfInput.oninput = _event => {
@@ -122,12 +127,15 @@ const projectMain = gameController => {
     registerKeyListener(gameController);      // the game-specific key bindings
 
     gameController.tetrominoListObs.onAdd( ({id, observable}) => {
-        console.warn("project add tetro", id);
         const [tetroDiv]  = dom(`<div class="tetromino" data-id="${id}"></div>`);
         const [coordsDiv] = select(document.body, "#main .coords"); // the main view must have been projected
         coordsDiv.append(tetroDiv);
         let tetroNeedsShapeName = true;
         observable.onChange( remoteValue => {
+            if (POISON_PILL === remoteValue) {
+                tetroDiv.remove();
+                return;
+            }
             /** @type { TetrominoModelType } */ const tetro = remoteValue.value; // just for clarity
             if(!tetro) return;
             if (tetroNeedsShapeName) {
@@ -136,29 +144,26 @@ const projectMain = gameController => {
             }
         })
     });
-    gameController.tetrominoListObs.onDel( ({id, observable}) => {
-        console.warn("project del tetro", id);
-        const [tetroDiv] = select(document.body, `#main .coords [data-id="${id}"]`);
-        tetroDiv?.remove();
-    });
 
     gameController.boxesListObs.onAdd( ({id, observable}) => {
-        console.warn("project add box", id);
         const boxFaceDivs = 6..times( _=> "<div class='face'></div>").join("");
-        const [boxDiv] = dom(`<div class="box" data-id="${id}"> ${ boxFaceDivs} </div>`);
+        const [boxDiv]    = dom(`<div class="box" data-id="${id}"> ${ boxFaceDivs} </div>`);
         let boxNeedsAddingToTetro = true;
         observable.onChange( remoteValue => {
-            /** @type { BoxModelType } */ const box = remoteValue.value; // just for clarity
-            if (!box) return;
-            if (POISON_PILL === remoteValue) {// deletion could also be handled elsewhere, but this looks appropriate
+            if (POISON_PILL === remoteValue) {
                 boxDiv.remove();              // the tetro div could remain in the dom (?) after the last box vanished
-                console.warn("removing box div", id);
                 return;
             }
+            /** @type { BoxModelType } */ const box = remoteValue.value; // just for clarity
+            if (!box) return;
             if (box.tetroId && boxNeedsAddingToTetro){
-                const [tetroDiv] = select(document.body, `.tetromino[data-id="${box.tetroId}"]`);
-                tetroDiv.append(boxDiv);
-                boxNeedsAddingToTetro = false;
+                const tetroDiv = document.body.querySelector(`.tetromino[data-id="${box.tetroId}"]`);
+                if (tetroDiv) { // when info comes from remote, the sequence might be off and the tetro div is only available later
+                    tetroDiv.append(boxDiv);
+                    boxNeedsAddingToTetro = false;
+                } else {
+                    log.warn("tetro div for box missing: " + box.tetroId);
+                }
             }
             boxDiv.setAttribute("style", `--x:${box.xPos};--y:${box.yPos};--z:${box.zPos};`);
         })
