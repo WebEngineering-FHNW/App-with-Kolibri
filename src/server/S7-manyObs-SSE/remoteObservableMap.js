@@ -15,7 +15,10 @@ import "../../kolibri/util/array.js";
 // todo: think about remote observable map as a decorator of the local observable map
 // todo: refactor types in a common section that is to be shared between local and remote
 
-export { RemoteObservableMapCtor, passive, active, POISON_PILL, POISON_PILL_VALUE, PREFIX_IMMORTAL, OBSERVABLE_IDs_KEY }
+export { RemoteObservableMapCtor, passive, active,
+    POISON_PILL, POISON_PILL_VALUE,
+    MISSING_FOREIGN_KEY,
+    PREFIX_IMMORTAL, OBSERVABLE_IDs_KEY }
 
 const log = LoggerFactory("ch.fhnw.kolibri.remote.remoteObservableMap");
 
@@ -67,6 +70,12 @@ const POISON_PILL_VALUE = "POISON_PILL_VALUE";
  * @type { RemoteValueType<String> }
  */
 const POISON_PILL = ( {mode:undefined, value: POISON_PILL_VALUE} );
+
+/**
+ * Signal that a foreign key is missing. Support for referential integrity.
+ * @type { ForeignKeyType }
+ */
+const MISSING_FOREIGN_KEY = "__MISSING_FOREIGN_KEY__";
 
 /**
  * @typedef { IObservable<RemoteValueType<_T_>> } RemoteObservableType

@@ -14,7 +14,13 @@ import {disallowed, intersects, moveDown, normalize}   from "./tetrominoControll
 import {Tetronimo}                                     from "./model.js";
 import {Walk}                                          from "../kolibri/sequence/constructors/range/range.js";
 import {Scheduler}                                     from "../kolibri/dataflow/dataflow.js";
-import {active, passive, POISON_PILL, PREFIX_IMMORTAL} from "../server/S7-manyObs-SSE/remoteObservableMap.js";
+import {
+    active,
+    MISSING_FOREIGN_KEY,
+    passive,
+    POISON_PILL,
+    PREFIX_IMMORTAL
+} from "../server/S7-manyObs-SSE/remoteObservableMap.js";
 import {clientId}                                      from "../kolibri/version.js";
 import {LoggerFactory}                                 from "../kolibri/logger/loggerFactory.js";
 import {ObservableList}                                from "../kolibri/observable.js";
@@ -122,8 +128,8 @@ const getPlayerName = (playerId) => {
               PLAYER_SELF_ID === playerId
             ? selfPlayerObs
             : knownPlayersBackingList.find( ({id}) => id === playerId )?.observable;
-    if (playerRemoteObs === undefined) {
-        log.warn("Cannot find name for active player.");
+    if (undefined === playerRemoteObs) {
+        log.warn("Cannot find name for player " + playerId);
         return "unknown";
     }
     return playerRemoteObs.getValue().value;
@@ -291,8 +297,17 @@ let runningNum = 0;
 /** @type { () => void } */
 const restart              = () => {
 
-    // todo: remove all boxes
-    // todo: remove all tetros
+    // unset the current boxes and remove all boxes
+    [   boxCurrent1IdObs,
+        boxCurrent2IdObs,
+        boxCurrent3IdObs,
+        boxCurrent4IdObs].forEach(obs => obs.setValue(active(MISSING_FOREIGN_KEY)));
+    boxesBackingList.forEach( ({id}) => observableGameMap.removeObservableForID(id));
+
+    // unset the current tetro and remove all tetros
+    tetrominoCurrentIdObs.setValue(active(MISSING_FOREIGN_KEY));
+    tetrominoBackingList.forEach( ({id}) => observableGameMap.removeObservableForID(id));
+
     // todo: reset game state (if any)
 
     // create a new pristine tetro
@@ -307,7 +322,8 @@ const restart              = () => {
         observableGameMap.addObservableForID(newBoxId);
         const newObs = boxesBackingList.find( ({id}) => id === newBoxId )?.observable;
         // todo: we should make the boxes such that they have the correct values from the start
-        newObs.setValue( active({tetroId: newTetroId, xPos:n, yPos:0, zPos:0}) );
+        const y = Math.floor(Math.random()*6);
+        newObs.setValue( active({tetroId: newTetroId, xPos:n, yPos:y, zPos:0}) );
         return newBoxId;
     });
     // set the current tetro id
@@ -399,11 +415,19 @@ const onNewNamedObservable = namedObservable => {
         handleNewBox(namedObservable);
         return;
     }
+    if (namedObservable.id === PLAYER_ACTIVE_ID) {
+        activePlayerIdObs = namedObservable.observable;
+        activePlayerIdObs.onChange( ({value}) => {
+            if (MISSING_FOREIGN_KEY === value) {
+                takeCharge();
+            }
+        });
+        return;
+    }
     // lazy init of local storage is a side effect and depends on timing
     // it should be safe to set the local references multiple times to the same remote observable
     switch (namedObservable.id) {
         case TETROMINO_CURRENT_ID:  tetrominoCurrentIdObs   = namedObservable.observable;break;
-        case PLAYER_ACTIVE_ID:      activePlayerIdObs       = namedObservable.observable;break;
         case BOX_CURRENT_1_ID:      boxCurrent1IdObs        = namedObservable.observable;break;
         case BOX_CURRENT_2_ID:      boxCurrent2IdObs        = namedObservable.observable;break;
         case BOX_CURRENT_3_ID:      boxCurrent3IdObs        = namedObservable.observable;break;
@@ -513,7 +537,7 @@ const startGame = (observableMapCtor, afterStartCallback) => {
         // clean up when leaving
         window.onbeforeunload = (_evt) => {
             if (weAreInCharge()) { // if we are in charge while leaving, put someone else in charge
-                activePlayerIdObs.setValue(active(knownPlayersBackingList?.at(0)?.id));
+                activePlayerIdObs.setValue(active( knownPlayersBackingList?.at(0)?.id ?? MISSING_FOREIGN_KEY ));
             }
             observableGameMap.removeObservableForID(PLAYER_SELF_ID);
         };
