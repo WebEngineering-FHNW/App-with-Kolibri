@@ -13,9 +13,9 @@
  * "charZ" |
  * "charL" |
  * "charF" |
- * "3dBranch" |
- * "3dScrewRight" |
- * "3dScrewLeft"
+ * "branch" |
+ * "screwRight" |
+ * "screwLeft"
  * } ShapeNameType
  */
 
@@ -23,7 +23,7 @@
  *
  * Remotely stored with a key like "TETROMINO-<tetroId>". {@link TETROMINO_PREFIX}
  *
- * @typedef TetronimoModelType
+ * @typedef TetrominoModelType
  * @property { ShapeNameType } shapeName
  * @property { Number } xRot - number of x rotations (0..3) of the shape
  * @property { Number } yRot - number of y rotations (0..3) of the shape

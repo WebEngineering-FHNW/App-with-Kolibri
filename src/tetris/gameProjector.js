@@ -1,7 +1,7 @@
 import {dom, select}                              from "../kolibri/util/dom.js";
 import {registerForMouseAndTouch}                 from "./scene3D/scene.js";
 import {projectNewTetronimo, registerKeyListener} from "./tetrominoProjector.js";
-import {active, POISON_PILL_VALUE}                from "../server/S7-manyObs-SSE/remoteObservableMap.js";
+import {active, POISON_PILL, POISON_PILL_VALUE}   from "../server/S7-manyObs-SSE/remoteObservableMap.js";
 import {makeRandomTetromino}                      from "./model.js";
 import {LoggerFactory}                            from "../kolibri/logger/loggerFactory.js";
 import {PLAYER_SELF_ID}                           from "./gameController.js";
@@ -121,21 +121,48 @@ const projectMain = gameController => {
     registerForMouseAndTouch(main);           // the general handling of living in a 3D scene
     registerKeyListener(gameController);      // the game-specific key bindings
 
-    // // tetromino binding
-    // gameController.currentTetrominoObs.onChange(remoteCurrentTetroValue => {
-    //     // at this point it cannot be the poison pill since the current tetro obs itself is never removed -
-    //     // even though its value can be undefined, which means a new one has to be created
-    //     log.debug(`new current tetromino ${JSON.stringify(remoteCurrentTetroValue)}`);
-    //     const currentTetro = remoteCurrentTetroValue?.value;        // unpack the remote mode/value
-    //     if (!currentTetro) { // current tetro is undefined
-    //         gameController.currentTetrominoObs.setValue(/** @type { RemoteValueType<TetronimoType> } */ active(makeRandomTetromino()));
-    //         // since we set our own value, we will call ourselves again and land in the else branch
-    //         // while we make sure that other (remote) listeners are also notified
-    //     } else {
-    //         const [coords] = select(main, ".coords"); // not so nice that we depend on the dom
-    //         coords.append(...projectNewTetronimo(currentTetro));            // not so nice that we depend on the projector
-    //     }
-    // });
+    gameController.tetrominoListObs.onAdd( ({id, observable}) => {
+        console.warn("project add tetro", id);
+        const [tetroDiv]  = dom(`<div class="tetromino" data-id="${id}"></div>`);
+        const [coordsDiv] = select(document.body, "#main .coords"); // the main view must have been projected
+        coordsDiv.append(tetroDiv);
+        let tetroNeedsShapeName = true;
+        observable.onChange( remoteValue => {
+            /** @type { TetrominoModelType } */ const tetro = remoteValue.value; // just for clarity
+            if(!tetro) return;
+            if (tetroNeedsShapeName) {
+                tetroDiv.classList.add(tetro.shapeName);
+                tetroNeedsShapeName = false;
+            }
+        })
+    });
+    gameController.tetrominoListObs.onDel( ({id, observable}) => {
+        console.warn("project del tetro", id);
+        const [tetroDiv] = select(document.body, `#main .coords [data-id="${id}"]`);
+        tetroDiv?.remove();
+    });
+
+    gameController.boxesListObs.onAdd( ({id, observable}) => {
+        console.warn("project add box", id);
+        const boxFaceDivs = 6..times( _=> "<div class='face'></div>").join("");
+        const [boxDiv] = dom(`<div class="box" data-id="${id}"> ${ boxFaceDivs} </div>`);
+        let boxNeedsAddingToTetro = true;
+        observable.onChange( remoteValue => {
+            /** @type { BoxModelType } */ const box = remoteValue.value; // just for clarity
+            if (!box) return;
+            if (POISON_PILL === remoteValue) {// deletion could also be handled elsewhere, but this looks appropriate
+                boxDiv.remove();              // the tetro div could remain in the dom (?) after the last box vanished
+                console.warn("removing box div", id);
+                return;
+            }
+            if (box.tetroId && boxNeedsAddingToTetro){
+                const [tetroDiv] = select(document.body, `.tetromino[data-id="${box.tetroId}"]`);
+                tetroDiv.append(boxDiv);
+                boxNeedsAddingToTetro = false;
+            }
+            boxDiv.setAttribute("style", `--x:${box.xPos};--y:${box.yPos};--z:${box.zPos};`);
+        })
+    });
 
     return mainElements;
 };
