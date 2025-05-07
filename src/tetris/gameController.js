@@ -60,14 +60,14 @@ const PLAYER_SELF_ID        = PLAYER_PREFIX + clientId;
  * such that they can fall and disappear independently.
  * We maintain them separately because they are needed for detection and handling of collisions.
  */
-const spaceBoxesBackingList = [];
+const boxesBackingList = [];
 
 /**
  * todo: not quite sure what is the best way to handle this...
  * Decorator. Making the list of space boxes observable.
  * @type {IObservableList<NamedRemoteObservableType<BoxModelType>>}
  */
-const spaceBoxesListObs= ObservableList( spaceBoxesBackingList );
+const boxesListObs= ObservableList( boxesBackingList );
 
 let boxCurrent1IdObs;
 let boxCurrent2IdObs;
@@ -76,10 +76,10 @@ let boxCurrent4IdObs;
 
 // --- tetrominos --- --- --- --- --- --- --- --- ---
 
-/** @type { Array<NamedRemoteObservableType<TetronimoModelType>> } */
+/** @type { Array<NamedRemoteObservableType<TetrominoModelType>> } */
 const tetrominoBackingList = [];
 
-/** @type {IObservableList<NamedRemoteObservableType<TetronimoModelType>>}
+/** @type {IObservableList<NamedRemoteObservableType<TetrominoModelType>>}
 */
 const tetrominoListObs = ObservableList( tetrominoBackingList );
 
@@ -300,23 +300,23 @@ const restart              = () => {
     const newTetroId = TETROMINO_PREFIX + clientId + "-" + (runningNum++);
     observableGameMap.addObservableForID(newTetroId);
     const newObs = tetrominoBackingList.find( ({id}) => id === newTetroId)?.observable;
-    newObs.setValue( active({shapeName: "charT", xRot:0, yRot:0, zRot:0, xPos:0, yPos:0, zPos:12} ));
+    newObs.setValue( active({shapeName: "charI", xRot:0, yRot:0, zRot:0, xPos:0, yPos:0, zPos:12} ));
     // create four boxes for the tetro
     const boxIds = [0,1,2,3].map( n => {
         const newBoxId = BOX_PREFIX + newTetroId+ "-" + n;
         observableGameMap.addObservableForID(newBoxId);
-        const newObs = spaceBoxesBackingList.find( ({id}) => id === newBoxId )?.observable;
+        const newObs = boxesBackingList.find( ({id}) => id === newBoxId )?.observable;
         // todo: we should make the boxes such that they have the correct values from the start
-        newObs.setValue( active({tetroId: newTetroId, xPos:0, yPos:0, zPos:0}) );
+        newObs.setValue( active({tetroId: newTetroId, xPos:n, yPos:0, zPos:0}) );
         return newBoxId;
     });
+    // set the current tetro id
+    tetrominoCurrentIdObs.setValue( active(newTetroId));
     // set the current box ids
     boxCurrent1IdObs.setValue( active( boxIds[0]) );
     boxCurrent2IdObs.setValue( active( boxIds[1]) );
     boxCurrent3IdObs.setValue( active( boxIds[2]) );
     boxCurrent4IdObs.setValue( active( boxIds[3]) );
-    // set the current tetro id
-    tetrominoCurrentIdObs.setValue( active(newTetroId));
 
     // scheduler.add( fallTask ); // start the game loop
 };
@@ -341,11 +341,11 @@ const handleNewTetromino = namedObservable => {
 const handleNewBox = namedObservable => {
     // todo: special handling if it is (or becomes) one of the boxes of the current tetro?
     log.info("New Box " + namedObservable.id);
-    spaceBoxesListObs.add(namedObservable);
-    namedObservable.observable.onChange( remoteValue => {
+    boxesListObs.add(namedObservable);
+    namedObservable.observable.onChange( remoteValue => { // this might not be needed since the other consumers can react to the pill
         if (POISON_PILL === remoteValue) {
             log.info(`box removed: ${namedObservable.id}`);
-            spaceBoxesListObs.del(namedObservable);
+            boxesListObs.del(namedObservable);
         }
     });
 };
@@ -418,10 +418,12 @@ const onNewNamedObservable = namedObservable => {
 
 /**
  * @typedef GameControllerType
- * @property { RemoteObservableType<String>    }                             selfPlayerObs
- * @property { RemoteObservableType<String>    }                             activePlayerIdObs
- * @property { RemoteObservableType<Tetronimo> }                             tetrominoCurrentIdObs
- * @property { IObservableList<NamedRemoteObservableType<PlayerNameType>> }  playerListObs
+ * @property { RemoteObservableType<String>    }                                selfPlayerObs
+ * @property { RemoteObservableType<String>    }                                activePlayerIdObs
+ * @property { RemoteObservableType<Tetronimo> }                                tetrominoCurrentIdObs
+ * @property { IObservableList<NamedRemoteObservableType<TetrominoModelType>> } tetrominoListObs
+ * @property { IObservableList<NamedRemoteObservableType<BoxModelType>> }       boxesListObs
+ * @property { IObservableList<NamedRemoteObservableType<PlayerNameType>> }     playerListObs
  * @property { (String) => String }  getPlayerName
  * @property { () => Boolean } weAreInCharge
  * @property { () => void    } takeCharge
@@ -433,6 +435,8 @@ const onNewNamedObservable = namedObservable => {
  */
 const newGameController = () => ( { // we need to bind late such that the obs references are set
     tetrominoCurrentIdObs,
+    tetrominoListObs,
+    boxesListObs,
     selfPlayerObs,
     activePlayerIdObs,
     playerListObs,

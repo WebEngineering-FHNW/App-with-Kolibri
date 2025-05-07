@@ -148,44 +148,16 @@ footer {
 /* center, then around X-axis to the bottom */
 
 
-.shapeI .face {
-    background-color: cyan;
-}
-
-.shapeT .face {
-    background-color: red;
-}
-
-.shapeO .face {
-    background-color: blueviolet;
-}
-
-.shapeS .face {
-    background-color: yellow;
-}
-
-.shapeZ .face  {
-    background-color: lime;
-}
-
-.shapeL .face  {
-    background-color: orange;
-}
-
-.shapeF .face  {
-    background-color: white;
-}
-
-.shape3d .face  {
-    background-color: magenta;
-}
-
-.shapeQR .face  {
-    background-color: yellow;
-}
-
-.shapeQL .face  {
-    background-color: lime;
+.charI      .face {background-color: cyan;}
+.charT      .face {background-color: red;}
+.charO      .face {background-color: blueviolet;}
+.charS      .face {background-color: yellow;}
+.charZ      .face {background-color: lime;}
+.charL      .face {background-color: orange;}
+.charF      .face {background-color: white;}
+.branch     .face {background-color: magenta;}
+.screwRight .face {background-color: yellow;}
+.screwLeft  .face {background-color: lime;
 }
 
 .ghost .face  {
