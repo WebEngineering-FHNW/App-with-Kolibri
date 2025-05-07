@@ -51,7 +51,7 @@
 
 /**
  *
- * Remotely stored with a unique key see {@link TETRONIMO_CURRENT}
+ * Remotely stored with a unique key see {@link TETRONIMO_CURRENT_ID}
  *
  * @typedef CurrentTetronimoModelType
  * @property { ForeignKeyType } tetroId - the id of tetronimo that is considered the "current" one, foreign key
