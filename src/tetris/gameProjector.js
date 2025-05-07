@@ -68,7 +68,6 @@ const projectControlPanel = gameController => {
         playerList.append(liView);
     });
     gameController.playerListObs.onDel( ({id}) => { // named remote value
-        console.warn("--- remove from player list");
         const liViews = playerList.querySelectorAll(`li[data-id="${id}"]`); // there should be exactly one but better be safe
         for (const liView of liViews) {
             liView.remove();

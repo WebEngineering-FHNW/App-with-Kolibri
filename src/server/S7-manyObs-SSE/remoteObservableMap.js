@@ -281,7 +281,7 @@ const RemoteObservableMapCtor = (baseUrl, topicName) => newNameCallback => {
 
     /** @type { ConsumerType<String> } */
     const removeObservableForID = oldID => {
-        console.warn(`trying to remove observable for ID ${oldID}`);
+        log.debug(`trying to remove observable for ID ${oldID}`);
         const names = remoteObservableOfIDs.getValue().value;
         if (undefined === names || names.length < 1) {
             log.warn(`cannot remove '${oldID}' from an empty array`);
