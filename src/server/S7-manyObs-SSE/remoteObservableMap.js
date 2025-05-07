@@ -55,7 +55,7 @@ const passive = value => ( {mode: "passive", value} );
  * @pure
  * @constructor
  * @template _T_
- * @type { (value:_T_) => RemoteValueType<_T_> }
+ * @type { <_T_> (value:_T_) => RemoteValueType<_T_> }
  */
 const active = value => ( {mode:"active", value} ); // todo: the remote value type screams for becoming an attribute type
                                                     // active/passive is a property of the value
@@ -259,7 +259,11 @@ const RemoteObservableMapCtor = (baseUrl, topicName) => newNameCallback => {
                         synchronizeObservableIDs(allIds);
                     }
                 })
-                .then(_ => continuationCallback() )
+                .then(_ => {
+                    const boundObsCopy =  {...boundObs};// pass a copy to prevent messing with our internals
+                    delete boundObsCopy[OBSERVABLE_IDs_KEY]; // remove the key from the copy because it shall not be shared
+                    continuationCallback( boundObsCopy );
+                } )
                 .then(_ => done());
         });
     };
@@ -277,6 +281,7 @@ const RemoteObservableMapCtor = (baseUrl, topicName) => newNameCallback => {
 
     /** @type { ConsumerType<String> } */
     const removeObservableForID = oldID => {
+        console.warn(`trying to remove observable for ID ${oldID}`);
         const names = remoteObservableOfIDs.getValue().value;
         if (undefined === names || names.length < 1) {
             log.warn(`cannot remove '${oldID}' from an empty array`);

@@ -57,20 +57,21 @@ const projectNewTetronimo = tetronimo => {
 
     // const ghostDivs = ghostView.children; // old
 
-    tetronimo.boxes.forEach( (box, idx) => {
-        box.onChange( (pos, _oldPos, selfRemove) => {
-                if(pos.z < 0) {             // for the view, this is the signal to remove the box div
-                    boxDivs[idx].remove();  // remove the view (div)
-                    if( tetroDiv.children.length < 1) { // if there are no more boxes for this tetro
-                        tetroDiv.remove();              // ... remove the whole tetro div
-                    }
-                    selfRemove(); // finally, there is nothing more to listen to, and we remove this very listener itself
-                    return;
-                }
-                boxDivs[idx]  .setAttribute("style",   `--x: ${pos.x};--y: ${pos.y};--z: ${pos.z};`);
-                // ghostDivs[idx].setAttribute("style",   `--x: ${pos.x};--y: ${pos.y};--z: 0;`);
-        });
-    });
+    // todo
+    // tetronimo.boxes.forEach( (box, idx) => {
+    //     box.onChange( (pos, _oldPos, selfRemove) => {
+    //             if(pos.z < 0) {             // for the view, this is the signal to remove the box div
+    //                 boxDivs[idx].remove();  // remove the view (div)
+    //                 if( tetroDiv.children.length < 1) { // if there are no more boxes for this tetro
+    //                     tetroDiv.remove();              // ... remove the whole tetro div
+    //                 }
+    //                 selfRemove(); // finally, there is nothing more to listen to, and we remove this very listener itself
+    //                 return;
+    //             }
+    //             boxDivs[idx]  .setAttribute("style",   `--x: ${pos.x};--y: ${pos.y};--z: ${pos.z};`);
+    //             // ghostDivs[idx].setAttribute("style",   `--x: ${pos.x};--y: ${pos.y};--z: 0;`);
+    //     });
+    // });
     return [ /** @type { HTMLElement } */ tetroDiv ];
 };
 
@@ -88,23 +89,20 @@ const registerKeyListener = (gameController) => {
             gameController.takeCharge();
             return; // we want keystrokes only to be applied after we have become in charge
         }
-        keyEvt.preventDefault();
         if (keyEvt.shiftKey) {
             switch (keyEvt.key) {
                 case "Shift":       break; // ignore the initial shift signal
-                case "ArrowRight":  turnShape(rotateYaw  ); break;
-                case "ArrowLeft":   turnShape(toppleRoll ); break;
-                case "ArrowUp":     turnShape(topplePitch); break;
-                case "ArrowDown":   movePosition(moveDown); break;
-                default:            console.warn("unknown key", keyEvt.key);
+                case "ArrowRight":  keyEvt.preventDefault();turnShape(rotateYaw  ); break;
+                case "ArrowLeft":   keyEvt.preventDefault();turnShape(toppleRoll ); break;
+                case "ArrowUp":     keyEvt.preventDefault();turnShape(topplePitch); break;
+                case "ArrowDown":   keyEvt.preventDefault();movePosition(moveDown); break;
             }
         } else {
             switch (keyEvt.key) {
-                case "ArrowLeft":   movePosition(moveLeft ); break;
-                case "ArrowRight":  movePosition(moveRight); break;
-                case "ArrowUp":     movePosition(moveBack ); break;
-                case "ArrowDown":   movePosition(moveForw ); break;
-                default:            console.warn("unknown key", keyEvt.key);
+                case "ArrowLeft":   keyEvt.preventDefault();movePosition(moveLeft ); break;
+                case "ArrowRight":  keyEvt.preventDefault();movePosition(moveRight); break;
+                case "ArrowUp":     keyEvt.preventDefault();movePosition(moveBack ); break;
+                case "ArrowDown":   keyEvt.preventDefault();movePosition(moveForw ); break;
             }
         }
     };
