@@ -15,7 +15,7 @@ import "../../kolibri/util/array.js";
 // todo: think about remote observable map as a decorator of the local observable map
 // todo: refactor types in a common section that is to be shared between local and remote
 
-export { RemoteObservableMapCtor, passive, active, POISON_PILL, POISON_PILL_VALUE, PREFIX_IMMORTAL }
+export { RemoteObservableMapCtor, passive, active, POISON_PILL, POISON_PILL_VALUE, PREFIX_IMMORTAL, OBSERVABLE_IDs_KEY }
 
 const log = LoggerFactory("ch.fhnw.kolibri.remote.remoteObservableMap");
 
