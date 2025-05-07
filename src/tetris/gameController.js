@@ -29,7 +29,8 @@ import {ObservableList}                              from "../kolibri/observable
 
 export {
     startGame, turnShape, movePosition, // for general use outside
-    checkAndHandleFullLevel             // exported only for the unit-testing
+    checkAndHandleFullLevel,            // exported only for the unit-testing
+    PLAYER_SELF_ID
 };
 
 const log = LoggerFactory("ch.fhnw.tetris.gameController");
@@ -51,28 +52,38 @@ const spaceBoxes = [];
  */
 let currentTetrominoObs;
 
-const SELF_PLAYER_ID = PLAYER_PREFIX + clientId;
+const PLAYER_SELF_ID = PLAYER_PREFIX + clientId;
 
 /**
- * @type { RemoteObservableType<PlayerModelType | undefined> }
+ * @type { RemoteObservableType<PlayerNameType | undefined> }
  * The Player record that represents ourselves in the game.
  */
 let selfPlayerObs;
 
-/** @type { RemoteObservableType<ActivePlayerModelType | undefined> }
+/** @type { RemoteObservableType<ActivePlayerIdType | undefined> }
  * foreign key (playerId) to the id of the player that is currently in charge of the game.
  */
-let activePlayerObs;
+let activePlayerIdObs;
 
+const knownPlayersBackingList = [];
 /** This is a local observable list to model the list of known players.
  *  Each entry is a remotely observable player name, such that we can change
  *  the name in place.
- * @type {IObservableList<NamedRemoteObservableType<PlayerModelType>>}
+ * @type {IObservableList<NamedRemoteObservableType<PlayerNameType>>}
  */
-const playerListObs = ObservableList([]);
-// todo: this will need a bit of a different handling as a newly joining player needs the list^
-// of all current players, meaning the we need an immortal remote observable of known player IDs
+const playerListObs = ObservableList(knownPlayersBackingList);
 
+const getPlayerName = (playerId) => {
+    const playerRemoteObs =
+              PLAYER_SELF_ID === playerId
+            ? selfPlayerObs
+            : knownPlayersBackingList.find( ({id}) => id === playerId )?.observable;
+    if (playerRemoteObs === undefined) {
+        log.warn("Cannot find name for active player.");
+        return "unknown";
+    }
+    return playerRemoteObs.getValue().value;
+};
 
 /**
  * Whether we are in charge of moving the current tetronimo.
@@ -80,14 +91,14 @@ const playerListObs = ObservableList([]);
  * NB: when joining as a new player, the value might not yet be present,
  * but we are, of course, not in charge in that situation.
  */
-const weAreInCharge = () => activePlayerObs?.getValue()?.value?.playerId === SELF_PLAYER_ID;
+const weAreInCharge = () => activePlayerIdObs?.getValue()?.value === PLAYER_SELF_ID;
 
 /**
  * @impure puts us in charge and notifies all (remote) listeners.
- * @warn assumes that {@link activePlayerObs} is available
+ * @warn assumes that {@link activePlayerIdObs} is available
  * @type { () => void }
  */
-const takeCharge = () => activePlayerObs.setValue( /** @type { RemoteValueType<ActivePlayerModelType> } */ active({id:PLAYER_ACTIVE , playerId:SELF_PLAYER_ID}) );
+const takeCharge = () => activePlayerIdObs.setValue( /** @type { RemoteValueType<ActivePlayerIdType> } */ active(PLAYER_SELF_ID) );
 
 /**
  * The game ends with a collision at the top.
@@ -236,7 +247,7 @@ const handleNewCurrentTetroObsAvailable = (createdTetrominoObs) => {
 };
 
 const monitorActivePlayer = remoteObservable => {
-    activePlayerObs = remoteObservable;                         // side effect! put the observable in module scope
+    activePlayerIdObs = remoteObservable;                         // side effect! put the observable in module scope
 };
 
 /** @type { () => void } */
@@ -251,9 +262,11 @@ let setupFinished = false;
 
 /**
  * @typedef GameControllerType
- * @property { RemoteObservableType<String>    }                             activePlayerObs
+ * @property { RemoteObservableType<String>    }                             selfPlayerObs
+ * @property { RemoteObservableType<String>    }                             activePlayerIdObs
  * @property { RemoteObservableType<Tetronimo> }                             currentTetrominoObs
- * @property { IObservableList<NamedRemoteObservableType<PlayerModelType>> } playerListObs
+ * @property { IObservableList<NamedRemoteObservableType<PlayerNameType>> }  playerListObs
+ * @property { (String) => String }  getPlayerName
  * @property { () => Boolean } weAreInCharge
  * @property { () => void    } takeCharge
  * @property { () => void    } restart
@@ -264,26 +277,32 @@ let setupFinished = false;
  */
 const newGameController = () => ( { // we need to bind late such that the obs references are set
     selfPlayerObs,
-    activePlayerObs,
+    activePlayerIdObs,
     playerListObs,
+    getPlayerName,
     currentTetrominoObs,
     weAreInCharge,
     takeCharge,
     restart,
 });
 
+
+// todo: it would perhaps work nicer to have ourselves also in the list of all players
+// .. and jump over it in the ul list of other players
+
 /**
+ * handle that a new player has joined.
+ * We maintain an observable list of known players.
  * @impure updates the selfPlayerObs and the playerListObs
  */
 const handleNewPlayer = namedObservable => {
-    // handle that a new player has joined
-    if (namedObservable.id === SELF_PLAYER_ID) {
-        // it is us
+    if (PLAYER_SELF_ID === namedObservable.id) {  // is is ourselves while joining
         selfPlayerObs = namedObservable.observable;
+        selfPlayerObs.setValue( active(PLAYER_SELF_ID.substring(PLAYER_PREFIX.length, PLAYER_PREFIX.length+10)));
         return;
     }
     // it is someone else
-    log.info(`new player ${namedObservable.id}`); // to keep track of those, we need an observable list of named observables
+    log.info(`new player ${namedObservable.id}`);
     playerListObs.add(namedObservable);
     namedObservable.observable.onChange( remoteValue => { // centralized handling of removing players
         if (POISON_PILL === remoteValue) {
@@ -291,6 +310,7 @@ const handleNewPlayer = namedObservable => {
         }
     });
 };
+
 
 
 /**
@@ -324,31 +344,47 @@ const startGame = (observableMapCtor, afterStartCallback) => {
 
     observableGameMap = observableMapCtor(onNewNamedObservable);
 
-    observableGameMap.ensureAllObservableIDs( _=> {
+    observableGameMap.ensureAllObservableIDs( initialMap => {
         setupFinished = true;
 
         if (selfPlayerObs) {
             log.debug(`self player obs was created from remote observable`);
         } else {
             log.debug(`as expected, we are not yet represented as a player`);
-            observableGameMap.addObservableForID(PLAYER_PREFIX + clientId);
+            observableGameMap.addObservableForID(PLAYER_SELF_ID);
         }
 
-        if (activePlayerObs) {
+        if (activePlayerIdObs) {
             log.debug(`active player obs was created from remote observable`);
+            const activeId = activePlayerIdObs.getValue().value;
+            if (undefined === activeId) { // there is no active player
+                takeCharge();
+            }
         } else {
             log.debug(`no active player obs, creating one and putting ourselves in charge`);
             observableGameMap.addObservableForID(PLAYER_ACTIVE);
             takeCharge();
         }
 
-        if (!currentTetrominoObs) {
+        if (currentTetrominoObs) {
+            log.debug(`current tetronimo was created or will be created from remote observable`);
+        } else {
             log.debug(`no current tetronimo obs, creating one`);
             observableGameMap.addObservableForID(TETROMINO_CURRENT);
-        } else {
-            log.debug(`current tetronimo was created or will be created from remote observable`);
         }
+
         afterStartCallback( newGameController() );
+
+        for (const [id, observable] of Object.entries(initialMap) ) {
+            onNewNamedObservable( {id, observable} );
+        }
+
+        window.onbeforeunload = (_evt) => {
+            if (weAreInCharge()) { // if we are in charge while leaving, put someone else in charge
+                activePlayerIdObs.setValue(active(knownPlayersBackingList?.at(0)?.id));
+            }
+            observableGameMap.removeObservableForID(PLAYER_SELF_ID);
+        };
 
     });
 

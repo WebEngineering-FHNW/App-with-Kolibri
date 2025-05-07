@@ -50,21 +50,20 @@
 
 /**
  * @typedef CurrentTetronimoModelType
- * @property { IdPropertyType } id      - constant value "currentTetronimo" (must be unique per game)
  * @property { IdPropertyType } tetroId - the id of tetronimo that is considered the "current" one
  */
 
 /**
- * @typedef PlayerModelType
- * @property { IdPropertyType } id   - the id of the player, considered to be unique and stable, e.g. "PLAYER-4711"
- * @property { String }         name - might change with user input as the player updates his name
+ * @typedef { String } PlayerNameType
+ * Remotely stored with a key like "PLAYER-<playerId>". {@link PLAYER_PREFIX}
  */
 
 /**
- * @typedef ActivePlayerModelType
- * @property { IdPropertyType } id       - constant value "PLAYER_ACTIVE" (must be unique per game)
- * @property { IdPropertyType } playerId - the id of the player that is considered the "active" one
+ * @typedef { IdPropertyType } ActivePlayerIdType
+ * Remotely stored with a unique key see {@link PLAYER_ACTIVE}
+ * The id of the player that is considered the "active" one, foreign key
  */
+
 
 // todo: provide the respective implementations, named values, remote values, etc.
 

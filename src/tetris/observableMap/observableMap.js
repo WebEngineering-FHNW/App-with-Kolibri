@@ -9,6 +9,13 @@ export { ObservableMap }
 const log = LoggerFactory("ch.fhnw.kolibri.localObservableClient");
 
 /**
+ * @callback ObsMapFinalization
+ * @param { Array<String> } initialKeys
+ * ®return void
+ */
+
+
+/**
  * @typedef ObservableMapType
  * @impure  publishes to listeners, changes internal state
  * @property { ConsumerType<String> }   addObservableForID - adding a new ID will
@@ -17,7 +24,7 @@ const log = LoggerFactory("ch.fhnw.kolibri.localObservableClient");
  * @property { ConsumerType<String> }   removeObservableForID - publish
  * that a given id is no longer in the list of named remote observables, thus allowing all listeners to
  * clean up any local bindings and remove all other bound resources, esp. projected views.
- * @property { ConsumerType<Function>  } ensureAllObservableIDs - will call back the
+ * @property { ObsMapFinalization  } ensureAllObservableIDs - will call back the
  * provided callback function after all observable ids are properly loaded (can be async/lazy in the remote case)
  */
 
@@ -101,7 +108,11 @@ const ObservableMap = newNameCallback => {
     };
 
     /** @type { ConsumerType<Function> } */
-    const  ensureAllObservableIDs = continuationCallback => continuationCallback();
+    const  ensureAllObservableIDs = continuationCallback => {
+        const boundObsCopy =  {...boundObservablesByName};// pass a copy to prevent messing with our internals
+        delete boundObsCopy[OBSERVABLE_IDs_KEY]; // remove the key from the copy because it shall not be shared
+        continuationCallback( boundObsCopy );
+    };
 
     return { addObservableForID, removeObservableForID, ensureAllObservableIDs }
 };

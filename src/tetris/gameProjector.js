@@ -1,9 +1,10 @@
 import {dom, select}                              from "../kolibri/util/dom.js";
 import {registerForMouseAndTouch}                 from "./scene3D/scene.js";
 import {projectNewTetronimo, registerKeyListener} from "./tetronimoProjector.js";
-import {active}                                   from "../server/S7-manyObs-SSE/remoteObservableMap.js";
+import {active, POISON_PILL_VALUE}                from "../server/S7-manyObs-SSE/remoteObservableMap.js";
 import {makeRandomTetromino}                      from "./model.js";
 import {LoggerFactory}                            from "../kolibri/logger/loggerFactory.js";
+import {PLAYER_SELF_ID}                           from "./gameController.js";
 
 export {projectGame};
 
@@ -17,33 +18,58 @@ const log = LoggerFactory("ch.fhnw.kolibri.tetris.gameProjector");
 const projectControlPanel = gameController => {
     const view              = dom(`
     <header>
+        <div class="self"><input size=10></div>
         <div class="player">no player</div>
         <button>Start/Restart</button>
         <div class="playerList">
             <ul></ul>
         </div>
     </header>`);
+    const [selfInput]       = select(view[0], "div.self input");
     const [activePlayerDiv] = select(view[0], "div.player");
     const [startButton]     = select(view[0], "button");
     const [playerList]      = select(view[0], "div.playerList > ul");
 
+    // util
+    // what to do if either the active player id changes or we change our own name while being active
+    const onIdIsTheActivePlayer = (id, observable) => {
+        observable.onChange( _ => {
+            if (id === gameController.activePlayerIdObs.getValue().value) {
+                activePlayerDiv.textContent = gameController.getPlayerName(id);
+            }
+        });
+    };
+
     // data binding
-    gameController.activePlayerObs.onChange( ({value}) => {
-        value = value?.playerId;
-        activePlayerDiv.textContent = gameController.weAreInCharge() ? "myself" : value ?? "unknown";
+    gameController.selfPlayerObs.onChange( ({value}) => {
+        if (POISON_PILL_VALUE === value) return; // can happen on self-removal
+        selfInput.value = value;
     });
-    gameController.activePlayerObs.onChange( _remoteValue => {
+    onIdIsTheActivePlayer(PLAYER_SELF_ID, gameController.selfPlayerObs);
+
+    gameController.activePlayerIdObs.onChange( ({value}) => {
+        activePlayerDiv.textContent = gameController.getPlayerName(value);
+    });
+    gameController.activePlayerIdObs.onChange( _remoteValue => {
         startButton.disabled = !gameController.weAreInCharge();
+    });
+
+    // whenever a player changes his/her name, let's see whether we have to update the current player
+    gameController.playerListObs.onAdd( ({id, observable}) => { // named remote observable
+        onIdIsTheActivePlayer(id, observable);
     });
 
     // this could go into a nested li-projector
     gameController.playerListObs.onAdd( ({id, observable}) => { // named remote value
-        const [liView] = dom(`<li data-id="${id}"></li>`);
-        observable.onChange( ({value}) => { liView.textContent = value; });
+        const [liView] = dom(`<li data-id="${id}">...</li>`);
+        observable.onChange( remoteValue => {
+            liView.textContent = remoteValue?.value ?? id;
+        });
         playerList.append(liView);
     });
     gameController.playerListObs.onDel( ({id}) => { // named remote value
-        const liViews = view.querySelectorAll(`li[data-id="${id}"]`); // there should be exactly one but better be safe
+        console.warn("--- remove from player list");
+        const liViews = playerList.querySelectorAll(`li[data-id="${id}"]`); // there should be exactly one but better be safe
         for (const liView of liViews) {
             liView.remove();
             log.info(`removed view for player ${id}`);
@@ -51,6 +77,12 @@ const projectControlPanel = gameController => {
     });
 
     // view Binding
+    selfInput.oninput = _event => {
+        gameController.selfPlayerObs.setValue( active(selfInput.value) );
+    };
+
+    // Using direct property assignment (onclick) overwrites any previous listeners
+    // Only the last assignment will be executed when the button is clicked
     startButton.onclick = _ => gameController.restart();
 
     return view;
