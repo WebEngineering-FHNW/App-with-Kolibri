@@ -298,6 +298,7 @@ const newGameController = () => ( { // we need to bind late such that the obs re
 const handleNewPlayer = namedObservable => {
     if (PLAYER_SELF_ID === namedObservable.id) {  // is is ourselves while joining
         selfPlayerObs = namedObservable.observable;
+        // the initial value is just a technical reference - to be changed by the user
         selfPlayerObs.setValue( active(PLAYER_SELF_ID.substring(PLAYER_PREFIX.length, PLAYER_PREFIX.length+10)));
         return;
     }
