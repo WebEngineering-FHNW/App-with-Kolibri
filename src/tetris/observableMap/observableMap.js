@@ -2,7 +2,7 @@
 import {Observable}    from "../../kolibri/observable.js";
 import {LoggerFactory} from "../../kolibri/logger/loggerFactory.js";
 import "../../kolibri/util/array.js";
-import {active, passive, POISON_PILL} from "../../server/S7-manyObs-SSE/remoteObservableMap.js";
+import {active, OBSERVABLE_IDs_KEY, passive, POISON_PILL} from "../../server/S7-manyObs-SSE/remoteObservableMap.js";
 
 export { ObservableMap }
 
