@@ -6,7 +6,7 @@ import {active, passive, POISON_PILL} from "../../server/S7-manyObs-SSE/remoteOb
 
 export { ObservableMap }
 
-const log = LoggerFactory("ch.fhnw.kolibri.localObservableClient");
+const log = LoggerFactory("ch.fhnw.kolibri.observableMap");
 
 /**
  * @callback ObsMapFinalization
@@ -14,6 +14,10 @@ const log = LoggerFactory("ch.fhnw.kolibri.localObservableClient");
  * ®return void
  */
 
+/**
+ * @typedef ForeignKeyType
+ * @type { String } -- the value represents a unique key (id) in the {@link ObservableMapType }
+ */
 
 /**
  * @typedef ObservableMapType
