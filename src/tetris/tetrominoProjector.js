@@ -1,17 +1,17 @@
 /**
- * @module tetris/tetronimoProjector
- * Visualization plus view and data binding for tetronimo objects.
+ * @module tetris/tetrominoProjector
+ * Visualization plus view and data binding for tetromino objects.
  */
 import "../kolibri/util/array.js";
 import {dom} from "../kolibri/util/dom.js";
 import {moveBack, moveDown, moveForw, moveLeft, moveRight, rotateYaw, topplePitch, toppleRoll}
-                                 from "./tetronimoController.js";
+                                 from "./tetrominoController.js";
 import {movePosition, turnShape} from "./gameController.js";
 import {LoggerFactory}           from "../kolibri/logger/loggerFactory.js";
 
 export {projectNewTetronimo, registerKeyListener };
 
-const log = LoggerFactory("ch.fhnw.kolibri.tetris.tetronimoProjector");
+const log = LoggerFactory("ch.fhnw.kolibri.tetris.tetrominoProjector");
 
 /** @private html representation of the 6 faces that make up a box
  * @type { String }
@@ -19,9 +19,9 @@ const log = LoggerFactory("ch.fhnw.kolibri.tetris.tetronimoProjector");
  */
 const boxFaceDivs = 6..times( _=> "<div class='face'></div>").join("");
 
-/** @private creating a tetronimo that mirrors the position of the current tetronimo but stays at z=0.
+/** @private creating a tetromino that mirrors the position of the current tetromino but stays at z=0.
  * @ipure
- * @return {HTMLCollection} the elements that visualize the ghost tetronimo
+ * @return {HTMLCollection} the elements that visualize the ghost tetromino
  */
 const ghostView = () => { // might need to go to the game projector and be bound there (there should be one per game)
     const boxDivStr = `<div class="box ghost"> ${ boxFaceDivs } </div>`;
@@ -33,20 +33,20 @@ const ghostView = () => { // might need to go to the game projector and be bound
 };
 
 /**
- * Visualize the tetronimo as divs in the DOM with boxes as DIVs.
+ * Visualize the tetromino as divs in the DOM with boxes as DIVs.
  * Binds the box coordinates to CSS custom properties for visual positioning (data binding).
  * Removes boxes that fall below the floor.
  * @pure
- * @param { TetronimoType } tetronimo
- * @returns { Array<HTMLElement> } the bound tetronimo view
+ * @param { TetronimoType } tetromino
+ * @returns { Array<HTMLElement> } the bound tetromino view
  */
-const projectNewTetronimo = tetronimo => {
-    log.debug(JSON.stringify(tetronimo));
+const projectNewTetronimo = tetromino => {
+    log.debug(JSON.stringify(tetromino));
     // todo: after having received a notification about a new tetro (maybe created by ourselves)
     // ...
-    const boxDivStr = `<div class="box ${tetronimo.shapeName}"> ${ boxFaceDivs} </div>`;
+    const boxDivStr = `<div class="box ${tetromino.shapeName}"> ${ boxFaceDivs} </div>`;
     const [ tetroDiv ] = dom(`
-            <div class="tetromino" data-id="${tetronimo.id}" >
+            <div class="tetromino" data-id="${tetromino.id}" >
                 ${ 4..times(_=> boxDivStr) } 
             </div>
         `);
@@ -58,7 +58,7 @@ const projectNewTetronimo = tetronimo => {
     // const ghostDivs = ghostView.children; // old
 
     // todo
-    // tetronimo.boxes.forEach( (box, idx) => {
+    // tetromino.boxes.forEach( (box, idx) => {
     //     box.onChange( (pos, _oldPos, selfRemove) => {
     //             if(pos.z < 0) {             // for the view, this is the signal to remove the box div
     //                 boxDivs[idx].remove();  // remove the view (div)
@@ -78,7 +78,7 @@ const projectNewTetronimo = tetronimo => {
 
 /**
  * Key binding for the game (view binding).
- * @collaborators document, game controller, and tetronimo controller
+ * @collaborators document, game controller, and tetromino controller
  * @impure prevents the key default behavior, will indirectly change the game state and the visualization
  * @param { GameControllerType } gameController
  */
