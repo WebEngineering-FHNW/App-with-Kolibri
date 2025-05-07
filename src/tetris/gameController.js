@@ -18,41 +18,59 @@ import {
     active,
     passive,
     POISON_PILL,
-    POISON_PILL_VALUE,
     PREFIX_IMMORTAL
 } from "../server/S7-manyObs-SSE/remoteObservableMap.js";
 import {clientId}                                      from "../kolibri/version.js";
 import {LoggerFactory}                               from "../kolibri/logger/loggerFactory.js";
 import {projectNewTetronimo}                         from "./tetronimoProjector.js";
-import {select}                                      from "../kolibri/util/dom.js";
 import {ObservableList}                              from "../kolibri/observable.js";
 
 export {
     startGame, turnShape, movePosition, // for general use outside
     checkAndHandleFullLevel,            // exported only for the unit-testing
-    PLAYER_SELF_ID
+    PLAYER_SELF_ID,
+    PLAYER_ACTIVE_ID,
+    PLAYER_PREFIX,
+    TETRONIMO_PREFIX,
+    TETRONIMO_CURRENT,
+    BOX_PREFIX,
 };
 
 const log = LoggerFactory("ch.fhnw.tetris.gameController");
 
-const TETROMINO_CURRENT = "currentTetronimo";
-const PLAYER_ACTIVE     = PREFIX_IMMORTAL + "PLAYER_ACTIVE"; // will never be removed once created
-const PLAYER_PREFIX     = "PLAYER-";
+const TETRONIMO_CURRENT     = PREFIX_IMMORTAL + "TETRONIMO_CURRENT_ID"; // will never be removed once created
+const TETRONIMO_PREFIX      = "TETRONIMO-";
 
-/** @type { Array<BoxType> }
+const BOX_PREFIX            = "BOX-";
+
+const PLAYER_ACTIVE_ID      = PREFIX_IMMORTAL + "PLAYER_ACTIVE_ID"; // will never be removed once created
+const PLAYER_PREFIX         = "PLAYER-";
+const PLAYER_SELF_ID        = PLAYER_PREFIX + clientId;
+
+// todo: there is a pattern evolving around an observable list of named remote observables (tetros, boxes, players)
+// ... and foreign keys that pick out a special ones (current tetro, active  player)
+
+/** @type { Array<NamedRemoteObservableType<BoxModelType>> }
  * Contains all the boxes that live in our 3D space after they have been unlinked from their tetronimo
  * such that they can fall and disappear independently.
+ * We maintain them separately because they are needed for detection and handling of collisions.
  */
-const spaceBoxes = [];
+const spaceBoxesBackingList = [];
 
-/** @type { RemoteObservableType<TetronimoType | undefined> }
+/**
+ * todo: not quite sure what is the best way to handle this...
+ * Decorator. Making the list of space boxes observable.
+ * @type {IObservableList<NamedRemoteObservableType<BoxModelType>>}
+ */
+const spaceBoxesListObs= ObservableList( spaceBoxesBackingList );
+
+/** @type { RemoteObservableType<TetronimoModelType | undefined> }
  * The current tetromino is the one that the player can control with the arrow keys and that falls down
  * at a given rate (1 s). When it collides, a new one gets created and becomes the current tetronimo.
  * Observable to keep the projected views separate from the controller.
+ * The value is undefined before any player has started the game.
  */
 let currentTetrominoObs;
-
-const PLAYER_SELF_ID = PLAYER_PREFIX + clientId;
 
 /**
  * @type { RemoteObservableType<PlayerNameType | undefined> }
@@ -65,7 +83,11 @@ let selfPlayerObs;
  */
 let activePlayerIdObs;
 
+/**
+ * @private
+ */
 const knownPlayersBackingList = [];
+
 /** This is a local observable list to model the list of known players.
  *  Each entry is a remotely observable player name, such that we can change
  *  the name in place.
@@ -334,7 +356,7 @@ const startGame = (observableMapCtor, afterStartCallback) => {
             case TETROMINO_CURRENT:
                 handleNewCurrentTetroObsAvailable(namedObservable.observable, projectNewTetronimo);
                 break;
-            case PLAYER_ACTIVE:
+            case PLAYER_ACTIVE_ID:
                 monitorActivePlayer(namedObservable.observable);
                 break;
             default:
@@ -363,7 +385,7 @@ const startGame = (observableMapCtor, afterStartCallback) => {
             }
         } else {
             log.debug(`no active player obs, creating one and putting ourselves in charge`);
-            observableGameMap.addObservableForID(PLAYER_ACTIVE);
+            observableGameMap.addObservableForID(PLAYER_ACTIVE_ID);
             takeCharge();
         }
 
