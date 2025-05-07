@@ -1,6 +1,6 @@
 import {dom, select}                              from "../kolibri/util/dom.js";
 import {registerForMouseAndTouch}                 from "./scene3D/scene.js";
-import {projectNewTetronimo, registerKeyListener} from "./tetronimoProjector.js";
+import {projectNewTetronimo, registerKeyListener} from "./tetrominoProjector.js";
 import {active, POISON_PILL_VALUE}                from "../server/S7-manyObs-SSE/remoteObservableMap.js";
 import {makeRandomTetromino}                      from "./model.js";
 import {LoggerFactory}                            from "../kolibri/logger/loggerFactory.js";
@@ -121,11 +121,11 @@ const projectMain = gameController => {
     registerForMouseAndTouch(main);           // the general handling of living in a 3D scene
     registerKeyListener(gameController);      // the game-specific key bindings
 
-    // // tetronimo binding
+    // // tetromino binding
     // gameController.currentTetrominoObs.onChange(remoteCurrentTetroValue => {
     //     // at this point it cannot be the poison pill since the current tetro obs itself is never removed -
     //     // even though its value can be undefined, which means a new one has to be created
-    //     log.debug(`new current tetronimo ${JSON.stringify(remoteCurrentTetroValue)}`);
+    //     log.debug(`new current tetromino ${JSON.stringify(remoteCurrentTetroValue)}`);
     //     const currentTetro = remoteCurrentTetroValue?.value;        // unpack the remote mode/value
     //     if (!currentTetro) { // current tetro is undefined
     //         gameController.currentTetrominoObs.setValue(/** @type { RemoteValueType<TetronimoType> } */ active(makeRandomTetromino()));

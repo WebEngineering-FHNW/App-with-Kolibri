@@ -21,7 +21,7 @@
 
 /**
  *
- * Remotely stored with a key like "TETRONIMO-<tetroId>". {@link TETRONIMO_PREFIX}
+ * Remotely stored with a key like "TETROMINO-<tetroId>". {@link TETROMINO_PREFIX}
  *
  * @typedef TetronimoModelType
  * @property { ShapeNameType } shapeName
@@ -34,16 +34,16 @@
  */
 
 /**
- * Boxes start their life in the "current" (or upcoming) tetronimo where their final x,y,z position
+ * Boxes start their life in the "current" (or upcoming) tetromino where their final x,y,z position
  * is calculated as the tetro shape plus the tetro position. After detaching from the
- * "current" tetronimo (when a new one becomes current), they move independently in the game space
+ * "current" tetromino (when a new one becomes current), they move independently in the game space
  * (that is: only their offsets change and no longer the tetro position or shape).
  * After the last box of a tetro is removed, the tetro is removed as well.
  *
  * Remotely stored with a key like "BOX-<boxId>". {@link BOX_PREFIX}
  *
  * @typedef BoxModelType
- * @property { ForeignKeyType } tetroId - the id of the tetronimo this box belongs to, foreign key
+ * @property { ForeignKeyType } tetroId - the id of the tetromino this box belongs to, foreign key
  * @property { Number } xPos - final x position in logical space units
  * @property { Number } yPos - final y position in logical space units
  * @property { Number } zPos - final z position in logical space units
@@ -51,10 +51,10 @@
 
 /**
  *
- * Remotely stored with a unique key see {@link TETRONIMO_CURRENT_ID}
+ * Remotely stored with a unique key see {@link TETROMINO_CURRENT_ID}
  *
  * @typedef CurrentTetronimoModelType
- * @property { ForeignKeyType } tetroId - the id of tetronimo that is considered the "current" one, foreign key
+ * @property { ForeignKeyType } tetroId - the id of tetromino that is considered the "current" one, foreign key
  */
 
 /**
@@ -71,5 +71,5 @@
 
 
 // todo: it might need more types for game state (running, ended, etc. plus score, etc.)
-// todo: it might need "upcoming" tetronimo
+// todo: it might need "upcoming" tetromino
 

@@ -1,13 +1,13 @@
 /**
- * @module tetris/tetronimoControllerTest
+ * @module tetris/tetrominoControllerTest
  */
 import {TestSuite}                        from "../kolibri/util/test.js";
 import {Tetronimo}                        from "./model.js";
-import {intersects, normalize, rotateYaw} from "./tetronimoController.js";
+import {intersects, normalize, rotateYaw} from "./tetrominoController.js";
 import {shapeEqual} from "./util.js";
 import {passive}    from "../server/S7-manyObs-SSE/remoteObservableMap.js";
 
-const controllerSuite = TestSuite("tetris/tetronimoControl");
+const controllerSuite = TestSuite("tetris/tetrominoControl");
 
 controllerSuite.add("normalize", assert => {
     const normalizedShape0 = [

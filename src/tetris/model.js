@@ -5,7 +5,7 @@
 
 import "../kolibri/util/array.js"
 import {Observable} from "../kolibri/observable.js";
-import {normalize}  from "./tetronimoController.js";
+import {normalize}  from "./tetrominoController.js";
 
 export { makeRandomTetromino, Tetronimo, zeroPosition };
 
@@ -100,9 +100,9 @@ const makeRandomTetromino = () => Tetronimo(Math.floor(Math.random() * shapes.le
 /**
  * @typedef { [ Position3dType, Position3dType, Position3dType, Position3dType ] } ShapeType
  * A shape is an array of exactly four relative positions (vectors).
- * The shape of a tetronimo defines _relative_ positions of its boxes in logical space units.
- * Many tetronimos can refer to the same shape, the current tetronimo can reuse a shape and modify it
- * (because there is only ever _one_ current tetronimos and finished tetronimos no longer rely on their shape).
+ * The shape of a tetromino defines _relative_ positions of its boxes in logical space units.
+ * Many tetrominos can refer to the same shape, the current tetromino can reuse a shape and modify it
+ * (because there is only ever _one_ current tetrominos and finished tetrominos no longer rely on their shape).
  */
 
 /** @type { ShapeType } */

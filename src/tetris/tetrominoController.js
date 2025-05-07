@@ -1,6 +1,6 @@
 /**
- * @module tetris/tetronimoController
- * Provides (so far always pure) functions to manage the position and alignment of tetronimos
+ * @module tetris/tetrominoController
+ * Provides (so far always pure) functions to manage the position and alignment of tetrominos
  * as well as how they move.
  */
 
@@ -22,14 +22,14 @@ const normalize = shape => {
 };
 
 /**
- * Tells whether the tetronimo boxes intersect with any of the spaceBoxes.
+ * Tells whether the tetromino boxes intersect with any of the spaceBoxes.
  * @pure
- * @param { RemoteValueType<TetronimoType>  } tetronimo
+ * @param { RemoteValueType<TetronimoType>  } tetromino
  * @param { Array<BoxType> } spaceBoxes
  * @return { Boolean }
  */
-const intersects = (tetronimo, spaceBoxes) =>
-    tetronimo.value.boxes.some( boxPos =>
+const intersects = (tetromino, spaceBoxes) =>
+    tetromino.value.boxes.some( boxPos =>
         boxPos.getValue().z < 0 ||
         spaceBoxes.some( spaceBox =>
            spaceBox.getValue().x === boxPos.getValue().x &&
@@ -37,13 +37,13 @@ const intersects = (tetronimo, spaceBoxes) =>
            spaceBox.getValue().z === boxPos.getValue().z ));
 
 /**
- * Tells whether this tetronimo configuration should be forbidden (outside bounds).
+ * Tells whether this tetromino configuration should be forbidden (outside bounds).
  * @pure
- * @param { RemoteValueType<TetronimoType>  } tetronimo
+ * @param { RemoteValueType<TetronimoType>  } tetromino
  * @return { Boolean }
  */
-const disallowed = tetronimo =>
-    tetronimo.value.boxes.some( box =>{
+const disallowed = tetromino =>
+    tetromino.value.boxes.some( box =>{
         const pos = box.getValue();
         if (pos.x < 0 || pos.x > 6) return true;
         if (pos.y < 0 || pos.y > 6) return true;
