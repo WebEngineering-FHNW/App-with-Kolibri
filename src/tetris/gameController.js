@@ -310,9 +310,10 @@ const restart              = () => {
     tetrominoCurrentIdObs.setValue(active(MISSING_FOREIGN_KEY));
     tetrominoBackingList.forEach( ({id}) => observableGameMap.removeObservableForID(id));
 
-    // todo: reset game state (if any)
+    // todo: reset game state, points, rewards, ... (if any)
 
-    // create a new pristine tetro
+    // create a new pristine tetro to start with
+
     runningNum++;
     const newTetroId = TETROMINO_PREFIX + clientId + "-" + (runningNum++);
     observableGameMap.addObservableForID(newTetroId);
@@ -333,12 +334,20 @@ const restart              = () => {
     // set the current tetro id
     tetrominoCurrentIdObs.setValue( active(newTetroId));
 
+    // todo: enable when checks are enabled
     // scheduler.add( fallTask ); // start the game loop
 };
 
 
 // --- store remote observables in local references  --- --- --- --- --- --- --- --- ---
 
+/**
+ * @pure calculates the final logical box coordinates
+ * @param { ForeignKeyType }        tetroId
+ * @param { TetrominoModelType }    tetromino
+ * @param { Number }                boxIndex    - 0..3
+ * @return { BoxModelType }
+ */
 const updatedBoxValue = (tetroId, tetromino, boxIndex) => {
 
     const boxShapeOffset = shapesByName[tetromino.shapeName][boxIndex];
@@ -350,53 +359,61 @@ const updatedBoxValue = (tetroId, tetromino, boxIndex) => {
     return {tetroId, xPos, yPos, zPos};
 };
 
+/**
+ * When a tetro changes, we have to find and update its boxes if possible.
+ * This might be tried a number of times before all the boxes and their tetromino object
+ * are eventually available.
+ *
+ * Note that it might happen that
+ * - a new tetro is created before its boxes
+ * - new boxes are created before their tetro
+ *
+ * solution:
+ * - whenever a tetro is created or changed, _try_ a sync (which might fail due to missing boxes)
+ * - whenever a box is created or changed, _try_ a sync (which might fail due to missing tetro)
+
+ * @param { TetrominoModelType } tetromino
+ * @param { ForeignKeyType }     tetroId
+ */
 const trySyncTetronimo = (tetromino, tetroId) => {
     if (!tetromino) { // happens at startup when the tetro was created but the value not yet set (todo: maybe check)
         return;
     }
-    // when a tetro changes, we have to find and update its boxes if possible
-    console.warn("tetro changed", tetromino);
-
+    log.debug("tetro changed " + tetromino);
     const getBoxNamedObs = index => {
         const boxId = BOX_PREFIX + tetroId + "-" + index;
         return boxesBackingList.find(({id}) => id === boxId);
     };
-    [0, 1, 2, 3].forEach(boxIndex => {
+    [0, 1, 2, 3].forEach (boxIndex => {
         const boxNamedObs = getBoxNamedObs(boxIndex);
         if (!boxNamedObs) {
-            console.warn(`cannot find box ${boxIndex} for tetro ${tetroId}. (can happen when tetro is added before its boxes)`);
+            log.debug(`cannot find box ${boxIndex} for tetro ${tetroId}. (can happen when tetro is added before its boxes)`);
             return;
         }
-        const obs = boxNamedObs.observable;
-        const box = obs.getValue().value;
+        const box = boxNamedObs.observable.getValue().value;
         if (!box) {
-            // todo: this can happen in the rare case where the box was actually added but the value not yet set
-            console.error("box has no value (should not happen)", boxIndex, tetroId);
+            // this can happen in the rare case where the box was already added but the value not yet set
+            log.warn(`box has no value (should happen very rarely) ${boxIndex} ${tetroId}`);
             return;
         }
-
-        console.warn("old", box);
-
-        /** @type { BoxModelType } */
-        const newBox = updatedBoxValue(tetroId, tetromino, boxIndex);
-
-        console.warn("new", newBox);
+        /** @type { BoxModelType } */ const newBox = updatedBoxValue(tetroId, tetromino, boxIndex);
+        log.debug("new " + newBox);
 
         // we reach this part only when the boxes are still "linked"
         // which means we only have to update our box observables locally (while the tetro is updated remotely)
-        obs.setValue(passive(newBox)); // todo: not sure about being passive here
+        boxNamedObs.observable.setValue(passive(newBox)); // todo: not sure about being passive here
 
     });
 };
 
-// issue:
-// in the remote case, it might happen that
-// - a new tetro is created before its boxes
-// - new boxes are created before their tetro
-// solution:
-// - whenever a tetro is created or changed, _try_ a sync (which might fail due to missing boxes)
-// - whenever a box is created or changed,   _try_ a sync (which might fail due to missing tetro)
-// in the end a consistent state will be reached, eventually
+//
+//
+//
+//
+//
+//
+//
+//
 
 const handleNewTetromino = namedObservable => {
     // todo: special handling if it is (or becomes) the current tetro?
