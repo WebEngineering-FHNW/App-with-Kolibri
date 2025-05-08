@@ -10,7 +10,7 @@
  * newly available tetrominos.
  */
 
-import {disallowed, intersects, moveDown, normalize} from "./tetrominoController.js";
+import {intersects, moveDown, normalize} from "./tetrominoController.js";
 import {shapesByName, Tetronimo}                     from "./model.js";
 import {
     Walk
@@ -259,11 +259,17 @@ const turnShape = turnFunction => {
     const oldShape = currentTetromino.shape;
 
     const newShape = turnFunction(oldShape);
+    const position = {xPos:currentTetromino.xPos, yPos:currentTetromino.yPos, zPos:currentTetromino.zPos};
+
+    if(isDisallowedTetroPosition(newShape, position)) {
+        return;
+    }
+
+    // todo: collision check
 
     const newTetromino = { ...currentTetromino }; // we might not actually need a copy, but it's cleaner
     newTetromino.shape = newShape;
 
-    // todo: collision check
 
     currentTetrominoObs.setValue(active(newTetromino));
 
@@ -282,9 +288,15 @@ const movePosition = moveFunction => {
 
     const {x,y,z} = moveFunction( {x:currentTetromino.xPos, y:currentTetromino.yPos, z:currentTetromino.zPos}  );
 
-    newTetromino.xPos = x ; // todo: (collision check?)
-    newTetromino.yPos = y ; // todo: (collision check?)
-    newTetromino.zPos = z ; // todo: (collision check?)
+    if(isDisallowedTetroPosition(currentTetromino.shape, {xPos:x, yPos:y, zPos:z})){
+        return;
+    }
+
+    // todo: (collision check?)
+
+    newTetromino.xPos = x ;
+    newTetromino.yPos = y ;
+    newTetromino.zPos = z ;
 
     currentTetrominoObs.setValue(active(newTetromino));
 };
@@ -374,6 +386,27 @@ const updatedBoxValue = (tetroId, tetromino, boxIndex) => {
     return {tetroId, xPos, yPos, zPos};
 };
 
+const isDisallowedBoxPosition = ({ xPos, yPos, zPos }) => {
+    if (xPos < 0 || xPos > 6) return true;
+    if (yPos < 0 || yPos > 6) return true;
+    return false;
+};
+
+const isDisallowedTetroPosition = (shape, position) => {
+    const shadowTetromino = {};
+    shadowTetromino.shape = shape;
+    shadowTetromino.xPos = position.xPos;
+    shadowTetromino.yPos = position.yPos;
+    shadowTetromino.zPos = position.zPos;
+    const newBoxPositions = [0,1,2,3].map( shapeIndex => updatedBoxValue("shadow", shadowTetromino, shapeIndex ));
+    return newBoxPositions.some( boxPos => isDisallowedBoxPosition(boxPos) );
+};
+
+const getBoxNamedObs = (tetroId, boxIndex) => {
+    const boxId = BOX_PREFIX + tetroId + "-" + boxIndex;
+    return boxesBackingList.find(({id}) => id === boxId);
+};
+
 /**
  * When a tetro changes, we have to find and update its boxes if possible.
  * This might be tried a number of times before all the boxes and their tetromino object
@@ -386,7 +419,6 @@ const updatedBoxValue = (tetroId, tetromino, boxIndex) => {
  * solution:
  * - whenever a tetro is created or changed, _try_ a sync (which might fail due to missing boxes)
  * - whenever a box is created or changed, _try_ a sync (which might fail due to missing tetro)
-
  * @param { TetrominoModelType } tetromino
  * @param { ForeignKeyType }     tetroId
  */
@@ -395,12 +427,9 @@ const trySyncTetronimo = (tetromino, tetroId) => {
         return;
     }
     log.debug("tetro changed " + tetromino);
-    const getBoxNamedObs = index => {
-        const boxId = BOX_PREFIX + tetroId + "-" + index;
-        return boxesBackingList.find(({id}) => id === boxId);
-    };
+
     [0, 1, 2, 3].forEach (boxIndex => {
-        const boxNamedObs = getBoxNamedObs(boxIndex);
+        const boxNamedObs = getBoxNamedObs(tetroId, boxIndex);
         if (!boxNamedObs) {
             log.debug(`cannot find box ${boxIndex} for tetro ${tetroId}. (can happen when tetro is added before its boxes)`);
             return;
@@ -420,15 +449,6 @@ const trySyncTetronimo = (tetromino, tetroId) => {
 
     });
 };
-
-//
-//
-//
-//
-//
-//
-//
-//
 
 const handleNewTetromino = namedObservable => {
     // todo: special handling if it is (or becomes) the current tetro?
