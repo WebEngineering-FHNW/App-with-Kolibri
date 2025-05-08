@@ -11,7 +11,7 @@
  */
 
 import {disallowed, intersects, moveDown, normalize} from "./tetrominoController.js";
-import {Tetronimo}                                   from "./model.js";
+import {shapesByName, Tetronimo}                     from "./model.js";
 import {
     Walk
 }                                                    from "../kolibri/sequence/constructors/range/range.js";
@@ -262,7 +262,11 @@ const movePosition = moveFunction => {
     console.warn(currentTetromino);
     const newTetromino = { ...currentTetromino }; // we might not actually need a copy but it's cleaner
 
-    newTetromino.yPos = 1 ; // todo: move logic comes here (collision check?)
+    const {x,y,z} = moveFunction( {x:currentTetromino.xPos, y:currentTetromino.yPos, z:currentTetromino.zPos}  );
+
+    newTetromino.xPos = x ; // todo: (collision check?)
+    newTetromino.yPos = y ; // todo: (collision check?)
+    newTetromino.zPos = z ; // todo: (collision check?)
 
     console.warn(newTetromino);
 
@@ -314,20 +318,16 @@ const restart              = () => {
     observableGameMap.addObservableForID(newTetroId);
     const newTetroObs = tetrominoBackingList.find( ({id}) => id === newTetroId)?.observable;
 
-    newTetroObs.setValue( active({shapeName: "charI", xRot:0, yRot:0, zRot:0, xPos:0, yPos:0, zPos:12} ));
+    const startTetrominoValue = {shapeName: "branch", xRot: 0, yRot: 0, zRot: 0, xPos: 0, yPos: 0, zPos: 0};// todo: start at zPos 12
+    newTetroObs.setValue(active(startTetrominoValue ));
 
-    // create four boxes for the tetro
-    [0,1,2,3].map( n => {
-        const newBoxId = BOX_PREFIX + newTetroId+ "-" + n;
+    // create four boxes for the new tetro
+    [0,1,2,3].forEach( boxIndex => {
+        const newBoxId = BOX_PREFIX + newTetroId+ "-" + boxIndex;
         observableGameMap.addObservableForID(newBoxId);
         const newBoxObs = boxesBackingList.find( ({id}) => id === newBoxId )?.observable;
-        // todo: we should make the boxes such that they have the correct values from the start
-
-
-        newBoxObs.setValue( active({tetroId: newTetroId, xPos:n, yPos:0, zPos:0}) ); // todo: calc the box positions
-
-
-        return newBoxId;
+        const startBox = updatedBoxValue(newTetroId, startTetrominoValue, boxIndex);
+        newBoxObs.setValue( active(startBox) );
     });
 
     // set the current tetro id
@@ -338,6 +338,17 @@ const restart              = () => {
 
 
 // --- store remote observables in local references  --- --- --- --- --- --- --- --- ---
+
+const updatedBoxValue = (tetroId, tetromino, boxIndex) => {
+
+    const boxShapeOffset = shapesByName[tetromino.shapeName][boxIndex];
+
+    const xPos = tetromino.xPos + boxShapeOffset.x;
+    const yPos = tetromino.yPos + boxShapeOffset.y;
+    const zPos = tetromino.zPos + boxShapeOffset.z;
+
+    return {tetroId, xPos, yPos, zPos};
+};
 
 const trySyncTetronimo = (tetromino, tetroId) => {
     if (!tetromino) { // happens at startup when the tetro was created but the value not yet set (todo: maybe check)
@@ -367,27 +378,25 @@ const trySyncTetronimo = (tetromino, tetroId) => {
         console.warn("old", box);
 
         /** @type { BoxModelType } */
-        const newBox = {...box};
-
-        newBox.yPos = tetromino.yPos; // todo: real logic here
+        const newBox = updatedBoxValue(tetroId, tetromino, boxIndex);
 
         console.warn("new", newBox);
 
         // we reach this part only when the boxes are still "linked"
-        // which means we only have to update our observables locally
+        // which means we only have to update our box observables locally (while the tetro is updated remotely)
         obs.setValue(passive(newBox)); // todo: not sure about being passive here
 
     });
 };
 
-// note:
+// issue:
 // in the remote case, it might happen that
 // - a new tetro is created before its boxes
 // - new boxes are created before their tetro
-// idea:
+// solution:
 // - whenever a tetro is created or changed, _try_ a sync (which might fail due to missing boxes)
-// - whenever a box is created or changed, _try_ a sync (which might fail due to missing tetro)
-// eventually a consistent state will be reached (fingers crossed)
+// - whenever a box is created or changed,   _try_ a sync (which might fail due to missing tetro)
+// in the end a consistent state will be reached, eventually
 
 const handleNewTetromino = namedObservable => {
     // todo: special handling if it is (or becomes) the current tetro?
@@ -516,9 +525,10 @@ const onNewNamedObservable = namedObservable => {
  */
 
 /**
- * @type { () => GameControllerType }
+ * @constructor
+ * @returns { GameControllerType }
  */
-const newGameController = () => ( { // we need to bind late such that the obs references are set
+const GameController = () => ( { // we need to bind late such that the obs references are set
     tetrominoCurrentIdObs,
     tetrominoListObs,
     boxesListObs,
@@ -550,8 +560,6 @@ const startGame = (observableMapCtor, afterStartCallback) => {
     // once we know what is available, fill in the missing pieces (esp. for the first player)
     observableGameMap.ensureAllObservableIDs( initialMap => {
 
-        // todo: remove the structural duplication
-
         if (selfPlayerObs) {
             log.warn(`self player obs was created from remote observable - this should not happen.`);
         } else {
@@ -573,17 +581,14 @@ const startGame = (observableMapCtor, afterStartCallback) => {
         }
 
         // in particular for the first, starting player the immortal obs might not yet be there
-        const initializeIfNeeded = (localObservable, remoteId, topic) => {
-            if (localObservable) {
-                log.debug(`${topic} obs was created or will be created from remote observable`);
-            } else {
-                log.debug(`no ${topic} obs, creating one`);
-                observableGameMap.addObservableForID(remoteId);
-            }
-        };
-        initializeIfNeeded(tetrominoCurrentIdObs, TETROMINO_CURRENT_ID, "current tetro id");
+        if (tetrominoCurrentIdObs) {
+            log.debug(`${"current tetro id"} obs was created or will be created from remote observable`);
+        } else {
+            log.debug(`no ${"current tetro id"} obs, creating one`);
+            observableGameMap.addObservableForID(TETROMINO_CURRENT_ID);
+        }
 
-        afterStartCallback( newGameController() ); // this is where the UI is projected
+        afterStartCallback( GameController() ); // this is where the UI is projected
 
         // process the remote named observables that were available initially
         // but need the binding to be in place before processing.
@@ -591,7 +596,7 @@ const startGame = (observableMapCtor, afterStartCallback) => {
             onNewNamedObservable( {id, observable} );
         }
 
-        // clean up when leaving
+        // clean up when leaving (as good as possible - not 100% reliable)
         window.onbeforeunload = (_evt) => {
             if (weAreInCharge()) { // if we are in charge while leaving, put someone else in charge
                 activePlayerIdObs.setValue(active( knownPlayersBackingList?.at(0)?.id ?? MISSING_FOREIGN_KEY ));

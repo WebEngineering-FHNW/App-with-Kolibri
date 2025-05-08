@@ -7,7 +7,7 @@ import "../kolibri/util/array.js"
 import {Observable} from "../kolibri/observable.js";
 import {normalize}  from "./tetrominoController.js";
 
-export { makeRandomTetromino, Tetronimo, zeroPosition };
+export { makeRandomTetromino, Tetronimo, zeroPosition, shapesByName };
 
 /**
  * @typedef Position3dType
@@ -106,7 +106,7 @@ const makeRandomTetromino = () => Tetronimo(Math.floor(Math.random() * shapes.le
  */
 
 /** @type { ShapeType } */
-const shape0 = [
+const charO = [
     {x: 0, y: 0, z: 0},
     {x: 0, y: 1, z: 0},
     {x: 1, y: 0, z: 0},
@@ -114,7 +114,7 @@ const shape0 = [
 ];
 
 /** @type { ShapeType } */
-const shapeI = [
+const charI = [
     {x: 0, y: 1, z: 0},
     {x: 1, y: 1, z: 0},
     {x: 2, y: 1, z: 0},
@@ -122,7 +122,7 @@ const shapeI = [
 ];
 
 /** @type { ShapeType } */
-const shapeT = [
+const charT = [
     {x: 0, y: 0, z: 0},
     {x: 1, y: 0, z: 0},
     {x: 2, y: 0, z: 0},
@@ -130,7 +130,7 @@ const shapeT = [
 ];
 
 /** @type { ShapeType } */
-const shapeS = [
+const charS = [
     {x: 2, y: 0, z: 0},
     {x: 1, y: 0, z: 0},
     {x: 1, y: 1, z: 0},
@@ -138,7 +138,7 @@ const shapeS = [
 ];
 
 /** @type { ShapeType } */
-const shapeZ = [
+const charZ = [
     {x: 0, y: 0, z: 0},
     {x: 1, y: 0, z: 0},
     {x: 1, y: 1, z: 0},
@@ -146,7 +146,7 @@ const shapeZ = [
 ];
 
 /** @type { ShapeType } */
-const shapeL = [
+const charL = [
     {x: 0, y: 1, z: 0},
     {x: 0, y: 0, z: 0},
     {x: 1, y: 0, z: 0},
@@ -154,28 +154,28 @@ const shapeL = [
 ];
 
 /** @type { ShapeType } */
-const shapeF = [
+const charF = [
     {x: 1, y: 0, z: 0},
     {x: 0, y: 0, z: 0},
     {x: 0, y: 1, z: 0},
     {x: 0, y: 2, z: 0},
 ];
 /** @type { ShapeType } */
-const shape3d = [
+const branch = [
     {x: 0, y: 0, z: 0},
     {x: 1, y: 0, z: 0},
     {x: 0, y: 1, z: 0},
     {x: 0, y: 0, z: 1},
 ];
 /** @type { ShapeType } */
-const shapeQR = [
+const screwRight = [
     {x: 0, y: 0, z: 0},
     {x: 1, y: 0, z: 0},
     {x: 1, y: 1, z: 0},
     {x: 1, y: 1, z: 1},
 ];
 /** @type { ShapeType } */
-const shapeQL = [
+const screwLeft = [
     {x: 0, y: 1, z: 0},
     {x: 1, y: 1, z: 0},
     {x: 1, y: 0, z: 0},
@@ -183,7 +183,11 @@ const shapeQL = [
 ];
 
 /** @type { Array<ShapeType> } */
-const shapes     = [  shapeI,   shapeT,   shape0,   shapeS,   shapeZ,   shapeL,   shapeF,   shape3d,   shapeQR,   shapeQL ];
+const shapes     = [  charI,   charT,   charO,   charS,   charZ,   charL,   charF,   branch,   screwRight,   screwLeft ];
 
 /** @type { Array<String> } */
 const shapeNames = [ "shapeI", "shapeT", "shape0", "shapeS", "shapeZ", "shapeL", "shapeF", "shape3d", "shapeQR", "shapeQL"];
+
+const shapesByName = {
+    charI, charT , charO,charS,charZ,charL,charF,branch,screwRight,screwLeft
+};
