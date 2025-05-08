@@ -43,7 +43,8 @@
  * Remotely stored with a key like "BOX-<boxId>". {@link BOX_PREFIX}
  *
  * @typedef BoxModelType
- * @property { ForeignKeyType } tetroId - the id of the tetromino this box belongs to, foreign key
+ * @property { ForeignKeyType } tetroId - the id of the tetromino this box belongs to, foreign key,
+ *                                        is {@link MISSING_FOREIGN_KEY} for "unlinked" boxes
  * @property { Number } xPos - final x position in logical space units
  * @property { Number } yPos - final y position in logical space units
  * @property { Number } zPos - final z position in logical space units

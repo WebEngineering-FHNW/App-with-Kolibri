@@ -145,6 +145,7 @@ const projectMain = gameController => {
         })
     });
 
+    // todo: maybe make the binding more stable such that the tetroDiv get added when a box needs it (but only once in total)
     gameController.boxesListObs.onAdd( ({id, observable}) => {
         const boxFaceDivs = 6..times( _=> "<div class='face'></div>").join("");
         const [boxDiv]    = dom(`<div class="box" data-id="${id}"> ${ boxFaceDivs} </div>`);
