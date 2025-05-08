@@ -10,22 +10,22 @@
  * newly available tetrominos.
  */
 
-import {intersects, moveDown, normalize} from "./tetrominoController.js";
-import {shapesByName, Tetronimo}                     from "./model.js";
+import {intersects, moveDown}    from "./tetrominoController.js";
+import {shapesByName, Tetronimo} from "./model.js";
 import {
     Walk
-}                                                    from "../kolibri/sequence/constructors/range/range.js";
-import {Scheduler}                                   from "../kolibri/dataflow/dataflow.js";
+}                                from "../kolibri/sequence/constructors/range/range.js";
+import {Scheduler}               from "../kolibri/dataflow/dataflow.js";
 import {
     active,
     MISSING_FOREIGN_KEY,
     passive,
     POISON_PILL,
     PREFIX_IMMORTAL
-}                                                    from "../server/S7-manyObs-SSE/remoteObservableMap.js";
-import {clientId}                                    from "../kolibri/version.js";
-import {LoggerFactory}                               from "../kolibri/logger/loggerFactory.js";
-import {ObservableList}                              from "../kolibri/observable.js";
+}                                from "../server/S7-manyObs-SSE/remoteObservableMap.js";
+import {clientId}                from "../kolibri/version.js";
+import {LoggerFactory}           from "../kolibri/logger/loggerFactory.js";
+import {ObservableList}          from "../kolibri/observable.js";
 
 export {
     startGame, turnShape, movePosition, // for general use outside
@@ -189,50 +189,7 @@ const checkAndHandleFullLevel = spaceBoxes => {
     checkAndHandleFullLevel(spaceBoxes);
 };
 
-/**
- * When a tetromino gets a new shape as the result of user input, we have to check the possible results of that move
- * and adapt, according to the game rules.
- * @impure everything might change.
- * @param { RemoteValueType<TetronimoType> } tetromino  - target
- * @param { ShapeType }                      newShape   - that new shape that might be applied to the target
- * @param { Array<BoxType>}                  spaceBoxes - environment
- */
-const turnShapeImpl = (tetromino, newShape, spaceBoxes) => {
-    newShape              = normalize(newShape);
-    const shadowTetromino = /** @type { RemoteValueType<TetronimoType> } */ passive(Tetronimo(0, -1));
-    shadowTetromino.value.setShape(newShape);
-    shadowTetromino.value.setPosition(tetromino.value.getPosition());
-    if (disallowed(shadowTetromino)) {
-        return;
-    }
-    if (intersects(shadowTetromino, spaceBoxes)) {
-        handleCollision(tetromino, spaceBoxes);
-    } else {
-        tetromino.value.setShape(newShape);
-    }
-};
-/**
- * When a tetromino gets a new position as the result of user input or time,
- * we have to check the possible results of that move
- * and adapt according to the game rules.
- * @impure everything might change.
- * @param { RemoteValueType<TetronimoType> }    tetromino   - target
- * @param { Position3dType }                    newPosition - that new shape that might be applied to the target
- * @param { Array<BoxType>}                     spaceBoxes  - environment
- */
-const movePositionImpl = (tetromino, newPosition, spaceBoxes) => {
-    const shadowTetromino = /** @type { RemoteValueType<TetronimoType> } */ passive(Tetronimo(0, -1));
-    shadowTetromino.value.setShape(tetromino.value.getShape());
-    shadowTetromino.value.setPosition(newPosition);
-    if (disallowed(shadowTetromino)) {
-        return;
-    }
-    if (intersects(shadowTetromino, spaceBoxes)) {
-        handleCollision(tetromino, spaceBoxes);
-    } else {
-        tetromino.value.setPosition(newPosition);
-    }
-};
+
 
 /**
  * @private
@@ -243,9 +200,8 @@ const getCurrentTetrominoRefs = () => {
     const currentTetrominoNamedValue    = tetrominoBackingList.find(({id}) => id === currentTetrominoId);
     const currentTetrominoObs           = currentTetrominoNamedValue.observable;
     const currentTetromino              = currentTetrominoObs.getValue().value;
-    return {currentTetrominoObs, currentTetromino};
+    return {currentTetrominoObs, currentTetromino, currentTetrominoId};
 };
-
 
 /**
  * Turns the current tetromino into a new direction if allowed.
@@ -254,8 +210,7 @@ const getCurrentTetrominoRefs = () => {
  * @param { NewShapeType } turnFunction
  */
 const turnShape = turnFunction => {
-
-    const {currentTetrominoObs, currentTetromino} = getCurrentTetrominoRefs();
+    const {currentTetrominoObs, currentTetromino,currentTetrominoId} = getCurrentTetrominoRefs();
     const oldShape = currentTetromino.shape;
 
     const newShape = turnFunction(oldShape);
@@ -283,13 +238,24 @@ const turnShape = turnFunction => {
  * @param { NewPositionType } moveFunction
  */
 const movePosition = moveFunction => {
-    const {currentTetrominoObs, currentTetromino} = getCurrentTetrominoRefs();
+    const {currentTetrominoObs, currentTetromino,currentTetrominoId} = getCurrentTetrominoRefs();
     const newTetromino = { ...currentTetromino }; // we might not actually need a copy, but it's cleaner
 
     const {x,y,z} = moveFunction( {x:currentTetromino.xPos, y:currentTetromino.yPos, z:currentTetromino.zPos}  );
 
     if(isDisallowedTetroPosition(currentTetromino.shape, {xPos:x, yPos:y, zPos:z})){
         return;
+    }
+    const existingBoxPositions =
+              boxesBackingList
+                  .filter( ({ id         }) => ! id.includes(currentTetrominoId) )
+                  .map   ( ({ observable }) => observable.getValue().value);
+
+    console.warn("+++", boxesBackingList.length, existingBoxPositions.length);
+
+    if (willCollide(currentTetromino.shape, {xPos:x, yPos:y, zPos:z}, existingBoxPositions)) {
+        console.warn("will collide");
+        return
     }
 
     // todo: (collision check?)
@@ -392,16 +358,42 @@ const isDisallowedBoxPosition = ({ xPos, yPos, zPos }) => {
     return false;
 };
 
-const isDisallowedTetroPosition = (shape, position) => {
+const expectedBoxPositions = (shape, position) => {
     const shadowTetromino = {};
     shadowTetromino.shape = shape;
-    shadowTetromino.xPos = position.xPos;
-    shadowTetromino.yPos = position.yPos;
-    shadowTetromino.zPos = position.zPos;
-    const newBoxPositions = [0,1,2,3].map( shapeIndex => updatedBoxValue("shadow", shadowTetromino, shapeIndex ));
+    shadowTetromino.xPos  = position.xPos;
+    shadowTetromino.yPos  = position.yPos;
+    shadowTetromino.zPos  = position.zPos;
+    return [0, 1, 2, 3].map(shapeIndex => updatedBoxValue("shadow", shadowTetromino, shapeIndex));
+};
+
+const isDisallowedTetroPosition = (shape, position) => {
+    return expectedBoxPositions(shape, position).some(boxPos => isDisallowedBoxPosition(boxPos) );
+};
+
+const willCollide = (shape, position, existingBoxPositions) => {
+    const newBoxPositions = expectedBoxPositions(shape, position);
+    if (newBoxPositions.some( ({zPos}) => zPos < 0)) {
+        return true;
+    }
+    // get all the current box positions but without the current tetro
+    const collides = existingBoxPositions.some( otherBoxPos => {
+       return newBoxPositions.some(newBoxPos => {
+           return otherBoxPos.xPos === newBoxPos.xPos &&
+                  otherBoxPos.yPos === newBoxPos.yPos &&
+                  otherBoxPos.zPos === newBoxPos.zPos;
+       })
+    });
+
     return newBoxPositions.some( boxPos => isDisallowedBoxPosition(boxPos) );
 };
 
+
+
+/**
+ * @private util
+ * @return {NamedRemoteObservableType<BoxModelType>}
+ */
 const getBoxNamedObs = (tetroId, boxIndex) => {
     const boxId = BOX_PREFIX + tetroId + "-" + boxIndex;
     return boxesBackingList.find(({id}) => id === boxId);
