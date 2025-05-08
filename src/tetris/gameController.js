@@ -264,9 +264,22 @@ const turnShape = turnFunction => {
  * @param { NewPositionType } moveFunction
  */
 const movePosition = moveFunction => {
-    const currentTetronimo = tetrominoCurrentIdObs.getValue();
-    const position = currentTetronimo.value.getPosition();
-    movePositionImpl(currentTetronimo, moveFunction (position), spaceBoxes);
+    const currentTetrominoId = tetrominoCurrentIdObs.getValue().value; // todo: undefined? missing key?
+    console.warn(currentTetrominoId);
+    const currentTetrominoNamedValue = tetrominoBackingList.find( ({id}) => id === currentTetrominoId);
+    console.warn(currentTetrominoNamedValue);
+    const currentTetrominoObs = currentTetrominoNamedValue.observable;
+    const currentTetromino                = currentTetrominoObs.getValue().value;
+    console.warn(currentTetromino);
+    const newTetromino = { ...currentTetromino }; // we might not actually need a copy but it's cleaner
+
+    newTetromino.yPos = 1 ; // todo: move logic comes here (collision check?)
+
+    console.warn(newTetromino);
+
+    currentTetrominoObs.setValue(active(newTetromino));
+
+
 };
 
 /**
@@ -322,8 +335,8 @@ const restart              = () => {
         observableGameMap.addObservableForID(newBoxId);
         const newObs = boxesBackingList.find( ({id}) => id === newBoxId )?.observable;
         // todo: we should make the boxes such that they have the correct values from the start
-        const y = Math.floor(Math.random()*6);
-        newObs.setValue( active({tetroId: newTetroId, xPos:n, yPos:y, zPos:0}) );
+        // const y = Math.floor(Math.random()*6);
+        newObs.setValue( active({tetroId: newTetroId, xPos:n, yPos:0, zPos:0}) );
         return newBoxId;
     });
     // set the current tetro id
@@ -350,7 +363,42 @@ const handleNewTetromino = namedObservable => {
         if (POISON_PILL === remoteValue) {
             log.info(`tetromino removed: ${namedObservable.id}`);
             tetrominoListObs.del(namedObservable);
+            return;
         }
+        if (undefined === remoteValue?.value) { // happens at startup
+            return;
+        }
+        // when a tetro changes, we have to find and update its boxes
+        console.warn("tetro changed");
+        /** @type { TetrominoModelType } */ const tetromino = remoteValue.value;
+        const tetroId = namedObservable.id;
+
+         const getBoxNamedObs = index => {
+             const boxId = BOX_PREFIX + tetroId + "-" + index;
+             return boxesBackingList.find( ({id}) => id === boxId);
+         };
+         [0,1,2,3].forEach( boxIndex => {
+             const boxNamedObs = getBoxNamedObs(boxIndex);
+             if (!boxNamedObs) {
+                 log.debug(`cannot find box ${boxIndex} for tetro ${tetroId}. (can happen at start)`);
+                 return;
+             }
+             const obs = boxNamedObs.observable;
+
+             const box = obs.getValue().value;
+             console.warn(box);
+
+             /** @type { BoxModelType } */
+             const newBox = {...box};
+
+             newBox.yPos = tetromino.yPos; // todo: real logic here
+
+             obs.setValue( passive(newBox) ); // todo: it should be active when unlinked (?)
+
+
+         });
+
+
     });
 };
 

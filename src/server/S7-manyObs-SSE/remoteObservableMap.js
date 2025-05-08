@@ -49,7 +49,7 @@ const OBSERVABLE_IDs_KEY  = PREFIX_IMMORTAL  + "remoteObservableNames";
  * @pure
  * @constructor
  * @template _T_
- * @type { (value:_T_) => RemoteValueType<_T_> }
+ * @type { <_T_> (value:_T_) => RemoteValueType<_T_> }
  */
 const passive = value => ( {mode: "passive", value} );
 
