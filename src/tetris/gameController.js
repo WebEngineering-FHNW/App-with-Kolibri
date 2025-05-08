@@ -63,7 +63,6 @@ const PLAYER_SELF_ID        = PLAYER_PREFIX + clientId;
 const boxesBackingList = [];
 
 /**
- * todo: not quite sure what is the best way to handle this...
  * Decorator. Making the list of space boxes observable.
  * @type {IObservableList<NamedRemoteObservableType<BoxModelType>>}
  */
@@ -236,16 +235,41 @@ const movePositionImpl = (tetromino, newPosition, spaceBoxes) => {
 };
 
 /**
+ * @private
+ * @return {{currentTetrominoObs: RemoteObservableType<TetrominoModelType>, currentTetromino: TetrominoModelType}}
+ */
+const getCurrentTetrominoRefs = () => {
+    const currentTetrominoId            = tetrominoCurrentIdObs.getValue().value;
+    const currentTetrominoNamedValue    = tetrominoBackingList.find(({id}) => id === currentTetrominoId);
+    const currentTetrominoObs           = currentTetrominoNamedValue.observable;
+    const currentTetromino              = currentTetrominoObs.getValue().value;
+    return {currentTetrominoObs, currentTetromino};
+};
+
+
+/**
  * Turns the current tetromino into a new direction if allowed.
  * @collaborator current tetromino and spaceBoxes
  * @impure everything might change.
  * @param { NewShapeType } turnFunction
  */
 const turnShape = turnFunction => {
-    const currentTetronimo = tetrominoCurrentIdObs.getValue();
-    // const shape = currentTetronimo.value.getShape();
-    // turnShapeImpl(currentTetronimo, turnFunction (shape), spaceBoxes);
+
+    const {currentTetrominoObs, currentTetromino} = getCurrentTetrominoRefs();
+    const oldShape = currentTetromino.shape;
+
+    const newShape = turnFunction(oldShape);
+
+    const newTetromino = { ...currentTetromino }; // we might not actually need a copy, but it's cleaner
+    newTetromino.shape = newShape;
+
+    // todo: collision check
+
+    currentTetrominoObs.setValue(active(newTetromino));
+
 };
+
+
 /**
  * Moves the current tetromino to a new position if allowed.
  * @collaborator current tetromino and spaceBoxes
@@ -253,14 +277,8 @@ const turnShape = turnFunction => {
  * @param { NewPositionType } moveFunction
  */
 const movePosition = moveFunction => {
-    const currentTetrominoId = tetrominoCurrentIdObs.getValue().value; // todo: undefined? missing key?
-    console.warn(currentTetrominoId);
-    const currentTetrominoNamedValue = tetrominoBackingList.find( ({id}) => id === currentTetrominoId);
-    console.warn(currentTetrominoNamedValue);
-    const currentTetrominoObs = currentTetrominoNamedValue.observable;
-    const currentTetromino                = currentTetrominoObs.getValue().value;
-    console.warn(currentTetromino);
-    const newTetromino = { ...currentTetromino }; // we might not actually need a copy but it's cleaner
+    const {currentTetrominoObs, currentTetromino} = getCurrentTetrominoRefs();
+    const newTetromino = { ...currentTetromino }; // we might not actually need a copy, but it's cleaner
 
     const {x,y,z} = moveFunction( {x:currentTetromino.xPos, y:currentTetromino.yPos, z:currentTetromino.zPos}  );
 
@@ -268,11 +286,7 @@ const movePosition = moveFunction => {
     newTetromino.yPos = y ; // todo: (collision check?)
     newTetromino.zPos = z ; // todo: (collision check?)
 
-    console.warn(newTetromino);
-
     currentTetrominoObs.setValue(active(newTetromino));
-
-
 };
 
 /**
@@ -319,7 +333,8 @@ const restart              = () => {
     observableGameMap.addObservableForID(newTetroId);
     const newTetroObs = tetrominoBackingList.find( ({id}) => id === newTetroId)?.observable;
 
-    const startTetrominoValue = {shapeName: "branch", xRot: 0, yRot: 0, zRot: 0, xPos: 0, yPos: 0, zPos: 0};// todo: start at zPos 12
+    const startShape = shapesByName["branch"]; // todo: random shape on new tetro
+    const startTetrominoValue = {shapeName: "branch", shape: startShape, xPos: 0, yPos: 0, zPos: 0};// todo: start at zPos 12
     newTetroObs.setValue(active(startTetrominoValue ));
 
     // create four boxes for the new tetro
@@ -350,7 +365,7 @@ const restart              = () => {
  */
 const updatedBoxValue = (tetroId, tetromino, boxIndex) => {
 
-    const boxShapeOffset = shapesByName[tetromino.shapeName][boxIndex];
+    const boxShapeOffset = (tetromino.shape)[boxIndex];
 
     const xPos = tetromino.xPos + boxShapeOffset.x;
     const yPos = tetromino.yPos + boxShapeOffset.y;

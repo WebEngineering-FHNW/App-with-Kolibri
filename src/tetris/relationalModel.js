@@ -25,9 +25,7 @@
  *
  * @typedef TetrominoModelType
  * @property { ShapeNameType } shapeName
- * @property { Number } xRot - number of x rotations (0..3) of the shape
- * @property { Number } yRot - number of y rotations (0..3) of the shape
- * @property { Number } zRot - number of z rotations (0..3) of the shape
+ * @property { ShapeType } shape - capture the relative rotation shape
  * @property { Number } xPos - x position in logical space units
  * @property { Number } yPos - y position in logical space units
  * @property { Number } zPos - z position in logical space units
