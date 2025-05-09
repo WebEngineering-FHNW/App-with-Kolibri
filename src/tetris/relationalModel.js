@@ -49,6 +49,13 @@
  */
 
 /**
+ * Game state. The active user has to care for updating this.
+ * @typedef GameStateModelType
+ * @property { Boolean } fallingDown - Whether the current tetronimo is supposed to be falling.
+ * @property { Number  } score
+ */
+
+/**
  *
  * Remotely stored with a unique key see {@link TETROMINO_CURRENT_ID}
  *
