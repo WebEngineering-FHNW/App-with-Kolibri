@@ -2,7 +2,7 @@
  * @module tetris/modelTest
  */
 import {TestSuite} from "../kolibri/util/test.js";
-import {Tetronimo} from "./model.js";
+import {Tetronimo} from "./shape.js";
 
 const modelSuite = TestSuite("tetris/model");
 
