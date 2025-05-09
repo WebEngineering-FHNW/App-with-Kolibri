@@ -26,6 +26,10 @@ header {
     gap:                    .3em;
     justify-items:          right;
 
+    &.active {
+        border:             2px solid white;
+    }
+
     & div.playerList {
         padding:            .3em .5em;
         background-color:   #FFFFFF18;

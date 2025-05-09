@@ -14,7 +14,7 @@
     import {projectGame}           from "./gameProjector.js";
     import {defaultConsoleLogging} from "../kolibri/logger/loggingSupport.js";
 
-    defaultConsoleLogging("ch.fhnw", LOG_DEBUG);
+    defaultConsoleLogging("ch.fhnw", LOG_WARN);
 
     startGame(ObservableMap, gameController => {
         document.body.prepend(...projectGame(gameController));

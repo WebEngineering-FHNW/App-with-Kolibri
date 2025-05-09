@@ -25,6 +25,9 @@ const log = LoggerFactory("ch.fhnw.kolibri.observableMap");
  * @property { ConsumerType<String> }   addObservableForID - adding a new ID will
  *  publish the newly available ID (which should be **unique**)
  *  which in turn will trigger any projections (display and binding)
+ *
+ *  todo: make it so that the user has to provide an initial value (avoid clumsy null-checks)
+ *
  * @property { ConsumerType<String> }   removeObservableForID - publish
  * that a given id is no longer in the list of named remote observables, thus allowing all listeners to
  * clean up any local bindings and remove all other bound resources, esp. projected views.

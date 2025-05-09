@@ -23,11 +23,15 @@ const projectControlPanel = gameController => {
         <div class="playerList">
             <ul></ul>
         </div>
+        <div class="score">0</div>
     </header>`);
-    const [selfInput]       = select(view[0], "div.self input");
-    const [activePlayerDiv] = select(view[0], "div.player");
-    const [startButton]     = select(view[0], "button");
-    const [playerList]      = select(view[0], "div.playerList > ul");
+
+    const [header]          = view;
+    const [selfInput]       = select(header, "div.self input");
+    const [activePlayerDiv] = select(header, "div.player");
+    const [startButton]     = select(header, "button");
+    const [playerList]      = select(header, "div.playerList > ul");
+    const [scoreDiv]        = select(header, "div.score");
 
     // util
     // what to do if either the active player id changes or we change our own name while being active
@@ -51,6 +55,17 @@ const projectControlPanel = gameController => {
     });
     gameController.activePlayerIdObs.onChange( _remoteValue => {
         startButton.disabled = !gameController.weAreInCharge();
+    });
+    gameController.activePlayerIdObs.onChange( _remoteValue => {
+        if (gameController.weAreInCharge()) {
+            header.classList.add("active");
+        } else {
+            header.classList.remove("active");
+        }
+    });
+
+    gameController.gameStateObs.onChange( ({value}) => {
+        scoreDiv.textContent = value?.score;
     });
 
     // whenever a player changes his/her name, let's see whether we have to update the current player
