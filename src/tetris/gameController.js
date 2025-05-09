@@ -1,6 +1,6 @@
 /**
  * @module tetris/gameContoller
- * Manages game-wide state, esp. the {@link TetronimoType currentTetronimo} and the {@link spaceBoxes}.
+ * Manages game-wide state.
  * Here is where the game rules are enforced:
  * - what defines a collision
  * - what happens on collision
@@ -10,22 +10,20 @@
  * newly available tetrominos.
  */
 
-import {intersects, moveDown}    from "./tetrominoController.js";
-import {shapesByName, Tetronimo} from "./model.js";
-import {
-    Walk
-}                                from "../kolibri/sequence/constructors/range/range.js";
-import {Scheduler}               from "../kolibri/dataflow/dataflow.js";
+import {intersects, moveDown, normalize} from "./tetrominoController.js";
+import {shapeNames, shapesByName}        from "./shape.js";
+import {Walk}                     from "../kolibri/sequence/constructors/range/range.js";
+import {Scheduler}                from "../kolibri/dataflow/dataflow.js";
 import {
     active,
-    MISSING_FOREIGN_KEY,
     passive,
+    MISSING_FOREIGN_KEY,
     POISON_PILL,
     PREFIX_IMMORTAL
-}                                from "../server/S7-manyObs-SSE/remoteObservableMap.js";
-import {clientId}                from "../kolibri/version.js";
-import {LoggerFactory}           from "../kolibri/logger/loggerFactory.js";
-import {ObservableList}          from "../kolibri/observable.js";
+}                                 from "../server/S7-manyObs-SSE/remoteObservableMap.js";
+import {clientId}                 from "../kolibri/version.js";
+import {LoggerFactory}            from "../kolibri/logger/loggerFactory.js";
+import {ObservableList}           from "../kolibri/observable.js";
 
 export {
     startGame, turnShape, movePosition, // for general use outside
@@ -142,30 +140,10 @@ const takeCharge = () => activePlayerIdObs.setValue( /** @type { RemoteValueType
 
 // --- game --- --- --- --- --- --- --- --- ---
 
-/**
- * The game ends with a collision at the top.
- * @pure
- * @type { (currentTetronimo: RemoteValueType<TetronimoType>, spaceBoxes:Array<BoxType>) => Boolean }
- */
-const isEndOfGame = (currentTetromino, spaceBoxes) =>
-    currentTetromino.value.getPosition().z === 12
-    && intersects(currentTetromino, spaceBoxes) ;
+let isGameRunning = false;
 
-/**
- * @type { (currentTetronimo:RemoteValueType<TetronimoType> , spaceBoxes:Array<BoxType>) => void }
- * @impure side effects pretty much everything, directly or indirectly
- */
-const handleCollision = (currentTetromino, spaceBoxes) => {
-    currentTetromino.value.unlinkBoxes();                   // boxes will still keep their data binding
-    spaceBoxes.push(...(currentTetromino.value.boxes));     // put the current tetro boxes in the space
-    checkAndHandleFullLevel(spaceBoxes);
-    tetrominoCurrentIdObs.setValue(undefined);                // make room for new tetro
-};
 
-/**
- * @impure side effects the spaceBoxes and might call listeners that change the DOM if full level is detected
- * @param {Array<BoxType>} spaceBoxes
- */
+// todo: update to new model
 const checkAndHandleFullLevel = spaceBoxes => {
     const isFull = level => spaceBoxes.filter( box => box.getValue().z === level).length === 7 * 7;
     const level = [...Walk(12)].findIndex(isFull);
@@ -192,7 +170,7 @@ const checkAndHandleFullLevel = spaceBoxes => {
 
 
 /**
- * @private
+ * @private util
  * @return {{currentTetrominoObs: RemoteObservableType<TetrominoModelType>, currentTetromino: TetrominoModelType}}
  */
 const getCurrentTetrominoRefs = () => {
@@ -201,6 +179,24 @@ const getCurrentTetrominoRefs = () => {
     const currentTetrominoObs           = currentTetrominoNamedValue.observable;
     const currentTetromino              = currentTetrominoObs.getValue().value;
     return {currentTetrominoObs, currentTetromino, currentTetrominoId};
+};
+
+const onCollision = tetromino => {
+    console.warn("onCollision");
+
+    if (tetromino.zPos > 11) {
+        isGameRunning = false;
+    }
+
+    // what does it now mean to unlink the boxes? for the moment: nothing as it does no harm
+
+    // todo: check for end of game?
+    // todo: check for full level?
+    // todo: update score?
+    // todo: new upcoming tetro?
+
+    makeNewCurrentTetromino();
+
 };
 
 /**
@@ -213,21 +209,20 @@ const turnShape = turnFunction => {
     const {currentTetrominoObs, currentTetromino,currentTetrominoId} = getCurrentTetrominoRefs();
     const oldShape = currentTetromino.shape;
 
-    const newShape = turnFunction(oldShape);
+    const newShape = normalize(turnFunction(oldShape));
     const position = {xPos:currentTetromino.xPos, yPos:currentTetromino.yPos, zPos:currentTetromino.zPos};
 
     if(isDisallowedTetroPosition(newShape, position)) {
         return;
     }
-
-    // todo: collision check
-
+    if (willCollide(newShape, position, currentTetrominoId)) {
+        console.warn("will collide from turn");
+        onCollision(currentTetromino);
+        return
+    }
     const newTetromino = { ...currentTetromino }; // we might not actually need a copy, but it's cleaner
     newTetromino.shape = newShape;
-
-
     currentTetrominoObs.setValue(active(newTetromino));
-
 };
 
 
@@ -246,24 +241,14 @@ const movePosition = moveFunction => {
     if(isDisallowedTetroPosition(currentTetromino.shape, {xPos:x, yPos:y, zPos:z})){
         return;
     }
-    const existingBoxPositions =
-              boxesBackingList
-                  .filter( ({ id         }) => ! id.includes(currentTetrominoId) )
-                  .map   ( ({ observable }) => observable.getValue().value);
-
-    console.warn("+++", boxesBackingList.length, existingBoxPositions.length);
-
-    if (willCollide(currentTetromino.shape, {xPos:x, yPos:y, zPos:z}, existingBoxPositions)) {
-        console.warn("will collide");
+    if (willCollide(currentTetromino.shape, {xPos:x, yPos:y, zPos:z}, currentTetrominoId)) {
+        console.warn("will collide from move");
+        onCollision(currentTetromino);
         return
     }
-
-    // todo: (collision check?)
-
     newTetromino.xPos = x ;
     newTetromino.yPos = y ;
     newTetromino.zPos = z ;
-
     currentTetrominoObs.setValue(active(newTetromino));
 };
 
@@ -280,21 +265,49 @@ const scheduler = Scheduler();
  * @param { () => void } done - callback when one iteration is done
  */
 const fallTask = done => {
-    if (! weAreInCharge()) { return; }
+    if (! weAreInCharge()) {
+        done();
+        return;
+    }
+    if (!isGameRunning) {
+        log.info("The End");// todo: handle the end of the game
+        done();
+        return;
+    }
     movePosition(moveDown);
-    // if (isEndOfGame(tetrominoCurrentIdObs.getValue(), spaceBoxes)) {
-    //     log.info("The End");// handle the end of the game
-    //     return;
-    // }
     // re-schedule fall Task
     setTimeout( () => scheduler.add(fallTask), 1 * 1000 );
     done();
 };
 
-let runningNum = 0;
-/** @type { () => void } */
-const restart              = () => {
+let runningNum  = 0;
+const makeNewCurrentTetromino = () => {
+    runningNum++;
+    const newTetroId  = TETROMINO_PREFIX + clientId + "-" + (runningNum++);
+    observableGameMap.addObservableForID(newTetroId);
+    const newTetroObs = tetrominoBackingList.find(({id}) => id === newTetroId)?.observable;
 
+    const shapeName   = shapeNames[Math.floor(Math.random() * shapeNames.length)];
+    const startShape  = shapesByName[shapeName];
+    const startTetrominoValue = {shapeName, shape: startShape, xPos: 0, yPos: 0, zPos: 12};
+    newTetroObs.setValue(active(startTetrominoValue));
+
+    // create four boxes for the new tetro
+    [0, 1, 2, 3].forEach(boxIndex => {
+        const newBoxId  = BOX_PREFIX + newTetroId + "-" + boxIndex;
+        observableGameMap.addObservableForID(newBoxId);
+        const newBoxObs = boxesBackingList.find(({id}) => id === newBoxId)?.observable;
+        const startBox  = updatedBoxValue(newTetroId, startTetrominoValue, boxIndex);
+        newBoxObs.setValue(active(startBox));
+    });
+
+    // set the current tetro id
+    tetrominoCurrentIdObs.setValue(active(newTetroId));
+};
+
+/** @type { () => void } */
+const restart   = () => {
+    isGameRunning = true;
     // unset the current boxes and remove all boxes
     boxesBackingList.forEach( ({id}) => observableGameMap.removeObservableForID(id));
 
@@ -302,33 +315,10 @@ const restart              = () => {
     tetrominoCurrentIdObs.setValue(active(MISSING_FOREIGN_KEY));
     tetrominoBackingList.forEach( ({id}) => observableGameMap.removeObservableForID(id));
 
-    // todo: reset game state, points, rewards, ... (if any)
+    // todo: reset game state, score, rewards, ... (if any)
 
-    // create a new pristine tetro to start with
-
-    runningNum++;
-    const newTetroId = TETROMINO_PREFIX + clientId + "-" + (runningNum++);
-    observableGameMap.addObservableForID(newTetroId);
-    const newTetroObs = tetrominoBackingList.find( ({id}) => id === newTetroId)?.observable;
-
-    const startShape = shapesByName["branch"]; // todo: random shape on new tetro
-    const startTetrominoValue = {shapeName: "branch", shape: startShape, xPos: 0, yPos: 0, zPos: 0};// todo: start at zPos 12
-    newTetroObs.setValue(active(startTetrominoValue ));
-
-    // create four boxes for the new tetro
-    [0,1,2,3].forEach( boxIndex => {
-        const newBoxId = BOX_PREFIX + newTetroId+ "-" + boxIndex;
-        observableGameMap.addObservableForID(newBoxId);
-        const newBoxObs = boxesBackingList.find( ({id}) => id === newBoxId )?.observable;
-        const startBox = updatedBoxValue(newTetroId, startTetrominoValue, boxIndex);
-        newBoxObs.setValue( active(startBox) );
-    });
-
-    // set the current tetro id
-    tetrominoCurrentIdObs.setValue( active(newTetroId));
-
-    // todo: enable when checks are enabled
-    // scheduler.add( fallTask ); // start the game loop
+    makeNewCurrentTetromino();
+    scheduler.add( fallTask ); // start the game loop
 };
 
 
@@ -342,17 +332,14 @@ const restart              = () => {
  * @return { BoxModelType }
  */
 const updatedBoxValue = (tetroId, tetromino, boxIndex) => {
-
     const boxShapeOffset = (tetromino.shape)[boxIndex];
-
     const xPos = tetromino.xPos + boxShapeOffset.x;
     const yPos = tetromino.yPos + boxShapeOffset.y;
     const zPos = tetromino.zPos + boxShapeOffset.z;
-
     return {tetroId, xPos, yPos, zPos};
 };
 
-const isDisallowedBoxPosition = ({ xPos, yPos, zPos }) => {
+const isDisallowedBoxPosition = ({ xPos, yPos }) => {
     if (xPos < 0 || xPos > 6) return true;
     if (yPos < 0 || yPos > 6) return true;
     return false;
@@ -371,11 +358,16 @@ const isDisallowedTetroPosition = (shape, position) => {
     return expectedBoxPositions(shape, position).some(boxPos => isDisallowedBoxPosition(boxPos) );
 };
 
-const willCollide = (shape, position, existingBoxPositions) => {
+const willCollide = (shape, position, currentTetrominoId) => {
     const newBoxPositions = expectedBoxPositions(shape, position);
     if (newBoxPositions.some( ({zPos}) => zPos < 0)) {
         return true;
     }
+    const existingBoxPositions =
+              boxesBackingList
+                  .filter( ({ id         }) => ! id.includes(currentTetrominoId) )
+                  .map   ( ({ observable }) => observable.getValue().value);
+
     // get all the current box positions but without the current tetro
     const collides = existingBoxPositions.some( otherBoxPos => {
        return newBoxPositions.some(newBoxPos => {
@@ -384,8 +376,7 @@ const willCollide = (shape, position, existingBoxPositions) => {
                   otherBoxPos.zPos === newBoxPos.zPos;
        })
     });
-
-    return newBoxPositions.some( boxPos => isDisallowedBoxPosition(boxPos) );
+    return collides;
 };
 
 
@@ -443,7 +434,6 @@ const trySyncTetronimo = (tetromino, tetroId) => {
 };
 
 const handleNewTetromino = namedObservable => {
-    // todo: special handling if it is (or becomes) the current tetro?
     log.info("New Tetromino " + namedObservable.id);
     tetrominoListObs.add(namedObservable);
     namedObservable.observable.onChange(remoteValue => {
@@ -455,7 +445,6 @@ const handleNewTetromino = namedObservable => {
         const tetroId = namedObservable.id;
         /** @type { TetrominoModelType } */ const tetromino = remoteValue?.value;
         trySyncTetronimo(tetromino, tetroId);
-
     });
 };
 
@@ -512,6 +501,21 @@ const handleNewPlayer = namedObservable => {
     });
 };
 
+const handleActivePlayer = (namedObservable) => {
+    activePlayerIdObs = namedObservable.observable;
+    activePlayerIdObs.onChange(({value}) => {
+        if (MISSING_FOREIGN_KEY === value) {
+            takeCharge();
+        }
+        if (PLAYER_SELF_ID === value) {
+            console.warn("we are in charge, let's see if we have to start the downfall");
+            // todo: we need a shared game state such that we know whether the game is running or not
+            // if(tetrominoCurrentIdObs) {
+            //     scheduler.add(fallTask);
+            // }
+        }
+    });
+};
 /**
  * will be called whenever a remote named Observable becomes available.
  * Lazily setting up the respective local observables when the obsMap notifies
@@ -534,12 +538,7 @@ const onNewNamedObservable = namedObservable => {
         return;
     }
     if (namedObservable.id === PLAYER_ACTIVE_ID) {
-        activePlayerIdObs = namedObservable.observable;
-        activePlayerIdObs.onChange( ({value}) => {
-            if (MISSING_FOREIGN_KEY === value) {
-                takeCharge();
-            }
-        });
+        handleActivePlayer(namedObservable);
         return;
     }
     // lazy init of local storage is a side effect and depends on timing
@@ -558,7 +557,7 @@ const onNewNamedObservable = namedObservable => {
  * @typedef GameControllerType
  * @property { RemoteObservableType<String>    }                                selfPlayerObs
  * @property { RemoteObservableType<String>    }                                activePlayerIdObs
- * @property { RemoteObservableType<Tetronimo> }                                tetrominoCurrentIdObs
+ * @property { RemoteObservableType<TetrominoModelType> }                       tetrominoCurrentIdObs
  * @property { IObservableList<NamedRemoteObservableType<TetrominoModelType>> } tetrominoListObs
  * @property { IObservableList<NamedRemoteObservableType<BoxModelType>> }       boxesListObs
  * @property { IObservableList<NamedRemoteObservableType<PlayerNameType>> }     playerListObs
