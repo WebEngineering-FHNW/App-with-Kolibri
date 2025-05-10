@@ -1,17 +1,21 @@
-import {TestSuite}     from "../../kolibri/util/test.js";
-import {ObservableMap}       from "./observableMap.js";
-import {active, POISON_PILL} from "../../server/S7-manyObs-SSE/remoteObservableMap.js";
+import {TestSuite}                        from "../../kolibri/util/test.js";
+import {INITIAL_OBS_VALUE, ObservableMap}       from "./observableMap.js";
+import {POISON_PILL_VALUE} from "../../server/S7-manyObs-SSE/remoteObservableMap.js";
 
 const suite = TestSuite("observable/observableMap");
 
 suite.add("basic", assert => {
 
     let exampleObs     = null;
-    let observedValue = null;
+    let observedValue = "not yet set";
     const onNewObservableNameCallback = namedObs => {
         if(namedObs.id === "example") {
-            exampleObs = namedObs.observable;
-            exampleObs.onChange( it => observedValue = it);
+            exampleObs = namedObs;
+            exampleObs.onChange( it => {
+                assert.isTrue(!! it); // no null or undefined comes in here
+                assert.isTrue( INITIAL_OBS_VALUE !== it);
+                observedValue = it
+            });
         }
     };
     const observableMap = ObservableMap(onNewObservableNameCallback);
@@ -21,18 +25,14 @@ suite.add("basic", assert => {
 
     assert.isTrue(!! exampleObs);
 
-    // observable was created with an initial value of undefined
+    assert.is(observedValue, "not yet set"); // init state
 
-    assert.is(observedValue.mode, "passive");  // with mode and value
-    assert.is(observedValue.value, undefined); // initially undefined
+    exampleObs.setValue("firstValue");
 
-    exampleObs.setValue(active("firstValue"));
-
-    assert.is(observedValue.mode,  "active");
-    assert.is(observedValue.value, "firstValue");
+    assert.is(observedValue, "firstValue");
 
     observableMap.removeObservableForID("example");
-    assert.is(observedValue, POISON_PILL);
+    assert.is(observedValue, POISON_PILL_VALUE);
 });
 
 
