@@ -63,8 +63,8 @@ const passive = value => ( {mode: "passive", value} );
 const active = value => ( {mode:"active", value} ); // todo: the remote value type screams for becoming an attribute type
                                                     // active/passive is a property of the value
                                                     // as a named observable they have an ID that we can use as a qualifier for stable binding
-
-const POISON_PILL_VALUE = "POISON_PILL_VALUE";
+/** @type { SignalValueType } */
+const POISON_PILL_VALUE = "__POISON_PILL_VALUE__";
 /**
  * Local observers that see this value can remove themselves.
  * @type { RemoteValueType<String> }

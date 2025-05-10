@@ -1,9 +1,8 @@
 import {dom, select}                              from "../kolibri/util/dom.js";
 import {registerForMouseAndTouch}                 from "./scene3D/scene.js";
 import {registerKeyListener}                      from "./tetrominoProjector.js";
-import {active, POISON_PILL, POISON_PILL_VALUE}   from "../server/S7-manyObs-SSE/remoteObservableMap.js";
+import {active, POISON_PILL_VALUE}                from "../server/S7-manyObs-SSE/remoteObservableMap.js";
 import {LoggerFactory}                            from "../kolibri/logger/loggerFactory.js";
-import {PLAYER_SELF_ID}                           from "./gameController.js";
 
 export {projectGame};
 
@@ -34,29 +33,30 @@ const projectControlPanel = gameController => {
     const [scoreDiv]        = select(header, "div.score");
 
     // util
-    // what to do if either the active player id changes or we change our own name while being active
-    const onIdIsTheActivePlayer = (id, observable) => {
-        observable.onChange( _ => {
-            if (id === gameController.activePlayerIdObs.getValue().value) {
-                activePlayerDiv.textContent = gameController.getPlayerName(id);
+    // if either the active player id changes, or we change our own name while being active
+    // then in both cases, the active player field needs update
+    const onIdIsTheActivePlayer = mappedObservable => {
+        mappedObservable.onChange( _ => {
+            if (mappedObservable.id === gameController.activePlayerIdObs.getValue()) {
+                activePlayerDiv.textContent = gameController.getPlayerName(mappedObservable.id);
             }
         });
     };
 
     // data binding
-    gameController.selfPlayerObs.onChange( ({value}) => {
-        if (POISON_PILL_VALUE === value) return; // can happen on self-removal
-        selfInput.value = value;
+    gameController.selfPlayerObs.onChange( /** @type { PlayerNameType } */ playerName => {
+        if (POISON_PILL_VALUE === playerName) return; // can happen on self-removal
+        selfInput.value = playerName;
     });
-    onIdIsTheActivePlayer(PLAYER_SELF_ID, gameController.selfPlayerObs);
+    onIdIsTheActivePlayer(gameController.selfPlayerObs);
 
-    gameController.activePlayerIdObs.onChange( ({value}) => {
-        activePlayerDiv.textContent = gameController.getPlayerName(value);
+    gameController.activePlayerIdObs.onChange( /** @type { ForeignKeyType } */playerId => {
+        activePlayerDiv.textContent = gameController.getPlayerName(playerId);
     });
-    gameController.activePlayerIdObs.onChange( _remoteValue => {
+    gameController.activePlayerIdObs.onChange( _ => {
         startButton.disabled = !gameController.weAreInCharge();
     });
-    gameController.activePlayerIdObs.onChange( _remoteValue => {
+    gameController.activePlayerIdObs.onChange( _ => {
         if (gameController.weAreInCharge()) {
             header.classList.add("active");
         } else {
@@ -64,40 +64,31 @@ const projectControlPanel = gameController => {
         }
     });
 
-    gameController.gameStateObs.onChange( ({value}) => {
-        scoreDiv.textContent = value?.score;
+    gameController.gameStateObs.onChange( /** @type { GameStateModelType } */ gameState => {
+        scoreDiv.textContent = gameState.score;
     });
 
     // whenever a player changes his/her name, let's see whether we have to update the current player
-    gameController.playerListObs.onAdd( ({id, observable}) => { // named remote observable
-        onIdIsTheActivePlayer(id, observable);
+    gameController.playerListObs.onAdd(  playerObs => {
+        onIdIsTheActivePlayer(playerObs);
     });
 
     // this could go into a nested li-projector
-    gameController.playerListObs.onAdd( ({id, observable}) => { // named remote value
-        const [liView] = dom(`<li data-id="${id}">...</li>`);
-        observable.onChange( remoteValue => {
-            if (POISON_PILL === remoteValue) {
+    gameController.playerListObs.onAdd( playerObs => {
+        const [liView] = dom(`<li data-id="${playerObs.id}">...</li>`);
+        playerObs.onChange( /** @type { PlayerNameType } */playerName => {
+            if (POISON_PILL_VALUE === playerName) {
                 liView.remove();
                 return;
             }
-            /** @type { PlayerNameType } */ const playerName = remoteValue.value; // just for clarity
-            if(undefined === playerName) return;
-            liView.textContent = playerName
+            liView.textContent = playerName;
         });
         playerList.append(liView);
     });
-    // gameController.playerListObs.onDel( ({id}) => { // named remote value
-    //     const liViews = playerList.querySelectorAll(`li[data-id="${id}"]`); // there should be exactly one but better be safe
-    //     for (const liView of liViews) {
-    //         liView.remove();
-    //         log.info(`removed view for player ${id}`);
-    //     }
-    // });
 
     // view Binding
     selfInput.oninput = _event => {
-        gameController.selfPlayerObs.setValue( active(selfInput.value) );
+        gameController.selfPlayerObs.setValue( selfInput.value );
     };
 
     // Using direct property assignment (onclick) overwrites any previous listeners
@@ -141,37 +132,33 @@ const projectMain = gameController => {
     registerForMouseAndTouch(main);           // the general handling of living in a 3D scene
     registerKeyListener(gameController);      // the game-specific key bindings
 
-    gameController.tetrominoListObs.onAdd( ({id, observable}) => {
-        const [tetroDiv]  = dom(`<div class="tetromino" data-id="${id}"></div>`);
+    gameController.tetrominoListObs.onAdd( tetrominoObs => {
+        const [tetroDiv]  = dom(`<div class="tetromino" data-id="${tetrominoObs.id}"></div>`);
         const [coordsDiv] = select(document.body, "#main .coords"); // the main view must have been projected
         coordsDiv.append(tetroDiv);
         let tetroNeedsShapeName = true;
-        observable.onChange( remoteValue => {
-            if (POISON_PILL === remoteValue) {
+        tetrominoObs.onChange( /** @type { TetrominoModelType } */ tetromino => {
+            if (POISON_PILL_VALUE === tetromino) {
                 tetroDiv.remove();
                 return;
             }
-            /** @type { TetrominoModelType } */ const tetro = remoteValue.value; // just for clarity
-            if(!tetro) return;
             if (tetroNeedsShapeName) {
-                tetroDiv.classList.add(tetro.shapeName);
+                tetroDiv.classList.add(tetromino.shapeName);
                 tetroNeedsShapeName = false;
             }
         })
     });
 
     // todo: maybe make the binding more stable such that the tetroDiv get added when a box needs it (but only once in total)
-    gameController.boxesListObs.onAdd( ({id, observable}) => {
+    gameController.boxesListObs.onAdd( boxObservable => {
         const boxFaceDivs = 6..times( _=> "<div class='face'></div>").join("");
-        const [boxDiv]    = dom(`<div class="box" data-id="${id}"> ${ boxFaceDivs} </div>`);
+        const [boxDiv]    = dom(`<div class="box" data-id="${boxObservable.id}"> ${ boxFaceDivs} </div>`);
         let boxNeedsAddingToTetro = true;
-        observable.onChange( remoteValue => {
-            if (POISON_PILL === remoteValue) {
+        boxObservable.onChange( /** @type { BoxModelType } */ box => {
+            if (POISON_PILL_VALUE === box) {
                 boxDiv.remove();              // the tetro div could remain in the dom (?) after the last box vanished
                 return;
             }
-            /** @type { BoxModelType } */ const box = remoteValue.value; // just for clarity
-            if (!box) return;
             if (box.tetroId && boxNeedsAddingToTetro){
                 const tetroDiv = document.body.querySelector(`.tetromino[data-id="${box.tetroId}"]`);
                 if (tetroDiv) { // when info comes from remote, the sequence might be off and the tetro div is only available later
