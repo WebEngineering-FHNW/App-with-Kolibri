@@ -1,5 +1,4 @@
 import "./utilTest.js"
-import "./modelTest.js"
 import "./tetrominoControllerTest.js"
 import "./gameControllerTest.js"
 import "./observableMap/observableMapTest.js"
