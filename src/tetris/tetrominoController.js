@@ -4,7 +4,7 @@
  * as well as how they move.
  */
 
-export { normalize, intersects, disallowed, toppleRoll, topplePitch, rotateYaw,
+export { normalize, toppleRoll, topplePitch, rotateYaw,
          moveLeft , moveRight, moveBack, moveForw, moveDown
 };
 
@@ -20,35 +20,6 @@ const normalize = shape => {
     const minZ = Math.min(...shape.map(box => box.z));
     return shape.map( box => ({x: box.x - minX, y: box.y - minY, z: box.z - minZ}));
 };
-
-/**
- * Tells whether the tetromino boxes intersect with any of the spaceBoxes.
- * @pure
- * @param { RemoteValueType<TetronimoType>  } tetromino
- * @param { Array<BoxType> } spaceBoxes
- * @return { Boolean }
- */
-const intersects = (tetromino, spaceBoxes) =>
-    tetromino.value.boxes.some( boxPos =>
-        boxPos.getValue().z < 0 ||
-        spaceBoxes.some( spaceBox =>
-           spaceBox.getValue().x === boxPos.getValue().x &&
-           spaceBox.getValue().y === boxPos.getValue().y &&
-           spaceBox.getValue().z === boxPos.getValue().z ));
-
-/**
- * Tells whether this tetromino configuration should be forbidden (outside bounds).
- * @pure
- * @param { RemoteValueType<TetronimoType>  } tetromino
- * @return { Boolean }
- */
-const disallowed = tetromino =>
-    tetromino.value.boxes.some( box =>{
-        const pos = box.getValue();
-        if (pos.x < 0 || pos.x > 6) return true;
-        if (pos.y < 0 || pos.y > 6) return true;
-        return false;
-    });
 
 /** @private implementation is just swapping the coordinates **/
 const swapXZ  = shape => shape.map( box => ({x:  -box.z, y: box.y, z:  box.x}));
@@ -71,7 +42,7 @@ const swapXY  = shape => shape.map( box => ({x:  box.y, y: -box.x, z: box.z}));
  */
 const toppleRoll  = swapXZ;
 /**
- * Make new shape that reflects the effect of pitching upwards (salto back).
+ * Make a new shape that reflects the effect of pitching upwards (salto back).
  * @pure returns a new shape
  * @type { NewShapeType }
  */

@@ -25,7 +25,12 @@ const log = LoggerFactory("ch.fhnw.kolibri.observableMap");
  * @type { String } -- the value represents a unique key (id) in the {@link ObservableMapType }
  */
 
-/** @type { String } */
+/**
+ * @typedef SignalValueType
+ * @type { String } -- the value signals map or consumer behavior, like removal or ignoring of values
+ */
+
+/** @type { SignalValueType } */
 const INITIAL_OBS_VALUE = "__INITIAL_OBS_VALUE__";
 
 /** @typedef MappedObservableExtentsionType
@@ -51,7 +56,7 @@ const MappedObservable = id => {
     const remoteValueObservable = Observable({mode:passive, value:INITIAL_OBS_VALUE});
     const setValue      = value => remoteValueObservable.setValue({mode:active,  value:value});
     const setLocalValue = value => remoteValueObservable.setValue({mode:passive, value:value});
-    const getValue      = remoteValueObservable.getValue()?.value;
+    const getValue      = ()    => remoteValueObservable.getValue()?.value;
 
     const adaptedCallback = callback => (newVal, oldVal, removeMe) => {
         if (newVal?.value === INITIAL_OBS_VALUE) {

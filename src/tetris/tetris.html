@@ -14,7 +14,7 @@
     import {projectGame}           from "./gameProjector.js";
     import {defaultConsoleLogging} from "../kolibri/logger/loggingSupport.js";
 
-    defaultConsoleLogging("ch.fhnw", LOG_WARN);
+    defaultConsoleLogging("ch.fhnw.tetris.gameController", LOG_INFO);
 
     startGame(ObservableMap, gameController => {
         document.body.prepend(...projectGame(gameController));
