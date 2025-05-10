@@ -2,9 +2,15 @@
 import {Observable}    from "../../kolibri/observable.js";
 import {LoggerFactory} from "../../kolibri/logger/loggerFactory.js";
 import "../../kolibri/util/array.js";
-import {active, OBSERVABLE_IDs_KEY, passive, POISON_PILL} from "../../server/S7-manyObs-SSE/remoteObservableMap.js";
+import {
+    active,
+    OBSERVABLE_IDs_KEY,
+    passive,
+    POISON_PILL,
+    POISON_PILL_VALUE
+} from "../../server/S7-manyObs-SSE/remoteObservableMap.js";
 
-export { ObservableMap }
+export { ObservableMap, INITIAL_OBS_VALUE }
 
 const log = LoggerFactory("ch.fhnw.kolibri.observableMap");
 
@@ -19,15 +25,60 @@ const log = LoggerFactory("ch.fhnw.kolibri.observableMap");
  * @type { String } -- the value represents a unique key (id) in the {@link ObservableMapType }
  */
 
+/** @type { String } */
+const INITIAL_OBS_VALUE = "__INITIAL_OBS_VALUE__";
+
+/** @typedef MappedObservableExtentsionType
+ * @template _T_
+ * @property { ForeignKeyType} id
+ * @property { (value:_T_) => void} setLocalValue - mapped to passive mode for the backing remote value types
+ */
+
+/** @typedef { IObservable<_T_> & MappedObservableExtentsionType<_T_> } MappedObservableType
+ * @template _T_
+ */
+
+/**
+ * Wrapping a remote observable to make local handling easier and abstracting away the mode handling.
+ * Callbacks are not called before a real value is available.
+ * Only proper value changes are called.
+ * @template _T_
+ * @param { ForeignKeyType} id
+ * @return { MappedObservableType<_T_> }
+ * @constructor
+ */
+const MappedObservable = id => {
+    const remoteValueObservable = Observable({mode:passive, value:INITIAL_OBS_VALUE});
+    const setValue      = value => remoteValueObservable.setValue({mode:active,  value:value});
+    const setLocalValue = value => remoteValueObservable.setValue({mode:passive, value:value});
+    const getValue      = remoteValueObservable.getValue()?.value;
+
+    const adaptedCallback = callback => (newVal, oldVal, removeMe) => {
+        if (newVal?.value === INITIAL_OBS_VALUE) {
+            return;
+        }
+        // would suppress nullish as a proper value change
+        if(newVal?.value === oldVal?.value) { // todo: not sure that is want we want in this case. check!
+            return;
+        }
+        return callback(newVal?.value, oldVal?.value, removeMe);
+    };
+    const onChange = callback => remoteValueObservable.onChange( adaptedCallback(callback) );
+    return /** @type { MappedObservableType } */ {
+        id,
+        setValue,
+        setLocalValue,
+        getValue,
+        onChange,
+    }
+};
+
 /**
  * @typedef ObservableMapType
  * @impure  publishes to listeners, changes internal state
  * @property { ConsumerType<String> }   addObservableForID - adding a new ID will
  *  publish the newly available ID (which should be **unique**)
  *  which in turn will trigger any projections (display and binding)
- *
- *  todo: make it so that the user has to provide an initial value (avoid clumsy null-checks)
- *
  * @property { ConsumerType<String> }   removeObservableForID - publish
  * that a given id is no longer in the list of named remote observables, thus allowing all listeners to
  * clean up any local bindings and remove all other bound resources, esp. projected views.
@@ -50,7 +101,7 @@ const ObservableMap = newNameCallback => {
 
     /**
      * world of managed named observables, keys are the IDs of the named observable
-     * @type { Object.< String, NamedRemoteObservableType> }
+     * @type { Object.< String, MappedObservableType<String> > }
      */
     const boundObservablesByName = {}; //
 
@@ -68,7 +119,7 @@ const ObservableMap = newNameCallback => {
         observableIDs
             .filter(  id    => boundObservablesByName[id] === undefined)
             .forEach( newID => {
-                const newObservable = ({ id: newID, observable: Observable(passive(undefined)) });
+                const newObservable = MappedObservable(newID);
                 boundObservablesByName[newID] = newObservable; // deviation from remote case: where we keep track of obs
                 newNameCallback  ( newObservable );
             });
@@ -85,7 +136,7 @@ const ObservableMap = newNameCallback => {
                 const bound = boundObservablesByName[oldID];
                 delete boundObservablesByName[oldID];
 
-                bound.observable.setValue(POISON_PILL);
+                bound.setLocalValue(POISON_PILL_VALUE);
             })
     };
 
