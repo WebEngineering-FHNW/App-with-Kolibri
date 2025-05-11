@@ -3,6 +3,7 @@ import {registerForMouseAndTouch}                 from "./scene3D/scene.js";
 import {registerKeyListener}                      from "./tetrominoProjector.js";
 import {active, POISON_PILL_VALUE}                from "../server/S7-manyObs-SSE/remoteObservableMap.js";
 import {LoggerFactory}                            from "../kolibri/logger/loggerFactory.js";
+import {PLAYER_SELF_ID}                           from "./gameController.js";
 
 export {projectGame};
 
@@ -38,6 +39,7 @@ const projectControlPanel = gameController => {
     const onIdIsTheActivePlayer = mappedObservable => {
         mappedObservable.onChange( _ => {
             if (mappedObservable.id === gameController.activePlayerIdObs.getValue()) {
+                console.warn("+++", mappedObservable.id);
                 activePlayerDiv.textContent = gameController.getPlayerName(mappedObservable.id);
             }
         });
@@ -78,6 +80,10 @@ const projectControlPanel = gameController => {
         const [liView] = dom(`<li data-id="${playerObs.id}">...</li>`);
         playerObs.onChange( /** @type { PlayerNameType } */playerName => {
             if (POISON_PILL_VALUE === playerName) {
+                if(playerName === PLAYER_SELF_ID) {
+                    console.error("TODO TODO TODO TODO TODO TODO TODO TODO ");
+                    return;
+                }
                 liView.remove();
                 return;
             }

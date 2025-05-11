@@ -109,6 +109,7 @@ const handleValueRead = (req, res) => {
         const data  = JSON.parse(incomingData);
         const id    = data[OBSERVABLE_ID_PARAM];
         const value = keyValueMap[id];
+        log.debug(`requested key ${id} found value ${value}`);
         res.end(JSON.stringify({[READ_ACTION_PARAM]: value}));
     })
 };
@@ -144,7 +145,7 @@ const handleValueUpdate = (req, res) => {
         req.on("end",  input => {
             incomingData += input ? String(input) : "";
             const data = JSON.parse(incomingData);
-            log.debug(`handling post: ${data}`);
+            log.debug(`handling post: ${incomingData}`);
             keyValueMap[data[OBSERVABLE_ID_PARAM]] = data[UPDATE_ACTION_PARAM];                                 // store the value
             keyValueObservable.setValue( {key: data[OBSERVABLE_ID_PARAM], value: data[UPDATE_ACTION_PARAM]} );  // notify observers
             res.end(JSON.stringify("ok"));
@@ -171,7 +172,7 @@ const server = createServer( (req, res) => {
       return;
   }
   if ( req.url.startsWith("/" + REMOVE_ACTION_NAME) ) {
-      handleValueUpdate(req, res);
+      handleValueUpdate(req, res); // todo: handle remove ?
       return;
   }
   handleFileRequest(req, res);

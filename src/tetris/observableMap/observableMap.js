@@ -6,17 +6,17 @@ import {
     active,
     OBSERVABLE_IDs_KEY,
     passive,
-    POISON_PILL,
     POISON_PILL_VALUE
 } from "../../server/S7-manyObs-SSE/remoteObservableMap.js";
 
-export { ObservableMap, INITIAL_OBS_VALUE }
+export { ObservableMap, MappedObservable, INITIAL_OBS_VALUE }
 
 const log = LoggerFactory("ch.fhnw.kolibri.observableMap");
 
 /**
  * @callback ObsMapFinalization
- * @param { Array<String> } initialKeys
+ * @param { (initialTable: Array<String>) => void } successCallback
+ * @param { ConsumingPredicateType } checkCallback
  * ®return void
  */
 
@@ -53,9 +53,9 @@ const INITIAL_OBS_VALUE = "__INITIAL_OBS_VALUE__";
  * @constructor
  */
 const MappedObservable = id => {
-    const remoteValueObservable = Observable({mode:passive, value:INITIAL_OBS_VALUE});
-    const setValue      = value => remoteValueObservable.setValue({mode:active,  value:value});
-    const setLocalValue = value => remoteValueObservable.setValue({mode:passive, value:value});
+    const remoteValueObservable =  Observable(                     /** @type { RemoteValueType } */ {mode:"passive", value:INITIAL_OBS_VALUE});
+    const setValue      = value => remoteValueObservable.setValue( /** @type { RemoteValueType } */ {mode:"active",  value:value});
+    const setLocalValue = value => remoteValueObservable.setValue( /** @type { RemoteValueType } */ {mode:"passive", value:value});
     const getValue      = ()    => remoteValueObservable.getValue()?.value;
 
     const adaptedCallback = callback => (newVal, oldVal, removeMe) => {
@@ -75,6 +75,7 @@ const MappedObservable = id => {
         setLocalValue,
         getValue,
         onChange,
+        onRemoteValueChange: remoteValueObservable.onChange, // not nice, but we need that for the remoteObservableMap impl.
     }
 };
 
@@ -120,6 +121,11 @@ const ObservableMap = newNameCallback => {
     const observableOfIDs = Observable( /** @type { RemoteValueType< Array<String> | undefined> } */ passive( undefined ) );
 
     const synchronizeObservableIDs = observableIDs => {
+
+        observableIDs = [... new Set(observableIDs)]; // remove duplicates
+
+        log.debug(`sync ${observableIDs.length} IDs: '${observableIDs}'`);
+
         // if there is a new observable id that we haven't bound and projected, yet, we have to do so.
         observableIDs
             .filter(  id    => boundObservablesByName[id] === undefined)
@@ -152,11 +158,19 @@ const ObservableMap = newNameCallback => {
         synchronizeObservableIDs(newNames);
     });
 
-    /** @type { ConsumerType<String> } */
+    /**
+      * @param {ForeignKeyType} newID
+      * @return {MappedObservableType<String>}
+      * */
     const addObservableForID = newID => {
         const allIDs = observableOfIDs.getValue().value ?? [] ; // value is undefined at start
+        if( allIDs.includes(newID)) {
+            log.error(`trying to add the same id a second time ${newID}`);
+            return boundObservablesByName[newID];
+        }
         allIDs.push(newID);
         observableOfIDs.setValue( /** @type { RemoteValueType< Array<String> > } */ active(allIDs) );
+        return boundObservablesByName[newID] ?? MappedObservable(newID);
     };
 
     /** @type { ConsumerType<String> } */
@@ -170,8 +184,8 @@ const ObservableMap = newNameCallback => {
         observableOfIDs.setValue( /** @type { RemoteValueType< Array<String> > } */ active(allIDs) );
     };
 
-    /** @type { ConsumerType<Function> } */
-    const  ensureAllObservableIDs = continuationCallback => {
+    /** @type { ObsMapFinalization } */
+    const  ensureAllObservableIDs = (continuationCallback, _check=()=>null) => {
         const boundObsCopy =  {...boundObservablesByName};// pass a copy to prevent messing with our internals
         delete boundObsCopy[OBSERVABLE_IDs_KEY]; // remove the key from the copy because it shall not be shared
         continuationCallback( boundObsCopy );
