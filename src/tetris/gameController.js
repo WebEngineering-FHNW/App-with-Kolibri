@@ -19,6 +19,7 @@ import {LoggerFactory}                                           from "../kolibr
 import {ObservableList}                                          from "../kolibri/observable.js";
 import {INITIAL_OBS_VALUE}                                       from "./observableMap/observableMap.js";
 import {missing}                                                 from "./util.js";
+import * as activePlayerObservable                               from "../kolibri/lambda/church.js";
 
 export {
     startGame, turnShape, movePosition, // for general use outside
@@ -539,10 +540,13 @@ const handleNewBox = newBoxObservable => {
  * @impure updates the selfPlayerObs and the playerListObs
  */
 const handleNewPlayer = newPlayerObservable => {
-    if (knownPlayersBackingList.find( ({id}) => id === newPlayerObservable.id)) {
-        console.error("already have an observable for id ", newPlayerObservable.id);
-        return;
+    if (gameProjectorCalled) { // after projection, we should no longer allow obs identity changes
+        if (knownPlayersBackingList.find( ({id}) => id === newPlayerObservable.id)) {
+            console.error("already have an observable for id ", newPlayerObservable.id, "change not allowed after projection");
+            return;
+        }
     }
+
     if (PLAYER_SELF_ID === newPlayerObservable.id) {  // is is ourselves while joining
         selfPlayerObs = newPlayerObservable;
         return;
@@ -552,17 +556,17 @@ const handleNewPlayer = newPlayerObservable => {
     playerListObs.add(newPlayerObservable);
     newPlayerObservable.onChange( /** @type { PlayerNameType } */ newPlayer => {
         if (POISON_PILL_VALUE === newPlayer) {
-            log.error("+++++++++++ poison pill in handle New Player ++++++++++++++++");
-            log.info(`player left: ${newPlayerObservable.id}`);
             playerListObs.del(newPlayerObservable);
         }
     });
 };
 
 const handleActivePlayer = (newActivePlayerObservable) => {
-    if (activePlayerIdObs) {
-        console.error("already have an observable for id ", newActivePlayerObservable.id);
-        return;
+    if (gameProjectorCalled) { // after projection, we should no longer allow obs identity changes
+        if (activePlayerObservable) {
+            console.error("already have an observable for id ", newActivePlayerObservable.id, "change not allowed after projection");
+            return;
+        }
     }
     activePlayerIdObs = newActivePlayerObservable;
     let weWereLastInCharge = false;
@@ -633,6 +637,7 @@ const onNewMappedObservable = mappedObservable => {
  * @property { IObservableList<MappedObservableType<TetrominoModelType>> }      tetrominoListObs
  * @property { IObservableList<MappedObservableType<BoxModelType>> }            boxesListObs
  * @property { IObservableList<MappedObservableType<PlayerNameType>> }          playerListObs
+ * @property { Array<MappedObservableType<PlayerNameType>> }                    initialPlayerList
  * @property { (String) => String }                                             getPlayerName
  * @property { () => Boolean }                                                  weAreInCharge
  * @property { () => void    }                                                  takeCharge
@@ -651,6 +656,7 @@ const GameController = () => ( { // we need to bind late such that the obs refer
     selfPlayerObs,
     activePlayerIdObs,
     playerListObs,
+    initialPlayerList: knownPlayersBackingList, // to transfer data that was read before the binding
     getPlayerName,
     weAreInCharge,
     takeCharge,
@@ -661,6 +667,8 @@ const GameController = () => ( { // we need to bind late such that the obs refer
  * Needs lazy initialization and module-scoped access.
  * @type { ObservableMapType } */
 let observableGameMap;
+
+let gameProjectorCalled = false; // for debugging and finer control
 
 /**
  * Start the game loop.
@@ -698,21 +706,31 @@ const startGame = (observableMapCtor, afterStartCallback) => {
 
     observableGameMap.addObservableForID(PLAYER_SELF_ID); // this is always new and fresh
 
-    const onStartupFinished = _initialMap => {
+    const onStartupFinished = initialMap => {
+
+
+        Object.values(initialMap).forEach( mo => {
+            console.warn(` binding  ${mo.id}`);
+            onNewMappedObservable(mo);
+        });
+
+        console.warn("--- binding called --- ");
+        console.warn("back player list", knownPlayersBackingList.map(it=>it.id));
 
         afterStartCallback(GameController()); // all observables are set up, the UI can be bound
+        gameProjectorCalled = true;
 
-        // where we want to see at least one value change
+
 
         if (missing(selfPlayerObs.getValue())) {
             log.info("we (self) have no name, yet. Setting a technical default");
             selfPlayerObs.setValue(PLAYER_SELF_ID.substring(PLAYER_PREFIX.length, PLAYER_PREFIX.length + 10));
         }
-        //
-        // if (missing(activePlayerIdObs.getValue())) {
-        //     log.info("there is no one in charge, so we take charge.");
-        //     takeCharge();
-        // }
+
+        if (missing(activePlayerIdObs.getValue())) {
+            log.info("there is no one in charge, so we take charge.");
+            takeCharge();
+        }
 
     };
 

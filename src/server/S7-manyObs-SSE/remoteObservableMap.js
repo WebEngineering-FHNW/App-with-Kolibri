@@ -339,20 +339,28 @@ const RemoteObservableMapCtor = (baseUrl, topicName) => newNameCallback => {
             log.error(`trying to add the same id a second time ${newID}`);
             return ;
         }
-        names.push(newID);
-        remoteObservableOfIDs.setValue( names );
+        remoteObsScheduler.add( done => {
+            const names = getIdNamesOrInitial() ;
+            // no more double-value check since we are async anyway
+            names.push(newID);
+            remoteObservableOfIDs.setValue( names );
+            done();
+        })
     };
 
     /** @type { ConsumerType<String> } */
     const removeObservableForID = oldID => {
         log.debug(`trying to remove observable for ID ${oldID}`);
-        const names = getIdNamesOrInitial();
-        if (names.length < 1) {
-            log.warn(`cannot remove '${oldID}' from an empty array`);
-            return;
-        }
-        names.removeItem(oldID);
-        remoteObservableOfIDs.setValue( names );
+        remoteObsScheduler.add( done => {
+            const names = getIdNamesOrInitial();
+            if (names.length < 1) {
+                log.warn(`cannot remove '${oldID}' from an empty array`);
+                return;
+            }
+            names.removeItem(oldID);
+            remoteObservableOfIDs.setValue( names );
+            done();
+        })
     };
 
     // we assume an immediate start
