@@ -31,6 +31,7 @@ export {
     PLAYER_SELF_ID,
     PLAYER_ACTIVE_ID,
     PLAYER_PREFIX,
+    PLAYER_ALL_IDS
 };
 
 const log = LoggerFactory("ch.fhnw.tetris.gameController");
@@ -45,9 +46,8 @@ const BOX_PREFIX            = "BOX-";
 const PLAYER_PREFIX         = "PLAYER-";
 const PLAYER_ACTIVE_ID      = PREFIX_IMMORTAL + "PLAYER_ACTIVE_ID";
 const PLAYER_SELF_ID        = PLAYER_PREFIX + clientId;
+const PLAYER_ALL_IDS        = PREFIX_IMMORTAL + "PLAYER_ALL_IDS";
 
-// todo: there is a pattern evolving around an observable list of named remote observables (tetros, boxes, players)
-// ... and foreign keys that pick out a special ones (current tetro, current boxes, active  player)
 
 // --- boxes --- --- --- --- --- --- --- --- --- ---
 
@@ -83,6 +83,12 @@ let tetrominoCurrentIdObs;
 
 
 // --- players --- --- --- --- --- --- --- --- ---
+
+/**
+ * @type { MappedObservableType<AllPlayerIdsType> }
+ * The observable that keep us up to date, which player ids are known in the game.
+ */
+let allPlayerIDsObs;
 
 /**
  * @type { MappedObservableType<PlayerNameType> }
@@ -589,6 +595,25 @@ const handleActivePlayer = (newActivePlayerObservable) => {
     });
 };
 
+const handleAllPlayerIDs = (newAllPlayerIdsObservable) => {
+    // if (gameProjectorCalled) { // after projection, we should no longer allow obs identity changes
+    //     if (allPlayerIDsObs) {
+    //         console.error("already have an observable for id ", newAllPlayerIdsObservable.id, "change not allowed after projection");
+    //         return;
+    //     }
+    // }
+    allPlayerIDsObs = newAllPlayerIdsObservable;
+    console.warn("handleAllPlayerIDs");
+    allPlayerIDsObs.onChange( /** @type { AllPlayerIdsType } */ allPlayerIds => {
+        console.warn("updated players ids list", allPlayerIds);
+
+        if( ! allPlayerIds.includes(PLAYER_SELF_ID)) { // we are not yet in the list
+            allPlayerIDsObs.setValue( allPlayerIds.concat([PLAYER_SELF_ID]) ); // self call should be safe from stack overflow
+        }
+
+    });
+};
+
 /**
  * will be called whenever a remote named Observable becomes available.
  * Lazily setting up the respective local observables when the obsMap notifies
@@ -613,13 +638,20 @@ const onNewMappedObservable = mappedObservable => {
     // lazy init of local storage is a side effect and depends on timing
     // it should be safe to set the local references multiple times to the same remote observable
     switch (mappedObservable.id) {
+        case PLAYER_ALL_IDS:
+            handleAllPlayerIDs(mappedObservable);
+            break;
         case GAME_STATE:
             if(gameStateObs) return;
-            gameStateObs = /** @type { MappedObservableType<GameStateModelType> } */ mappedObservable;  break;
+            gameStateObs = /** @type { MappedObservableType<GameStateModelType> } */ mappedObservable;
+            break;
         case TETROMINO_CURRENT_ID:
             if (tetrominoCurrentIdObs) return;
-            tetrominoCurrentIdObs = mappedObservable;  break;
-        case PLAYER_ACTIVE_ID:      handleActivePlayer     (mappedObservable); break;
+            tetrominoCurrentIdObs = mappedObservable;
+            break;
+        case PLAYER_ACTIVE_ID:
+            handleActivePlayer(mappedObservable);
+            break;
         default:
             log.warn(`unknown named observable with id:${mappedObservable.id}`);
     }
@@ -694,6 +726,9 @@ const startGame = (observableMapCtor, afterStartCallback) => {
     // either we are the first player in the game, and we have to set the shared game observables,
     // or we join a started game, and we have to use the existing shared game observables
 
+    if (!allPlayerIDsObs) {
+        observableGameMap.addObservableForID(PLAYER_ALL_IDS);
+    }
     if (!activePlayerIdObs) {
         observableGameMap.addObservableForID(PLAYER_ACTIVE_ID);
     }
@@ -708,19 +743,21 @@ const startGame = (observableMapCtor, afterStartCallback) => {
 
     const onStartupFinished = initialMap => {
 
-
-        Object.values(initialMap).forEach( mo => {
-            console.warn(` binding  ${mo.id}`);
+        Object.values(initialMap).forEach( mo => { // todo: this should become irrelevant
+            console.warn(`binding  ${mo.id}`);
             onNewMappedObservable(mo);
         });
 
         console.warn("--- binding called --- ");
-        console.warn("back player list", knownPlayersBackingList.map(it=>it.id));
+        // console.warn("back player list", knownPlayersBackingList.map(it=>it.id));
 
         afterStartCallback(GameController()); // all observables are set up, the UI can be bound
         gameProjectorCalled = true;
 
-
+        if (missing(allPlayerIDsObs.getValue())) {
+            log.info("there are no known players");
+            allPlayerIDsObs.setValue([PLAYER_SELF_ID]);
+        }
 
         if (missing(selfPlayerObs.getValue())) {
             log.info("we (self) have no name, yet. Setting a technical default");
@@ -736,8 +773,9 @@ const startGame = (observableMapCtor, afterStartCallback) => {
 
     observableGameMap.ensureAllObservableIDs(
         onStartupFinished,
-        () => undefined !== selfPlayerObs &&
-              undefined !== activePlayerIdObs // try refresh remote values until observables are available
+        () => undefined !== selfPlayerObs && // try refresh remote values until observables are available
+              undefined !== activePlayerIdObs &&
+              undefined !== allPlayerIDsObs
     );
 
 
