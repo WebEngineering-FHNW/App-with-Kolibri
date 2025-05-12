@@ -75,6 +75,10 @@
  */
 
 
+/**
+ * Array of all IDs of all known players in the game
+ * @typedef { Array<ForeignKeyType> } AllPlayerIdsType
+ */
 
 // todo: it might need more types for game state (running, ended, etc. plus score, etc.)
 // todo: it might need "upcoming" tetromino
