@@ -39,7 +39,6 @@ const projectControlPanel = gameController => {
     const onIdIsTheActivePlayer = mappedObservable => {
         mappedObservable.onChange( _ => {
             if (mappedObservable.id === gameController.activePlayerIdObs.getValue()) {
-                console.warn("+++", mappedObservable.id);
                 activePlayerDiv.textContent = gameController.getPlayerName(mappedObservable.id);
             }
         });
@@ -76,21 +75,21 @@ const projectControlPanel = gameController => {
     });
 
     // this could go into a nested li-projector
-    gameController.playerListObs.onAdd( playerObs => {
+    const onNewPlayer = playerObs => {
+        console.warn("binding", playerObs.id);
         const [liView] = dom(`<li data-id="${playerObs.id}">...</li>`);
         playerObs.onChange( /** @type { PlayerNameType } */playerName => {
             if (POISON_PILL_VALUE === playerName) {
-                if(playerName === PLAYER_SELF_ID) {
-                    console.error("TODO TODO TODO TODO TODO TODO TODO TODO ");
-                    return;
-                }
                 liView.remove();
                 return;
             }
             liView.textContent = playerName;
         });
         playerList.append(liView);
-    });
+    };
+    console.warn("initialPlayerList", playerList.length);
+    gameController.initialPlayerList.forEach(onNewPlayer); // for all players from before the binding
+    gameController.playerListObs.onAdd(onNewPlayer);       // and for all future players ...
 
     // view Binding
     selfInput.oninput = _event => {
