@@ -1,10 +1,12 @@
 
+import {Just, Nothing} from "../../kolibri/stdlib.js";
+
+export {OM}
+
 /** @typedef { (key:String) => void}                    newKeyCallback  */
 /** @typedef { (key:String) => void}                    keyRemovedCallback  */
 /** @typedef { <_T_> (key:String, value:_T_) => void}   onChangeCallback - value is never undefined */
 
-import {Just, Nothing} from "../../kolibri/stdlib.js";
-export {OM}
 
 /**
  * @typedef OMType
