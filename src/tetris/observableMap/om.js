@@ -26,7 +26,7 @@ export {OM}
  * @return { OMType }
  * @constructor
  */
-const OM = () => {
+const OM = (name) => {
 
     const backingMap      = {};
     const addListeners    = [];
@@ -50,7 +50,10 @@ const OM = () => {
             ? true
             : backingMap[key] !== value;
 
-        backingMap[key] = value;
+        if ( keyIsNew || valueIsNew) {
+            console.warn("setKeyValue", name, key, value, backingMap[key], valueIsNew);
+            backingMap[key] = value;
+        }
 
         if (keyIsNew) {
             addListeners.forEach( callback => callback(key));
