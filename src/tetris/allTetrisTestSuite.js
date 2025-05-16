@@ -1,3 +1,4 @@
+import "./observableMap/omTest.js"
 import "./utilTest.js"
 import "./tetrominoControllerTest.js"
 import "./gameControllerTest.js"
