@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dolphin</title>
+    <style>
+
+    </style>
+</head>
+<body>
+<h1>Dolphin</h1>
+
+<output id="out"></output>
+
+<label><input id="inputEl"></label>
+
+<script type="module">
+
+    import {defaultConsoleLogging} from "../../kolibri/logger/loggingSupport.js";
+    import {LoggerFactory}                                                     from "../../kolibri/logger/loggerFactory.js";
+    import {
+        OBSERVABLE_ID_PARAM,
+        TOPIC_REMOTE_OBSERVABLE,
+        UPDATE_ACTION_NAME,
+        UPDATE_ACTION_PARAM
+    } from "./romConstants.js";
+    import {client} from "../../kolibri/rest/restClient.js";
+    import {OM} from "../../tetris/observableMap/om.js";
+
+    defaultConsoleLogging("ch.fhnw", LOG_INFO);
+
+    const log = LoggerFactory("ch.fhnw.kolibri.remote.rom");
+
+    const om = OM("index.html");
+
+    const baseUrl = window.location.origin;
+    const eventSource = new EventSource(baseUrl + '/' + TOPIC_REMOTE_OBSERVABLE);
+
+    eventSource.addEventListener('message', event =>
+        log.warn("unknown event type " + event)
+    );
+    eventSource.addEventListener('error', err =>
+        log.error("SSE error " + err)
+    );
+    eventSource.addEventListener(TOPIC_REMOTE_OBSERVABLE, event => {
+        const received = JSON.parse(event.data)[UPDATE_ACTION_NAME];
+        if(received) {
+            om.setValue(received.key, received.value);
+        } else {
+            log.error(`cannot process received data: ${event.data}`)
+        }
+    });
+
+    om.onChange( ( key, value ) => {
+        const data = {
+            [OBSERVABLE_ID_PARAM] : key,
+            [UPDATE_ACTION_PARAM] : value
+        };
+        log.debug(`sending key ${key} value ${value}`);
+        client(baseUrl + '/' + UPDATE_ACTION_NAME, "POST", data)
+            .then( _ => log.info("done sending"));
+    } );
+
+    om.onChange( ( key, value ) => {
+        out.textContent = ` key: ${key}, value: ${value}`;
+        inputEl.value = value;
+    } );
+    inputEl.oninput = _ => om.setValue("a", inputEl.value);
+
+
+
+
+
+</script>
+
+
+</body>
+</html>
