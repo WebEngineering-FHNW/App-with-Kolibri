@@ -18,9 +18,11 @@ const log = LoggerFactory("ch.fhnw.kolibri.observable.om");
  * Observable maps of this type can be synchronized via the {@link AsyncRelayType asynchronous relay}.
  * @typedef OMType
  * @template _T_
- * @property { (key:String, value:_T_) => void}     setValue - implicitly adds the key if it is new and removes the key if it is nullish
- * @property { (key:String) => MaybeType<_T_>}      getValue - the value is never nullish
- * @property { (key:String)=> void}                 removeKey
+ * @property { (key:String, value:_T_) => void}     setValue - stores the value and
+ * notifies all respective listeners about addition, deletion or value change if it is indeed a change.
+ * Implicitly adds the key if it is new and removes the key if it is nullish.
+ * @property { (key:String) => MaybeType<_T_>}      getValue  - the value is never nullish
+ * @property { (key:String)=> void}                 removeKey - removes and notifies only if key is available
  * @property { (newKeyCallback)=> void}             onKeyAdded
  * @property { (keyRemovedCallback)=>void}          onKeyRemoved
  * @property { (onChangeCallback) => void }         onChange
@@ -69,6 +71,9 @@ const OM = name => {
     };
 
     const removeKey = key => {
+        if(!hasKey(key)) {
+            return;
+        }
         delete backingMap[key];
         removeListeners.forEach( callback => callback(key));
     };

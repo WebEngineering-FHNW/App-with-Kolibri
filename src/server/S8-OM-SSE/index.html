@@ -30,8 +30,9 @@
     import {client} from "../../kolibri/rest/restClient.js";
     import {OM}          from "../../tetris/observableMap/om.js";
     import {dom, select} from "../../kolibri/util/dom.js";
+    import {LOG_DEBUG}                                                         from "../../kolibri/logger/logLevel.js";
 
-    defaultConsoleLogging("ch.fhnw", LOG_INFO);
+    defaultConsoleLogging("ch.fhnw", LOG_DEBUG);
 
     const log = LoggerFactory("ch.fhnw.kolibri.remote.rom");
 
@@ -62,32 +63,50 @@
         }
     });
 
-    om.onChange( ( key, value ) => {
+    om.onChange( ( key, value ) => { // also handles the keyAdded case implicitly
         const data = {
             [KEY_PARAM] :           key,
             [UPDATE_ACTION_PARAM] : value
         };
-        log.debug(`sending key ${key} value ${value}`);
+        log.debug(`sending update key ${key} value ${value}`);
         client(baseUrl + '/' + UPDATE_ACTION_NAME, "POST", data)
-            .then(  _ => log.debug("done sending"))
+            .then(  _ => log.debug("done sending update"))
             .catch( e => log.error("error sending update data: "+ JSON.stringify(data) + " " + e));
     } );
 
-    const keys = [];
+    om.onKeyRemoved( ( key ) => {
+        const data = {
+            [KEY_PARAM] :           key
+        };
+        log.debug(`sending remove key ${key}`);
+        client(baseUrl + '/' + REMOVE_ACTION_NAME, "DELETE", data)
+            .then(  _ => log.debug("done sending remove"))
+            .catch( e => log.error("error sending remove data: "+ JSON.stringify(data) + " " + e));
+    } );
+
+    let keyCount = 0; // how many keys we have seen
     om.onKeyAdded( key => {
-        keys.push(key);
-        const [br, label] = dom(`<br><label>${key} <input id="input_${key}" value="xxx"></label>`);
-        inputs.append(br, label);
+        keyCount++;
+        const [br, label, button] = dom(`<br><label>${key} <input></label><button>x</button>`);
+        inputs.append(br, label, button);
         const [input] = select(label, "input");
         input.oninput = _ => om.setValue(key, input.value);
         om.onChange( ( changedKey, value ) => {
             if (key === changedKey) {
                 input.value = value;
             }
-        } );
+        });
+        om.onKeyRemoved( removedKey => {
+            if (removedKey === key) {
+                br.remove();
+                label.remove();
+                button.remove();
+            }
+        });
+        button.onclick = _ => om.removeKey(key);
     });
 
-    add.onclick = _ => om.setValue("key"+keys.length, keys.length);
+    add.onclick = _ => om.setValue("key_"+keyCount, keyCount);
 
 
 
