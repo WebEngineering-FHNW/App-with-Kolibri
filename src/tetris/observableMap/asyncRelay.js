@@ -4,6 +4,7 @@ export {AsyncRelay}
 
 const AsyncRelay = rom => om => {
 
+    // only access to the (async) rom is scheduled
     const romScheduler = Scheduler();
 
     // whenever om changes, tell rom

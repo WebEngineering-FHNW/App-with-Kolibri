@@ -3,7 +3,7 @@ import {OM}         from "./om.js";
 import {AsyncRelay} from "./asyncRelay.js"
 
 
-asyncTest("asyncRelay", assert => {
+asyncTest("asyncRelay set/get", assert => {
 
     const om  = OM("om");
     const rom = OM("rom");
@@ -20,7 +20,6 @@ asyncTest("asyncRelay", assert => {
     });
 
     scheduler.addOk( _=> {
-        console.warn("--------");
         rom.setValue("a","B"); // and vice versa
     });
     scheduler.addOk( _=> {
@@ -33,6 +32,84 @@ asyncTest("asyncRelay", assert => {
         scheduler.addOk( _ => done());
     });
 
+});
 
+asyncTest("asyncRelay onChange om", assert => {
+
+    const om  = OM("om");
+    const rom = OM("rom");
+
+    const omChanges = [];
+    const romChanges = [];
+
+    assert.iterableEq(omChanges, romChanges);
+
+    const scheduler = AsyncRelay(rom)(om);
+
+    om.onChange( (key, value) => omChanges.push(`${key} ${value}`));
+
+    scheduler.addOk( _=> {
+        om.setValue("a","A");
+    });
+    scheduler.addOk( _=> {
+        // we add the listener late, such that the first update
+        // has already gone through. Still, everything has to be in sync.
+        rom.onChange( (key, value) => romChanges.push(`${key} ${value}`));
+    });
+    scheduler.addOk( _=> {
+        assert.iterableEq(omChanges, romChanges);
+    });
+
+    // change value through om
+    scheduler.addOk( _=> {
+        om.setValue("a","B");
+        scheduler.addOk( _=> {
+                assert.iterableEq(omChanges, romChanges);
+            });
+    });
+
+
+    return new Promise( done => {
+        scheduler.addOk( _ => done());
+    });
+
+})
+asyncTest("asyncRelay onChange rom", assert => {
+
+    const om  = OM("om");
+    const rom = OM("rom");
+
+    const omChanges = [];
+    const romChanges = [];
+
+    assert.iterableEq(omChanges, romChanges);
+
+    const scheduler = AsyncRelay(rom)(om);
+
+    om.onChange( (key, value) => omChanges.push(`${key} ${value}`));
+
+    scheduler.addOk( _=> {
+        om.setValue("a","A");
+    });
+    scheduler.addOk( _=> {
+        // we add the listener late, such that the first update
+        // has already gone through. Still, everything has to be in sync.
+        rom.onChange( (key, value) => romChanges.push(`${key} ${value}`));
+    });
+    scheduler.addOk( _=> {
+        assert.iterableEq(omChanges, romChanges);
+    });
+
+    // change value through rom
+    scheduler.addOk( _=> {
+        rom.setValue("a","B");
+        scheduler.addOk( _=> {
+                assert.iterableEq(omChanges, romChanges);
+            });
+    });
+
+    return new Promise( done => {
+        scheduler.addOk( _ => done());
+    });
 
 });
