@@ -1,5 +1,5 @@
 /**
- * @module remote/remoteObservableConstants
+ * @module remote/romConstants
  * Values that must be the same on client and server.
  */
 
@@ -11,7 +11,7 @@
 export const TOPIC_REMOTE_OBSERVABLE = "remoteObservable";
 
 /** request parameter that contains the id of the observable */
-export const KEY_PARAM = "key";
+export const KEY_PARAM   = "key";
 
 export const ACTION_KEY  = "action";
 export const PAYLOAD_KEY = "payload";
@@ -22,11 +22,6 @@ export const VERSION_KEY = "version";
 export const UPDATE_ACTION_NAME  = "setValue";
 /** request and response parameter that contains the value for the update */
 export const UPDATE_ACTION_PARAM = "value";
-
-/** url path entry for the action that reads the value of a remote observable */
-export const READ_ACTION_NAME    = "getValue";
-/** response parameter that contains the value being read */
-export const READ_ACTION_PARAM   = "value";
 
 /** url path entry for the action that removes the remote observable with
  * key {@link KEY_PARAM} from the map of stored key/values */
