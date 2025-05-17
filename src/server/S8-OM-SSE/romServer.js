@@ -7,12 +7,12 @@ import {createServer}      from 'node:http';
 import {handleFileRequest} from "../S2-file-server/fileRequestHandler.js";
 
 import {
-    ACTION_KEY,
+    ACTION_KEY, DATA_KEY,
     KEY_PARAM,
     PAYLOAD_KEY, REMOVE_ACTION_NAME,
     TOPIC_REMOTE_OBSERVABLE,
     UPDATE_ACTION_NAME,
-    UPDATE_ACTION_PARAM
+    UPDATE_ACTION_PARAM, VERSION_KEY
 } from "./romConstants.js";
 import {addToAppenderList, setLoggingContext, setLoggingLevel} from "../../kolibri/logger/logging.js";
 import * as loglevel                                           from "../../kolibri/logger/logLevel.js";
@@ -121,9 +121,13 @@ const handleValueUpdate = (req, res) => {
         req.on("data", input => incomingData += String(input));
         req.on("end",  input => {
             incomingData += input ? String(input) : "";
-            const data = JSON.parse(incomingData);
+            const incoming = JSON.parse(incomingData);
             log.debug(`handling post: ${incomingData}`);
-            rom.setValue(data[KEY_PARAM], data[UPDATE_ACTION_PARAM]);
+            const storedValue = {
+                [VERSION_KEY]: incoming[VERSION_KEY],
+                [DATA_KEY]   : incoming[UPDATE_ACTION_PARAM]
+            };
+            rom.setValue(incoming[KEY_PARAM], storedValue);
             res.end(JSON.stringify("ok"));
         });
         return;

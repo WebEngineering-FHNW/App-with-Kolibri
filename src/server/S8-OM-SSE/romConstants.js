@@ -15,6 +15,8 @@ export const KEY_PARAM = "key";
 
 export const ACTION_KEY  = "action";
 export const PAYLOAD_KEY = "payload";
+export const DATA_KEY    = "data";
+export const VERSION_KEY = "version";
 
 /** url path entry for the action that sets the value of a remote observable */
 export const UPDATE_ACTION_NAME  = "setValue";
