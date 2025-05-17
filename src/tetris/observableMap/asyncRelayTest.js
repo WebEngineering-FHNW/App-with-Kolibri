@@ -60,20 +60,18 @@ asyncTest("asyncRelay onChange om", assert => {
         assert.iterableEq(omChanges, romChanges);
     });
 
-    // change value through om
-    scheduler.addOk( _=> {
-        om.setValue("a","B");
-        scheduler.addOk( _=> {
-                assert.iterableEq(omChanges, romChanges);
-            });
-    });
-
-
     return new Promise( done => {
-        scheduler.addOk( _ => done());
+        // change value through om
+        scheduler.addOk( _=> {
+            om.setValue("a","B");
+            scheduler.addOk( _=> {
+                    assert.iterableEq(omChanges, romChanges);
+                    done();
+                });
+        });
     });
 
-})
+});
 asyncTest("asyncRelay onChange rom", assert => {
 
     const om  = OM("om");
@@ -100,16 +98,15 @@ asyncTest("asyncRelay onChange rom", assert => {
         assert.iterableEq(omChanges, romChanges);
     });
 
-    // change value through rom
-    scheduler.addOk( _=> {
-        rom.setValue("a","B");
-        scheduler.addOk( _=> {
+    return new Promise( done => {    // change value through rom
+        scheduler.addOk(_ => {
+            rom.setValue("a", "B");
+            scheduler.addOk(_ => {
                 assert.iterableEq(omChanges, romChanges);
+                done();
             });
-    });
 
-    return new Promise( done => {
-        scheduler.addOk( _ => done());
+        });
     });
 
 });
