@@ -11,7 +11,10 @@
 export const TOPIC_REMOTE_OBSERVABLE = "remoteObservable";
 
 /** request parameter that contains the id of the observable */
-export const OBSERVABLE_ID_PARAM = "key";
+export const KEY_PARAM = "key";
+
+export const ACTION_KEY  = "action";
+export const PAYLOAD_KEY = "payload";
 
 /** url path entry for the action that sets the value of a remote observable */
 export const UPDATE_ACTION_NAME  = "setValue";
@@ -24,6 +27,6 @@ export const READ_ACTION_NAME    = "getValue";
 export const READ_ACTION_PARAM   = "value";
 
 /** url path entry for the action that removes the remote observable with
- * key {@link OBSERVABLE_ID_PARAM} from the map of stored key/values */
+ * key {@link KEY_PARAM} from the map of stored key/values */
 export const REMOVE_ACTION_NAME    = "remove";
 

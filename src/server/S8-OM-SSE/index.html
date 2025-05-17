@@ -9,23 +9,27 @@
 </head>
 <body>
 <h1>Dolphin</h1>
+<button id="add">add</button>
+<div id="inputs">
+</div>
+
 
 <output id="out"></output>
-
-<label><input id="inputEl"></label>
 
 <script type="module">
 
     import {defaultConsoleLogging} from "../../kolibri/logger/loggingSupport.js";
     import {LoggerFactory}                                                     from "../../kolibri/logger/loggerFactory.js";
     import {
-        OBSERVABLE_ID_PARAM,
+        ACTION_KEY,
+        KEY_PARAM, PAYLOAD_KEY, REMOVE_ACTION_NAME,
         TOPIC_REMOTE_OBSERVABLE,
         UPDATE_ACTION_NAME,
         UPDATE_ACTION_PARAM
     } from "./romConstants.js";
     import {client} from "../../kolibri/rest/restClient.js";
-    import {OM} from "../../tetris/observableMap/om.js";
+    import {OM}          from "../../tetris/observableMap/om.js";
+    import {dom, select} from "../../kolibri/util/dom.js";
 
     defaultConsoleLogging("ch.fhnw", LOG_INFO);
 
@@ -43,29 +47,48 @@
         log.error("SSE error " + err)
     );
     eventSource.addEventListener(TOPIC_REMOTE_OBSERVABLE, event => {
-        const received = JSON.parse(event.data)[UPDATE_ACTION_NAME];
-        if(received) {
-            om.setValue(received.key, received.value);
-        } else {
-            log.error(`cannot process received data: ${event.data}`)
+        const data    = JSON.parse(event.data);
+        const action  = data[ACTION_KEY];
+        const payload = data[PAYLOAD_KEY];
+        switch (action) {
+            case UPDATE_ACTION_NAME:
+                om.setValue(payload.key, payload.value);
+                break;
+            case REMOVE_ACTION_NAME:
+                om.removeKey(payload.key);
+                break;
+            default:
+                log.error(`cannot process received data: ${event.data}`)
         }
     });
 
     om.onChange( ( key, value ) => {
         const data = {
-            [OBSERVABLE_ID_PARAM] : key,
+            [KEY_PARAM] :           key,
             [UPDATE_ACTION_PARAM] : value
         };
         log.debug(`sending key ${key} value ${value}`);
         client(baseUrl + '/' + UPDATE_ACTION_NAME, "POST", data)
-            .then( _ => log.info("done sending"));
+            .then(  _ => log.debug("done sending"))
+            .catch( e => log.error("error sending update data: "+ JSON.stringify(data) + " " + e));
     } );
 
-    om.onChange( ( key, value ) => {
-        out.textContent = ` key: ${key}, value: ${value}`;
-        inputEl.value = value;
-    } );
-    inputEl.oninput = _ => om.setValue("a", inputEl.value);
+    const keys = [];
+    om.onKeyAdded( key => {
+        keys.push(key);
+        const [br, label] = dom(`<br><label>${key} <input id="input_${key}" value="xxx"></label>`);
+        inputs.append(br, label);
+        const [input] = select(label, "input");
+        input.oninput = _ => om.setValue(key, input.value);
+        om.onChange( ( changedKey, value ) => {
+            if (key === changedKey) {
+                input.value = value;
+            }
+        } );
+    });
+
+    add.onclick = _ => om.setValue("key"+keys.length, keys.length);
+
 
 
 
