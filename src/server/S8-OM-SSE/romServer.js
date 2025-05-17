@@ -8,13 +8,13 @@ import {handleFileRequest} from "../S2-file-server/fileRequestHandler.js";
 
 import {
     TOPIC_REMOTE_OBSERVABLE,
-    OBSERVABLE_ID_PARAM,
+    KEY_PARAM,
     READ_ACTION_NAME,
     READ_ACTION_PARAM,
     UPDATE_ACTION_NAME,
     UPDATE_ACTION_PARAM,
-    REMOVE_ACTION_NAME
-}                   from "./romConstants.js";
+    REMOVE_ACTION_NAME, PAYLOAD_KEY, ACTION_KEY
+} from "./romConstants.js";
 import {addToAppenderList, setLoggingContext, setLoggingLevel} from "../../kolibri/logger/logging.js";
 import * as loglevel from "../../kolibri/logger/logLevel.js";
 import {ConsoleAppender}                                       from "../../kolibri/logger/appender/consoleAppender.js";
@@ -65,7 +65,6 @@ const handleSSE = (req, res) => {
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/event-stream');
     const sendText = (key, value) => {  // how to listen for text changes
-        console.warn("sending");
         // if (removeFromObservableOnNextUpdate) {         // connection was lost ->
         //     removeMe();                                 // remove ourselves to avoid too many listeners (memory leak)
         //     return;
@@ -73,7 +72,11 @@ const handleSSE = (req, res) => {
         eventId++;
         res.write('id:'    + eventId + '\n');
         res.write('event:' + TOPIC_REMOTE_OBSERVABLE + '\n'); // this produces "channels" as needed.
-        res.write('data:'  + JSON.stringify( { [UPDATE_ACTION_NAME]: {key, value} } ) + '\n\n');
+        const data = {
+            [ACTION_KEY]:  UPDATE_ACTION_NAME,
+            [PAYLOAD_KEY]: {key, value}
+        };
+        res.write('data:'  + JSON.stringify( data ) + '\n\n');
     };
     rom.onChange(sendText); // flush whenever some key has a new value and when connecting
 };
@@ -92,7 +95,7 @@ const handleValueRead = (req, res) => {
     req.on("end",  input => {
         incomingData += input ? String(input) : "";
         const data  = JSON.parse(incomingData);
-        const id    = data[OBSERVABLE_ID_PARAM];
+        const id    = data[KEY_PARAM];
         const value = keyValueMap[id];
         log.debug(`requested key ${id} found value ${value}`);
         res.end(JSON.stringify({[READ_ACTION_PARAM]: value}));
@@ -111,7 +114,7 @@ const handleKeyRemoval = (req, res) => {
     req.on("end",  input => {
         incomingData += input ? String(input) : "";
         const data  = JSON.parse(incomingData);
-        const id    = data[OBSERVABLE_ID_PARAM];
+        const id    = data[KEY_PARAM];
         delete keyValueMap[id];
         res.end(JSON.stringify("ok"));
     })
@@ -130,9 +133,8 @@ const handleValueUpdate = (req, res) => {
         req.on("end",  input => {
             incomingData += input ? String(input) : "";
             const data = JSON.parse(incomingData);
-            console.warn(`handling post: ${incomingData}`);
             log.debug(`handling post: ${incomingData}`);
-            rom.setValue(data[OBSERVABLE_ID_PARAM], data[UPDATE_ACTION_PARAM]);
+            rom.setValue(data[KEY_PARAM], data[UPDATE_ACTION_PARAM]);
             res.end(JSON.stringify("ok"));
         });
         return;
