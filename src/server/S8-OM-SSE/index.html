@@ -19,78 +19,30 @@
 <script type="module">
 
     import {defaultConsoleLogging} from "../../kolibri/logger/loggingSupport.js";
-    import {LoggerFactory}                                                     from "../../kolibri/logger/loggerFactory.js";
-    import {
-        ACTION_KEY,
-        KEY_PARAM, PAYLOAD_KEY, REMOVE_ACTION_NAME,
-        TOPIC_REMOTE_OBSERVABLE,
-        UPDATE_ACTION_NAME,
-        UPDATE_ACTION_PARAM
-    } from "./romConstants.js";
-    import {client} from "../../kolibri/rest/restClient.js";
-    import {OM}          from "../../tetris/observableMap/om.js";
-    import {dom, select} from "../../kolibri/util/dom.js";
-    import {LOG_DEBUG}                                                         from "../../kolibri/logger/logLevel.js";
+    import {LoggerFactory}         from "../../kolibri/logger/loggerFactory.js";
+    import {OM}                    from "../../tetris/observableMap/om.js";
+    import {dom, select}           from "../../kolibri/util/dom.js";
+    import {LOG_DEBUG}             from "../../kolibri/logger/logLevel.js";
+    import {connect}               from "./connect.js";
 
-    defaultConsoleLogging("ch.fhnw", LOG_DEBUG);
+    defaultConsoleLogging("ch.fhnw", LOG_WARN);
 
     const log = LoggerFactory("ch.fhnw.kolibri.remote.rom");
 
     const om = OM("index.html");
 
-    const baseUrl = window.location.origin;
-    const eventSource = new EventSource(baseUrl + '/' + TOPIC_REMOTE_OBSERVABLE);
+    connect(window.location.origin, om);
 
-    eventSource.addEventListener('message', event =>
-        log.warn("unknown event type " + event)
-    );
-    eventSource.addEventListener('error', err =>
-        log.error("SSE error " + err)
-    );
-    eventSource.addEventListener(TOPIC_REMOTE_OBSERVABLE, event => {
-        const data    = JSON.parse(event.data);
-        const action  = data[ACTION_KEY];
-        const payload = data[PAYLOAD_KEY];
-        switch (action) {
-            case UPDATE_ACTION_NAME:
-                om.setValue(payload.key, payload.value);
-                break;
-            case REMOVE_ACTION_NAME:
-                om.removeKey(payload.key);
-                break;
-            default:
-                log.error(`cannot process received data: ${event.data}`)
-        }
-    });
-
-    om.onChange( ( key, value ) => { // also handles the keyAdded case implicitly
-        const data = {
-            [KEY_PARAM] :           key,
-            [UPDATE_ACTION_PARAM] : value
-        };
-        log.debug(`sending update key ${key} value ${value}`);
-        client(baseUrl + '/' + UPDATE_ACTION_NAME, "POST", data)
-            .then(  _ => log.debug("done sending update"))
-            .catch( e => log.error("error sending update data: "+ JSON.stringify(data) + " " + e));
-    } );
-
-    om.onKeyRemoved( ( key ) => {
-        const data = {
-            [KEY_PARAM] :           key
-        };
-        log.debug(`sending remove key ${key}`);
-        client(baseUrl + '/' + REMOVE_ACTION_NAME, "DELETE", data)
-            .then(  _ => log.debug("done sending remove"))
-            .catch( e => log.error("error sending remove data: "+ JSON.stringify(data) + " " + e));
-    } );
-
-    let keyCount = 0; // how many keys we have seen
-    om.onKeyAdded( key => {
+    let keyCount = 0;
+    om.onKeyAdded( key => { // whenever there is a new key that we care about
         keyCount++;
+
+        // create view
         const [br, label, button] = dom(`<br><label>${key} <input></label><button>x</button>`);
         inputs.append(br, label, button);
         const [input] = select(label, "input");
-        input.oninput = _ => om.setValue(key, input.value);
+
+        // data binding
         om.onChange( ( changedKey, value ) => {
             if (key === changedKey) {
                 input.value = value;
@@ -103,6 +55,9 @@
                 button.remove();
             }
         });
+
+        // view binding
+        input.oninput  = _ => om.setValue(key, input.value);
         button.onclick = _ => om.removeKey(key);
     });
 
