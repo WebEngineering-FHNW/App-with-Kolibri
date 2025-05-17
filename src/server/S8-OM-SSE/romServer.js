@@ -7,19 +7,18 @@ import {createServer}      from 'node:http';
 import {handleFileRequest} from "../S2-file-server/fileRequestHandler.js";
 
 import {
-    TOPIC_REMOTE_OBSERVABLE,
+    ACTION_KEY,
     KEY_PARAM,
-    READ_ACTION_NAME,
-    READ_ACTION_PARAM,
+    PAYLOAD_KEY, REMOVE_ACTION_NAME,
+    TOPIC_REMOTE_OBSERVABLE,
     UPDATE_ACTION_NAME,
-    UPDATE_ACTION_PARAM,
-    REMOVE_ACTION_NAME, PAYLOAD_KEY, ACTION_KEY
+    UPDATE_ACTION_PARAM
 } from "./romConstants.js";
 import {addToAppenderList, setLoggingContext, setLoggingLevel} from "../../kolibri/logger/logging.js";
-import * as loglevel from "../../kolibri/logger/logLevel.js";
+import * as loglevel                                           from "../../kolibri/logger/logLevel.js";
 import {ConsoleAppender}                                       from "../../kolibri/logger/appender/consoleAppender.js";
-import {LoggerFactory} from "../../kolibri/logger/loggerFactory.js";
-import {OM} from "../../tetris/observableMap/om.js";
+import {LoggerFactory}                                         from "../../kolibri/logger/loggerFactory.js";
+import {OM}                                                    from "../../tetris/observableMap/om.js";
 
 addToAppenderList(ConsoleAppender());
 setLoggingContext("ch.fhnw");
@@ -64,58 +63,48 @@ const handleSSE = (req, res) => {
     }
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/event-stream');
-    const sendText = (key, value) => {  // how to listen for text changes
+    const sendChange = (key, value) => {  // how to listen for text changes
+        // todo: there is still a memory lead wrt clients that have disconnected
         // if (removeFromObservableOnNextUpdate) {         // connection was lost ->
         //     removeMe();                                 // remove ourselves to avoid too many listeners (memory leak)
         //     return;
         // }
         eventId++;
         res.write('id:'    + eventId + '\n');
-        res.write('event:' + TOPIC_REMOTE_OBSERVABLE + '\n'); // this produces "channels" as needed.
+        res.write('event:' + TOPIC_REMOTE_OBSERVABLE + '\n');
         const data = {
             [ACTION_KEY]:  UPDATE_ACTION_NAME,
             [PAYLOAD_KEY]: {key, value}
         };
         res.write('data:'  + JSON.stringify( data ) + '\n\n');
     };
-    rom.onChange(sendText); // flush whenever some key has a new value and when connecting
+    rom.onChange(sendChange); // flush whenever some key has a new value and when connecting
+    const sendRemove = key => {
+        eventId++;
+        res.write('id:'    + eventId + '\n');
+        res.write('event:' + TOPIC_REMOTE_OBSERVABLE + '\n');
+        const data = {
+            [ACTION_KEY]:  REMOVE_ACTION_NAME,
+            [PAYLOAD_KEY]: { key }
+        };
+        res.write('data:'  + JSON.stringify( data ) + '\n\n');
+    };
+    rom.onKeyRemoved(sendRemove);
 };
 
-/**
- * what to do when clients wants to specifically read a remotely observable value
- * rather than relying on the SSE publishing.
- * This can be needed when the caches are exhausted or stale.
- * It is all handled via POST to avoid caching issues.
- */
-const handleValueRead = (req, res) => {
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'application/json');
-    let incomingData = "";
-    req.on("data", input => incomingData += String(input));
-    req.on("end",  input => {
-        incomingData += input ? String(input) : "";
-        const data  = JSON.parse(incomingData);
-        const id    = data[KEY_PARAM];
-        const value = keyValueMap[id];
-        log.debug(`requested key ${id} found value ${value}`);
-        res.end(JSON.stringify({[READ_ACTION_PARAM]: value}));
-    })
-};
 
 /**
  * Remove the respective key from the store.
- * If later connections want to read the key, they receive an `undefined` value.
  */
 const handleKeyRemoval = (req, res) => {
-    res.statusCode = 200;
+    res.statusCode = 202; // accepted for deletion, but it will take time before it is published to all consumers
     res.setHeader('Content-Type', 'application/json');
     let incomingData = "";
     req.on("data", input => incomingData += String(input));
     req.on("end",  input => {
         incomingData += input ? String(input) : "";
         const data  = JSON.parse(incomingData);
-        const id    = data[KEY_PARAM];
-        delete keyValueMap[id];
+        rom.removeKey(data[KEY_PARAM]);
         res.end(JSON.stringify("ok"));
     })
 };
@@ -146,20 +135,16 @@ const handleValueUpdate = (req, res) => {
 
 const server = createServer( (req, res) => {
   log.debug(`${req.method} ${req.url}`);
-  if (req.url === "/" + TOPIC_REMOTE_OBSERVABLE) {
+  if ("/" + TOPIC_REMOTE_OBSERVABLE === req.url) {
       handleSSE(req, res);
-      return;
-  }
-  if ( req.url.startsWith("/" + READ_ACTION_NAME) ) {
-      handleValueRead(req, res);
       return;
   }
   if ( req.url.startsWith("/" + UPDATE_ACTION_NAME) ) {
       handleValueUpdate(req, res);
       return;
   }
-  if ( req.url.startsWith("/" + REMOVE_ACTION_NAME) ) {
-      handleValueUpdate(req, res); // todo: handle remove ?
+  if ( "DELETE" === req.method ) {
+      handleKeyRemoval(req, res);
       return;
   }
   handleFileRequest(req, res);
