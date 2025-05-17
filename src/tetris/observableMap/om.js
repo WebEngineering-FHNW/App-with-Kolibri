@@ -1,32 +1,37 @@
 
 import {Just, Nothing} from "../../kolibri/stdlib.js";
+import {LoggerFactory} from "../../kolibri/logger/loggerFactory.js";
 
 export {OM}
 
+
+const log = LoggerFactory("ch.fhnw.kolibri.observable.om");
+
 /** @typedef { (key:String) => void}                    newKeyCallback  */
 /** @typedef { (key:String) => void}                    keyRemovedCallback  */
-/** @typedef { <_T_> (key:String, value:_T_) => void}   onChangeCallback - value is never undefined */
+/** @typedef { <_T_> (key:String, value:_T_) => void}   onChangeCallback - value is never nullish */
 
 
 /**
+ * A map (key-value store) that allows observing the adding and removal of keys along
+ * with observing value changes for all keys.
+ * Observable maps of this type can be synchronized via the {@link AsyncRelayType asynchronous relay}.
  * @typedef OMType
  * @template _T_
- * @property { (key:String, value:_T_) => void}     setValue - implicit addKey
- * @property { (key:String) => MaybeType<_T_>}      getValue
+ * @property { (key:String, value:_T_) => void}     setValue - implicitly adds the key if it is new and removes the key if it is nullish
+ * @property { (key:String) => MaybeType<_T_>}      getValue - the value is never nullish
  * @property { (key:String)=> void}                 removeKey
  * @property { (newKeyCallback)=> void}             onKeyAdded
  * @property { (keyRemovedCallback)=>void}          onKeyRemoved
  * @property { (onChangeCallback) => void }         onChange
  */
 
-// ROM  = ObservableMap< RV <T> >
-// getMode: (function injected) __mode__
-
 /**
+ * @param { String? } name - to identify the OM (mainly for logging and debugging purposes)
  * @return { OMType }
  * @constructor
  */
-const OM = (name) => {
+const OM = name => {
 
     const backingMap      = {};
     const addListeners    = [];
@@ -51,7 +56,7 @@ const OM = (name) => {
             : backingMap[key] !== value;
 
         if ( keyIsNew || valueIsNew) {
-            console.warn("setKeyValue", name, key, value, backingMap[key], valueIsNew);
+            log.debug(`OM.setKeyValue name ${name}, key ${key}, old ${backingMap[key]}, new ${value}, isNew ${valueIsNew}`);
             backingMap[key] = value;
         }
 
