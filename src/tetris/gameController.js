@@ -15,14 +15,16 @@ import {shapeNames, shapesByName}                                from "./shape.j
 import {Walk}                                                    from "../kolibri/sequence/constructors/range/range.js";
 import {MISSING_FOREIGN_KEY, POISON_PILL_VALUE, PREFIX_IMMORTAL} from "../server/S7-manyObs-SSE/remoteObservableMap.js";
 import {clientId}                                                from "../kolibri/version.js";
-import {LoggerFactory}                                           from "../kolibri/logger/loggerFactory.js";
-import {ObservableList}                                          from "../kolibri/observable.js";
-import {INITIAL_OBS_VALUE}                                       from "./observableMap/observableMap.js";
+import {LoggerFactory}              from "../kolibri/logger/loggerFactory.js";
+import {Observable, ObservableList} from "../kolibri/observable.js";
+import {INITIAL_OBS_VALUE}          from "./observableMap/observableMap.js";
 import {missing}                                                 from "./util.js";
 import * as activePlayerObservable                               from "../kolibri/lambda/church.js";
+import {Player}                                                  from "./relationalModel.js";
 
 export {
-    startGame, turnShape, movePosition, // for general use outside
+    GameController,
+    turnShape, movePosition, // for general use outside
     checkAndHandleFullLevel,            // exported only for the unit-testing
     TETROMINO_PREFIX,
     TETROMINO_CURRENT_ID,               // todo: think about retrieving this info from the current boxes
@@ -96,53 +98,12 @@ let allPlayerIDsObs;
  */
 let selfPlayerObs;
 
-/** @type { MappedObservableType<ActivePlayerIdType> }
- * foreign key (playerId) to the id of the player that is currently in charge of the game.
- */
-let activePlayerIdObs;
 
-/**
- * @private
- */
-const knownPlayersBackingList = [];
 
-/** This is a local observable list to model the list of known players.
- *  Each entry is a remotely observable player name, such that we can change
- *  the name in place.
- * @type {IObservableList<MappedObservableType<PlayerNameType>>}
- */
-const playerListObs = ObservableList(knownPlayersBackingList);
 
-const getPlayerName = (playerId) => {
-    const playerRemoteObs =
-              PLAYER_SELF_ID === playerId
-            ? selfPlayerObs
-            : knownPlayersBackingList.find( ({id}) => id === playerId );
-    if (undefined === playerRemoteObs) {
-        log.warn("Cannot find name for player " + playerId);
-        return "unknown";
-    }
-    console.warn("---",playerRemoteObs.id, playerRemoteObs.getValue());
-    if (POISON_PILL_VALUE === playerRemoteObs.getValue()) {
-        console.error("*** ***");
-    }
-    return playerRemoteObs.getValue();
-};
 
-/**
- * Whether we are in charge of moving the current tetromino.
- * @type { () => Boolean }
- * NB: when joining as a new player, the value might not yet be present,
- * but we are, of course, not in charge in that situation.
- */
-const weAreInCharge = () => activePlayerIdObs?.getValue() === PLAYER_SELF_ID;
 
-/**
- * @impure puts us in charge and notifies all (remote) listeners.
- * @warn assumes that {@link activePlayerIdObs} is available
- * @type { () => void }
- */
-const takeCharge = () => activePlayerIdObs.setValue(PLAYER_SELF_ID );
+
 
 // --- game state --- --- --- --- --- --- --- --- ---
 
@@ -349,40 +310,7 @@ const makeNewCurrentTetromino = () => {
 
 
 
-/** @type { () => void } */
-const restart   = () => {
 
-    fallingDown(false);
-
-    // do not proceed before all backing Lists are empty
-    // todo: disable all user input and show cleanup state
-    const waitForCleanup = () => {
-        const stillToDelete = boxesBackingList.length +  tetrominoBackingList.length;
-        log.info(`still to delete: ${stillToDelete}`);
-
-        // remove all boxes
-        boxesBackingList.forEach(namedObs => {
-            observableGameMap.removeObservableForID(namedObs.id);
-        });
-
-        // remove all tetros
-        tetrominoCurrentIdObs.setValue(MISSING_FOREIGN_KEY);
-        tetrominoBackingList.forEach( namedObs => {
-            observableGameMap.removeObservableForID(namedObs.id);
-        });
-
-        if (stillToDelete > 0) {
-            setTimeout( waitForCleanup, 500); // todo shorter delay for next call, todo: support bulk deletion
-        } else {
-            // end of disabled state
-            resetGameState();
-            makeNewCurrentTetromino();
-            fallingDown(true);
-            registerNextFallTask();
-        }
-    };
-    waitForCleanup();
-};
 
 
 
@@ -545,55 +473,55 @@ const handleNewBox = newBoxObservable => {
  * We maintain an observable list of known players.
  * @impure updates the selfPlayerObs and the playerListObs
  */
-const handleNewPlayer = newPlayerObservable => {
-    if (gameProjectorCalled) { // after projection, we should no longer allow obs identity changes
-        if (knownPlayersBackingList.find( ({id}) => id === newPlayerObservable.id)) {
-            console.error("already have an observable for id ", newPlayerObservable.id, "change not allowed after projection");
-            return;
-        }
-    }
+// const handleNewPlayer = newPlayerObservable => {
+//     if (gameProjectorCalled) { // after projection, we should no longer allow obs identity changes
+//         if (knownPlayersBackingList.find( ({id}) => id === newPlayerObservable.id)) {
+//             console.error("already have an observable for id ", newPlayerObservable.id, "change not allowed after projection");
+//             return;
+//         }
+//     }
+//
+//     if (PLAYER_SELF_ID === newPlayerObservable.id) {  // is is ourselves while joining
+//         selfPlayerObs = newPlayerObservable;
+//         return;
+//     }
+//     // it is someone else
+//     log.info(`player joined: ${newPlayerObservable.id}`);
+//     playerListObs.add(newPlayerObservable);
+//     newPlayerObservable.onChange( /** @type { PlayerNameType } */ newPlayer => {
+//         if (POISON_PILL_VALUE === newPlayer) {
+//             playerListObs.del(newPlayerObservable);
+//         }
+//     });
+// };
 
-    if (PLAYER_SELF_ID === newPlayerObservable.id) {  // is is ourselves while joining
-        selfPlayerObs = newPlayerObservable;
-        return;
-    }
-    // it is someone else
-    log.info(`player joined: ${newPlayerObservable.id}`);
-    playerListObs.add(newPlayerObservable);
-    newPlayerObservable.onChange( /** @type { PlayerNameType } */ newPlayer => {
-        if (POISON_PILL_VALUE === newPlayer) {
-            playerListObs.del(newPlayerObservable);
-        }
-    });
-};
-
-const handleActivePlayer = (newActivePlayerObservable) => {
-    if (gameProjectorCalled) { // after projection, we should no longer allow obs identity changes
-        if (activePlayerObservable) {
-            console.error("already have an observable for id ", newActivePlayerObservable.id, "change not allowed after projection");
-            return;
-        }
-    }
-    activePlayerIdObs = newActivePlayerObservable;
-    let weWereLastInCharge = false;
-    activePlayerIdObs.onChange( /** @type { ActivePlayerIdType } */ activePlayerId => {
-        if (MISSING_FOREIGN_KEY === activePlayerId || POISON_PILL_VALUE === activePlayerId || INITIAL_OBS_VALUE === activePlayerId) {
-            weWereLastInCharge = false;
-            takeCharge();
-            return;
-        }
-        if (PLAYER_SELF_ID === activePlayerId) {
-            if (weWereLastInCharge) {
-                return; // only if we have newly _become_ in charge (prevent from starting the downfall twice)
-            }
-            log.info("we are now in charge, let's see if we have to start the downfall");
-            weWereLastInCharge = true;
-            registerNextFallTask();
-            return;
-        }
-        weWereLastInCharge = false;
-    });
-};
+// const handleActivePlayer = (newActivePlayerObservable) => {
+//     if (gameProjectorCalled) { // after projection, we should no longer allow obs identity changes
+//         if (activePlayerObservable) {
+//             console.error("already have an observable for id ", newActivePlayerObservable.id, "change not allowed after projection");
+//             return;
+//         }
+//     }
+//     activePlayerIdObs = newActivePlayerObservable;
+//     let weWereLastInCharge = false;
+//     activePlayerIdObs.onChange( /** @type { ActivePlayerIdType } */ activePlayerId => {
+//         if (MISSING_FOREIGN_KEY === activePlayerId || POISON_PILL_VALUE === activePlayerId || INITIAL_OBS_VALUE === activePlayerId) {
+//             weWereLastInCharge = false;
+//             takeCharge();
+//             return;
+//         }
+//         if (PLAYER_SELF_ID === activePlayerId) {
+//             if (weWereLastInCharge) {
+//                 return; // only if we have newly _become_ in charge (prevent from starting the downfall twice)
+//             }
+//             log.info("we are now in charge, let's see if we have to start the downfall");
+//             weWereLastInCharge = true;
+//             registerNextFallTask();
+//             return;
+//         }
+//         weWereLastInCharge = false;
+//     });
+// };
 
 const handleAllPlayerIDs = (newAllPlayerIdsObservable) => {
     // if (gameProjectorCalled) { // after projection, we should no longer allow obs identity changes
@@ -658,6 +586,18 @@ const onNewMappedObservable = mappedObservable => {
 
 };
 
+
+
+
+/**
+ * Needs lazy initialization and module-scoped access.
+ * @type { ObservableMapType } */
+let observableGameMap;
+
+let gameProjectorCalled = false; // for debugging and finer control
+
+
+
 // --- game controller --- --- --- --- --- --- --- --- --- --- --- --- --- ---
 
 /**
@@ -671,112 +611,215 @@ const onNewMappedObservable = mappedObservable => {
  * @property { IObservableList<MappedObservableType<PlayerNameType>> }          playerListObs
  * @property { Array<MappedObservableType<PlayerNameType>> }                    initialPlayerList
  * @property { (String) => String }                                             getPlayerName
- * @property { () => Boolean }                                                  weAreInCharge
+ * @property { () => Boolean }                                                  areWeInCharge
  * @property { () => void    }                                                  takeCharge
  * @property { () => void    }                                                  restart
  */
 
 /**
  * @constructor
+ * @param { OMType } om
  * @returns { GameControllerType }
  */
-const GameController = () => ( { // we need to bind late such that the obs references are set
-    tetrominoCurrentIdObs,
-    tetrominoListObs,
-    gameStateObs,
-    boxesListObs,
-    selfPlayerObs,
-    activePlayerIdObs,
-    playerListObs,
-    initialPlayerList: knownPlayersBackingList, // to transfer data that was read before the binding
-    getPlayerName,
-    weAreInCharge,
-    takeCharge,
-    restart,
-});
+const GameController = om => {
 
-/**
- * Needs lazy initialization and module-scoped access.
- * @type { ObservableMapType } */
-let observableGameMap;
+    /** @type { () => void } */
+    const restart  = () => {
 
-let gameProjectorCalled = false; // for debugging and finer control
+        takeCharge();
 
-/**
- * Start the game loop.
- * @param { ObservableMapCtorType        } observableMapCtor  - constructor of an observable map (remote or local)
- * @param { (GameControllerType) => void } afterStartCallback - what to do after start action is finished
- */
-const startGame = (observableMapCtor, afterStartCallback) => {
-
-    // preparing the map
-    observableGameMap = observableMapCtor(onNewMappedObservable);
-
-    // clean up when leaving (as good as possible - not 100% reliable)
-    window.onbeforeunload = (_evt) => {
-        if (weAreInCharge()) { // if we are in charge while leaving, put someone else in charge
-            activePlayerIdObs.setValue(knownPlayersBackingList?.at(0)?.id ?? MISSING_FOREIGN_KEY);
-        }
-        observableGameMap.removeObservableForID(PLAYER_SELF_ID);
+        // fallingDown(false);
+        //
+        // // do not proceed before all backing Lists are empty
+        // // todo: disable all user input and show cleanup state
+        // const waitForCleanup = () => {
+        //     const stillToDelete = boxesBackingList.length +  tetrominoBackingList.length;
+        //     log.info(`still to delete: ${stillToDelete}`);
+        //
+        //     // remove all boxes
+        //     boxesBackingList.forEach(namedObs => {
+        //         observableGameMap.removeObservableForID(namedObs.id);
+        //     });
+        //
+        //     // remove all tetros
+        //     tetrominoCurrentIdObs.setValue(MISSING_FOREIGN_KEY);
+        //     tetrominoBackingList.forEach( namedObs => {
+        //         observableGameMap.removeObservableForID(namedObs.id);
+        //     });
+        //
+        //     if (stillToDelete > 0) {
+        //         setTimeout( waitForCleanup, 500); // todo shorter delay for next call, todo: support bulk deletion
+        //     } else {
+        //         // end of disabled state
+        //         resetGameState();
+        //         makeNewCurrentTetromino();
+        //         fallingDown(true);
+        //         registerNextFallTask();
+        //     }
+        // };
+        // waitForCleanup();
     };
 
-    // make sure all observables are registered that we need for the binding
+    /**
+     * @private
+     */
+    const knownPlayersBackingList = [];
+    /** This is a local observable list to model the list of known players.
+     *  Each entry is a remotely observable player name, such that we can change
+     *  the name in place.
+     * @type {IObservableList<PlayerType>}
+     */
+    const playerListObs = ObservableList(knownPlayersBackingList);
 
-    // there are two cases:
-    // either we are the first player in the game, and we have to set the shared game observables,
-    // or we join a started game, and we have to use the existing shared game observables
+    /**
+     * handle that a potentially new player has joined.
+     * We maintain an observable list of known players.
+     * @impure updates the playerListObs
+     */
+    const handleNewPlayer = player => {
+        if (knownPlayersBackingList.find( it => it.id === player.id)) {
+            // player already known
+            return;
+        }
+        log.info(`player joined: ${JSON.stringify(player)}`);
+        playerListObs.add(player);
+    };
 
-    if (!allPlayerIDsObs) {
-        observableGameMap.addObservableForID(PLAYER_ALL_IDS);
-    }
-    if (!activePlayerIdObs) {
-        observableGameMap.addObservableForID(PLAYER_ACTIVE_ID);
-    }
-    if (!tetrominoCurrentIdObs) {
-        observableGameMap.addObservableForID(TETROMINO_CURRENT_ID);
-    }
-    if (!gameStateObs) {
-        observableGameMap.addObservableForID(GAME_STATE);
-    }
 
-    observableGameMap.addObservableForID(PLAYER_SELF_ID); // this is always new and fresh
+    /** @type { IObservable<ActivePlayerIdType> }
+     * foreign key (playerId) to the id of the player that is currently in charge of the game.
+     */
+    const activePlayerIdObs = Observable(MISSING_FOREIGN_KEY);
 
-    const onStartupFinished = initialMap => {
 
-        Object.values(initialMap).forEach( mo => { // todo: this should become irrelevant
-            console.warn(`binding  ${mo.id}`);
-            onNewMappedObservable(mo);
-        });
+
+    /**
+     * Whether we are in charge of moving the current tetromino.
+     * @type { () => Boolean }
+     * NB: when joining as a new player, the value might not yet be present,
+     * but we are, of course, not in charge in that situation.
+     */
+    const areWeInCharge = () => activePlayerIdObs.getValue() === PLAYER_SELF_ID;
+
+    /**
+     * @impure puts us in charge and notifies all (remote) listeners.
+     * @warn assumes that {@link activePlayerIdObs} is available
+     * @type { () => void }
+     */
+    const takeCharge = () => om.setValue(PLAYER_ACTIVE_ID, PLAYER_SELF_ID );
+
+    const getPlayerName = (playerId) => {
+        let result;
+        console.warn("get name for", playerId);
+        om.getValue(playerId)
+          (_=> result = "n/a")
+          (player => result = player.name);
+        return result;
+    };
+
+
+    /**
+     * Start the game loop.
+     * @param { () => void } afterStartCallback - what to do after start action is finished
+     */
+    const startGame = (afterStartCallback) => {
+
+
+        // clean up when leaving (as good as possible - not 100% reliable)
+        window.onbeforeunload = (_evt) => {
+            if (areWeInCharge()) { // if we are in charge while leaving, put someone else in charge
+                activePlayerIdObs.setValue(knownPlayersBackingList.at(0)?.id ?? MISSING_FOREIGN_KEY);
+            }
+            om.removeKey(PLAYER_SELF_ID);
+        };
+
+        // make sure all observables are registered that we need for the binding
+
+        // there are two cases:
+        // either we are the first player in the game, and we have to set the shared game observables,
+        // or we join a started game, and we have to use the existing shared game observables
+
+        // if (!allPlayerIDsObs) {
+        //     observableGameMap.addObservableForID(PLAYER_ALL_IDS);
+        // }
+        // if (!activePlayerIdObs) {
+        //     observableGameMap.addObservableForID(PLAYER_ACTIVE_ID);
+        // }
+        // if (!tetrominoCurrentIdObs) {
+        //     observableGameMap.addObservableForID(TETROMINO_CURRENT_ID);
+        // }
+        // if (!gameStateObs) {
+        //     observableGameMap.addObservableForID(GAME_STATE);
+        // }
+
+        // make ourselves known to the crowd
+        om.setValue(PLAYER_SELF_ID, Player(PLAYER_SELF_ID, PLAYER_SELF_ID.slice(-7) ) );
+
 
         console.warn("--- binding called --- ");
         // console.warn("back player list", knownPlayersBackingList.map(it=>it.id));
 
-        afterStartCallback(GameController()); // all observables are set up, the UI can be bound
-        gameProjectorCalled = true;
+        afterStartCallback(); // all observables are set up, the UI can be bound
 
-        if (missing(allPlayerIDsObs.getValue())) {
-            log.info("there are no known players");
-            allPlayerIDsObs.setValue([PLAYER_SELF_ID]);
-        }
+        console.warn("--- binding done  --- ");
 
-        if (missing(selfPlayerObs.getValue())) {
-            log.info("we (self) have no name, yet. Setting a technical default");
-            selfPlayerObs.setValue(PLAYER_SELF_ID.substring(PLAYER_PREFIX.length, PLAYER_PREFIX.length + 10));
-        }
+        // om.onKeyAdded( (key, value) => {
+        //     if (key.startsWith(PLAYER_PREFIX)){
+        //         handleNewPlayer(value);
+        //         return;
+        //     }
+        //     if (PLAYER_ACTIVE_ID === key){
+        //         activePlayerIdObs.setValue(value);
+        //         return;
+        //     }
+        //
+        //     log.warn(`unhandled add key ${key} value ${value}`);
+        // });
+        om.onKeyRemoved( key => {
 
-        if (missing(activePlayerIdObs.getValue())) {
-            log.info("there is no one in charge, so we take charge.");
-            takeCharge();
-        }
+            log.warn(`unhandled remove key ${key} `);
+        });
+        om.onChange( (key,value) => {
+            if (key.startsWith(PLAYER_PREFIX)){
+                handleNewPlayer(value);
+                return;
+            }
+            if (PLAYER_ACTIVE_ID === key){
+                activePlayerIdObs.setValue(value); // value is the id
+                return;
+            }
+            log.warn(`unhandled change key ${key} value ${value}`);
+        });
+
+        // gameProjectorCalled = true;
+
+        // if (missing(allPlayerIDsObs.getValue())) {
+        //     log.info("there are no known players");
+        //     allPlayerIDsObs.setValue([PLAYER_SELF_ID]);
+        // }
+        //
+        // if (missing(selfPlayerObs.getValue())) {
+        //     log.info("we (self) have no name, yet. Setting a technical default");
+        //     selfPlayerObs.setValue(PLAYER_SELF_ID.substring(PLAYER_PREFIX.length, PLAYER_PREFIX.length + 10));
+        // }
+        //
+        // if (missing(activePlayerIdObs.getValue())) {
+        //     log.info("there is no one in charge, so we take charge.");
+        //     takeCharge();
+        // }
+
+
+
 
     };
 
-    observableGameMap.ensureAllObservableIDs(
-        onStartupFinished,
-        () => undefined !== selfPlayerObs && // try refresh remote values until observables are available
-              undefined !== activePlayerIdObs &&
-              undefined !== allPlayerIDsObs
-    );
-
-
+    return {
+        startGame,
+        playerListObs,
+        activePlayerIdObs,
+        areWeInCharge,
+        takeCharge,
+        getPlayerName,
+        restart
+    }
 };

@@ -85,7 +85,7 @@ const projectNewTetronimo = tetromino => {
 const registerKeyListener = (gameController) => {
     document.onkeydown = keyEvt => {    // note: must be on document since not all elements listen for keydown
         if(keyEvt.ctrlKey || keyEvt.metaKey) { return; }  // allow ctrl-alt-c and other dev tool keys
-        if(! gameController.weAreInCharge()) {
+        if(! gameController.areWeInCharge()) {
             gameController.takeCharge();
             return; // we want keystrokes only to be applied after we have become in charge
         }

@@ -48,6 +48,9 @@ header {
         }
     }
 }
+li.active {
+    text-decoration: underline;
+}
 
 body {
     min-height:             100dvh;
