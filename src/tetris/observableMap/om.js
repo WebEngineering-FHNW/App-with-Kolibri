@@ -55,7 +55,7 @@ const OM = name => {
         const keyIsNew   = !hasKey(key);
         const valueIsNew = keyIsNew
             ? true
-            : backingMap[key] !== value;
+            : JSON.stringify(backingMap[key]) !== JSON.stringify(value);
 
         if ( keyIsNew || valueIsNew) {
             log.debug(`OM.setKeyValue name ${name}, key ${key}, old ${backingMap[key]}, new ${value}, isNew ${valueIsNew}`);

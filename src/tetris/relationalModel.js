@@ -4,7 +4,9 @@
  * the local game and the collaborative game.
  */
 
-export { Player }
+import {MISSING_FOREIGN_KEY} from "../server/S7-manyObs-SSE/remoteObservableMap.js";
+
+export { Player, NO_PLAYER }
 
 /**
  * @typedef {
@@ -79,6 +81,12 @@ export { Player }
  * @return {PlayerType}
  */
 const Player = (id, name) => ({id, name}); // for the type safety
+
+/**
+ * Null-Object Pattern
+ * @type { PlayerType }
+ */
+const NO_PLAYER = Player(MISSING_FOREIGN_KEY, "no name");
 
 /**
  * @typedef { ForeignKeyType } ActivePlayerIdType

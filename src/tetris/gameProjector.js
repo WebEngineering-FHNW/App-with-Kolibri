@@ -1,9 +1,10 @@
-import {dom, select}                              from "../kolibri/util/dom.js";
-import {registerForMouseAndTouch}                 from "./scene3D/scene.js";
-import {registerKeyListener}                      from "./tetrominoProjector.js";
-import {active, POISON_PILL_VALUE}                from "../server/S7-manyObs-SSE/remoteObservableMap.js";
-import {LoggerFactory}                            from "../kolibri/logger/loggerFactory.js";
-import {PLAYER_SELF_ID}                           from "./gameController.js";
+import {dom, select}               from "../kolibri/util/dom.js";
+import {registerForMouseAndTouch}  from "./scene3D/scene.js";
+import {registerKeyListener}                            from "./tetrominoProjector.js";
+import {active, MISSING_FOREIGN_KEY, POISON_PILL_VALUE} from "../server/S7-manyObs-SSE/remoteObservableMap.js";
+import {LoggerFactory}                                  from "../kolibri/logger/loggerFactory.js";
+import {PLAYER_SELF_ID}            from "./gameController.js";
+import {Player}                    from "./relationalModel.js";
 
 export {projectGame};
 
@@ -17,7 +18,7 @@ const log = LoggerFactory("ch.fhnw.kolibri.tetris.gameProjector");
 const projectControlPanel = gameController => {
     const view              = dom(`
     <header>
-        <div class="self"><input size=10></div>
+        <div class="self"><input size=10 value="${gameController.getPlayerName(PLAYER_SELF_ID)}"></div>
         <button>Start/Restart</button>
         <div class="playerList">
             <ul></ul>
@@ -34,11 +35,9 @@ const projectControlPanel = gameController => {
     // data binding
 
 
-    gameController.activePlayerIdObs.onChange( /** @type { ForeignKeyType } */ playerId => {
-        if (undefined === playerId) console.error("xxx");
-        console.warn("active player changed to id", playerId);
+    gameController.onActivePlayerIdChanged( /** @type { ForeignKeyType } */ playerId => {
+        log.info("active player changed to id " +  playerId);
         for(const li of playerList.children) {
-            console.log("updating li", li);
             li.classList.remove("active");
             if (li.getAttribute("data-id") === playerId) {
                 li.classList.add("active");
@@ -46,7 +45,7 @@ const projectControlPanel = gameController => {
         }
     });
 
-    gameController.activePlayerIdObs.onChange( _ => {
+    gameController.onActivePlayerIdChanged( _ => {
         if (gameController.areWeInCharge()) {
             header.classList.add("active");
         } else {
@@ -60,20 +59,37 @@ const projectControlPanel = gameController => {
 
 
     // this could go into a nested li-projector
-    const onNewPlayer = player => {
-        console.warn("binding", player);
+    gameController.onPlayerAdded(player => {
         const [liView] = dom(`<li data-id="${player.id}">${player.name}</li>`);
-
-        // todo: handle value updates and removal
-
         playerList.append(liView);
-    };
-    console.warn("initialPlayerList", playerList.length);
-    gameController.playerListObs.onAdd(onNewPlayer);
+    });
+    gameController.onPlayerRemoved( removedPlayer => {
+        const li = playerList.querySelector(`[data-id="${removedPlayer.id}"]`);
+        if (!li){
+            log.warn("cannot find view to remove player "+JSON.stringify(removedPlayer));
+            return;
+        }
+        li.remove();
+    });
+    gameController.onPlayerChanged( player  => {
+        if(MISSING_FOREIGN_KEY === player.id) { return; }
+        const li = playerList.querySelector(`[data-id="${player.id}"]`);
+        if (!li){
+            log.warn("cannot find view to change player "+JSON.stringify(player));
+            return;
+        }
+        li.textContent = player.name;
+    });
+
+    gameController.onPlayerChanged( player  => {
+        if(PLAYER_SELF_ID === player) {
+            selfInput.value = player.name;
+        }
+    });
 
     // view Binding
     selfInput.oninput = _event => {
-        gameController.selfPlayerObs.setValue( selfInput.value );
+        gameController.setPlayerChanged(  Player(PLAYER_SELF_ID, selfInput.value) );
     };
 
     // Using direct property assignment (onclick) overwrites any previous listeners

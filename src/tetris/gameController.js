@@ -19,8 +19,8 @@ import {LoggerFactory}              from "../kolibri/logger/loggerFactory.js";
 import {Observable, ObservableList} from "../kolibri/observable.js";
 import {INITIAL_OBS_VALUE}          from "./observableMap/observableMap.js";
 import {missing}                                                 from "./util.js";
-import * as activePlayerObservable                               from "../kolibri/lambda/church.js";
-import {Player}                                                  from "./relationalModel.js";
+import * as activePlayerObservable from "../kolibri/lambda/church.js";
+import {NO_PLAYER, Player}         from "./relationalModel.js";
 
 export {
     GameController,
@@ -671,14 +671,15 @@ const GameController = om => {
      */
     const playerListObs = ObservableList(knownPlayersBackingList);
 
+    const playerChangeObs = Observable(NO_PLAYER);
     /**
      * handle that a potentially new player has joined.
      * We maintain an observable list of known players.
      * @impure updates the playerListObs
      */
-    const handleNewPlayer = player => {
+    const handlePlayerUpdate = player => {
         if (knownPlayersBackingList.find( it => it.id === player.id)) {
-            // player already known
+            playerChangeObs.setValue(player);
             return;
         }
         log.info(`player joined: ${JSON.stringify(player)}`);
@@ -710,7 +711,6 @@ const GameController = om => {
 
     const getPlayerName = (playerId) => {
         let result;
-        console.warn("get name for", playerId);
         om.getValue(playerId)
           (_=> result = "n/a")
           (player => result = player.name);
@@ -756,32 +756,19 @@ const GameController = om => {
         om.setValue(PLAYER_SELF_ID, Player(PLAYER_SELF_ID, PLAYER_SELF_ID.slice(-7) ) );
 
 
-        console.warn("--- binding called --- ");
-        // console.warn("back player list", knownPlayersBackingList.map(it=>it.id));
-
         afterStartCallback(); // all observables are set up, the UI can be bound
 
-        console.warn("--- binding done  --- ");
-
-        // om.onKeyAdded( (key, value) => {
-        //     if (key.startsWith(PLAYER_PREFIX)){
-        //         handleNewPlayer(value);
-        //         return;
-        //     }
-        //     if (PLAYER_ACTIVE_ID === key){
-        //         activePlayerIdObs.setValue(value);
-        //         return;
-        //     }
-        //
-        //     log.warn(`unhandled add key ${key} value ${value}`);
-        // });
         om.onKeyRemoved( key => {
-
+            if (key.startsWith(PLAYER_PREFIX)){
+                const player = knownPlayersBackingList.find( it => it.id === key);
+                playerListObs.del(player);
+                return;
+            }
             log.warn(`unhandled remove key ${key} `);
         });
         om.onChange( (key,value) => {
             if (key.startsWith(PLAYER_PREFIX)){
-                handleNewPlayer(value);
+                handlePlayerUpdate(value);
                 return;
             }
             if (PLAYER_ACTIVE_ID === key){
@@ -791,32 +778,16 @@ const GameController = om => {
             log.warn(`unhandled change key ${key} value ${value}`);
         });
 
-        // gameProjectorCalled = true;
-
-        // if (missing(allPlayerIDsObs.getValue())) {
-        //     log.info("there are no known players");
-        //     allPlayerIDsObs.setValue([PLAYER_SELF_ID]);
-        // }
-        //
-        // if (missing(selfPlayerObs.getValue())) {
-        //     log.info("we (self) have no name, yet. Setting a technical default");
-        //     selfPlayerObs.setValue(PLAYER_SELF_ID.substring(PLAYER_PREFIX.length, PLAYER_PREFIX.length + 10));
-        // }
-        //
-        // if (missing(activePlayerIdObs.getValue())) {
-        //     log.info("there is no one in charge, so we take charge.");
-        //     takeCharge();
-        // }
-
-
-
 
     };
 
     return {
         startGame,
-        playerListObs,
-        activePlayerIdObs,
+        onPlayerAdded           : playerListObs.onAdd,
+        onPlayerRemoved         : playerListObs.onDel,
+        onPlayerChanged         : playerChangeObs.onChange,
+        setPlayerChanged        : player => om.setValue(player.id, player), // om is the master
+        onActivePlayerIdChanged : activePlayerIdObs.onChange,
         areWeInCharge,
         takeCharge,
         getPlayerName,
