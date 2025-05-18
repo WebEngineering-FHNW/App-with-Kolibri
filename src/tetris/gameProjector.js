@@ -89,7 +89,7 @@ const projectControlPanel = gameController => {
 
     // view Binding
     selfInput.oninput = _event => {
-        gameController.setPlayerChanged(  Player(PLAYER_SELF_ID, selfInput.value) );
+        gameController.setPlayerChanged( Player(PLAYER_SELF_ID, selfInput.value) );
     };
 
     // Using direct property assignment (onclick) overwrites any previous listeners
@@ -133,45 +133,42 @@ const projectMain = gameController => {
     registerForMouseAndTouch(main);           // the general handling of living in a 3D scene
     registerKeyListener(gameController);      // the game-specific key bindings
 
-    gameController.tetrominoListObs.onAdd( tetrominoObs => {
-        const [tetroDiv]  = dom(`<div class="tetromino" data-id="${tetrominoObs.id}"></div>`);
-        const [coordsDiv] = select(document.body, "#main .coords"); // the main view must have been projected
+    gameController.onTetrominoAdded( tetromino => {
+        const [tetroDiv]  = dom(`<div class="tetromino ${tetromino.shapeName}" data-id="${tetromino.id}"></div>`);
+        const [coordsDiv] = select(main, ".coords");
         coordsDiv.append(tetroDiv);
-        let tetroNeedsShapeName = true;
-        tetrominoObs.onChange( /** @type { TetrominoModelType } */ tetromino => {
-            if (POISON_PILL_VALUE === tetromino) {
-                tetroDiv.remove();
-                return;
-            }
-            if (tetroNeedsShapeName) {
-                tetroDiv.classList.add(tetromino.shapeName);
-                tetroNeedsShapeName = false;
-            }
-        })
+    });
+    gameController.onTetrominoRemoved( tetromino => {
+        const div = main.querySelector(`[data-id="${tetromino.id}"]`);
+        if (!div){
+            log.warn("cannot find view to remove tetromino " + JSON.stringify(tetromino));
+            return;
+        }
+        div.remove();
     });
 
     // todo: maybe make the binding more stable such that the tetroDiv get added when a box needs it (but only once in total)
-    gameController.boxesListObs.onAdd( boxObservable => {
-        const boxFaceDivs = 6..times( _=> "<div class='face'></div>").join("");
-        const [boxDiv]    = dom(`<div class="box" data-id="${boxObservable.id}"> ${ boxFaceDivs} </div>`);
-        let boxNeedsAddingToTetro = true;
-        boxObservable.onChange( /** @type { BoxModelType } */ box => {
-            if (POISON_PILL_VALUE === box) {
-                boxDiv.remove();              // the tetro div could remain in the dom (?) after the last box vanished
-                return;
-            }
-            if (box.tetroId && boxNeedsAddingToTetro){
-                const tetroDiv = document.body.querySelector(`.tetromino[data-id="${box.tetroId}"]`);
-                if (tetroDiv) { // when info comes from remote, the sequence might be off and the tetro div is only available later
-                    tetroDiv.append(boxDiv);
-                    boxNeedsAddingToTetro = false;
-                } else {
-                    log.warn("tetro div for box missing: " + box.tetroId);
-                }
-            }
-            boxDiv.setAttribute("style", `--x:${box.xPos};--y:${box.yPos};--z:${box.zPos};`);
-        })
-    });
+    // gameController.boxesListObs.onAdd( boxObservable => {
+    //     const boxFaceDivs = 6..times( _=> "<div class='face'></div>").join("");
+    //     const [boxDiv]    = dom(`<div class="box" data-id="${boxObservable.id}"> ${ boxFaceDivs} </div>`);
+    //     let boxNeedsAddingToTetro = true;
+    //     boxObservable.onChange( /** @type { BoxModelType } */ box => {
+    //         if (POISON_PILL_VALUE === box) {
+    //             boxDiv.remove();              // the tetro div could remain in the dom (?) after the last box vanished
+    //             return;
+    //         }
+    //         if (box.tetroId && boxNeedsAddingToTetro){
+    //             const tetroDiv = document.body.querySelector(`.tetromino[data-id="${box.tetroId}"]`);
+    //             if (tetroDiv) { // when info comes from remote, the sequence might be off and the tetro div is only available later
+    //                 tetroDiv.append(boxDiv);
+    //                 boxNeedsAddingToTetro = false;
+    //             } else {
+    //                 log.warn("tetro div for box missing: " + box.tetroId);
+    //             }
+    //         }
+    //         boxDiv.setAttribute("style", `--x:${box.xPos};--y:${box.yPos};--z:${box.zPos};`);
+    //     })
+    // });
 
     return mainElements;
 };
@@ -184,7 +181,7 @@ const projectGame = gameController => {
 
     return [
         ...projectControlPanel(gameController),
-        // ...projectMain        (gameController)
+        ...projectMain        (gameController)
     ];
 
 };
