@@ -4,6 +4,8 @@
  * the local game and the collaborative game.
  */
 
+export { Player }
+
 /**
  * @typedef {
  * "charI" |
@@ -64,9 +66,19 @@
  */
 
 /**
- * @typedef { String } PlayerNameType
+ * @typedef PlayerType
+ * @property { ForeignKeyType } id
+ * @property { String }  name
  * Remotely stored with a key like "PLAYER-<playerId>". {@link PLAYER_PREFIX}
  */
+
+/**
+ * @param { ForeignKeyType } id
+ * @param { String } name
+ * @constructor
+ * @return {PlayerType}
+ */
+const Player = (id, name) => ({id, name}); // for the type safety
 
 /**
  * @typedef { ForeignKeyType } ActivePlayerIdType

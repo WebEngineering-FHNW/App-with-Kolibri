@@ -9,15 +9,21 @@
 
 <script type="module">
 
-    import {startGame}             from "./gameController.js";
-    import {ObservableMap}         from "./observableMap/observableMap.js";
+    import {GameController} from "./gameController.js";
     import {projectGame}           from "./gameProjector.js";
     import {defaultConsoleLogging} from "../kolibri/logger/loggingSupport.js";
+    import {OM}                    from "./observableMap/om.js";
+    import {LOG_DEBUG}                 from "../kolibri/logger/logLevel.js";
 
-    defaultConsoleLogging("ch.fhnw.tetris.gameController", LOG_INFO);
+    defaultConsoleLogging("ch.fhnw.tetris.gameController", LOG_DEBUG);
 
-    startGame(ObservableMap, gameController => {
-        document.body.prepend(...projectGame(gameController));
+
+    const om = OM("tetris.html");
+
+    const gameController = GameController(om);
+
+    gameController.startGame(_ => {
+        document.body.append(...projectGame(gameController));
     });
 
 </script>

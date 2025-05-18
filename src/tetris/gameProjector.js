@@ -18,7 +18,6 @@ const projectControlPanel = gameController => {
     const view              = dom(`
     <header>
         <div class="self"><input size=10></div>
-        <div class="player">no player</div>
         <button>Start/Restart</button>
         <div class="playerList">
             <ul></ul>
@@ -28,68 +27,49 @@ const projectControlPanel = gameController => {
 
     const [header]          = view;
     const [selfInput]       = select(header, "div.self input");
-    const [activePlayerDiv] = select(header, "div.player");
     const [startButton]     = select(header, "button");
     const [playerList]      = select(header, "div.playerList > ul");
     const [scoreDiv]        = select(header, "div.score");
 
-    // util
-    // if either the active player id changes, or we change our own name while being active
-    // then in both cases, the active player field needs update
-    const onIdIsTheActivePlayer = mappedObservable => {
-        mappedObservable.onChange( _ => {
-            if (mappedObservable.id === gameController.activePlayerIdObs.getValue()) {
-                activePlayerDiv.textContent = gameController.getPlayerName(mappedObservable.id);
-            }
-        });
-    };
-
     // data binding
-    gameController.selfPlayerObs.onChange( /** @type { PlayerNameType } */ playerName => {
-        if (POISON_PILL_VALUE === playerName) return; // can happen on self-removal
-        selfInput.value = playerName;
-    });
-    onIdIsTheActivePlayer(gameController.selfPlayerObs);
 
-    gameController.activePlayerIdObs.onChange( /** @type { ForeignKeyType } */playerId => {
-        activePlayerDiv.textContent = gameController.getPlayerName(playerId);
+
+    gameController.activePlayerIdObs.onChange( /** @type { ForeignKeyType } */ playerId => {
+        if (undefined === playerId) console.error("xxx");
+        console.warn("active player changed to id", playerId);
+        for(const li of playerList.children) {
+            console.log("updating li", li);
+            li.classList.remove("active");
+            if (li.getAttribute("data-id") === playerId) {
+                li.classList.add("active");
+            }
+        }
     });
+
     gameController.activePlayerIdObs.onChange( _ => {
-        startButton.disabled = !gameController.weAreInCharge();
-    });
-    gameController.activePlayerIdObs.onChange( _ => {
-        if (gameController.weAreInCharge()) {
+        if (gameController.areWeInCharge()) {
             header.classList.add("active");
         } else {
             header.classList.remove("active");
         }
     });
 
-    gameController.gameStateObs.onChange( /** @type { GameStateModelType } */ gameState => {
-        scoreDiv.textContent = gameState.score;
-    });
+    // gameController.gameStateObs.onChange( /** @type { GameStateModelType } */ gameState => {
+    //     scoreDiv.textContent = gameState.score;
+    // });
 
-    // whenever a player changes his/her name, let's see whether we have to update the current player
-    gameController.playerListObs.onAdd(  playerObs => {
-        onIdIsTheActivePlayer(playerObs);
-    });
 
     // this could go into a nested li-projector
-    const onNewPlayer = playerObs => {
-        console.warn("binding", playerObs.id);
-        const [liView] = dom(`<li data-id="${playerObs.id}">...</li>`);
-        playerObs.onChange( /** @type { PlayerNameType } */playerName => {
-            if (POISON_PILL_VALUE === playerName) {
-                liView.remove();
-                return;
-            }
-            liView.textContent = playerName;
-        });
+    const onNewPlayer = player => {
+        console.warn("binding", player);
+        const [liView] = dom(`<li data-id="${player.id}">${player.name}</li>`);
+
+        // todo: handle value updates and removal
+
         playerList.append(liView);
     };
     console.warn("initialPlayerList", playerList.length);
-    gameController.initialPlayerList.forEach(onNewPlayer); // for all players from before the binding
-    gameController.playerListObs.onAdd(onNewPlayer);       // and for all future players ...
+    gameController.playerListObs.onAdd(onNewPlayer);
 
     // view Binding
     selfInput.oninput = _event => {
@@ -188,7 +168,7 @@ const projectGame = gameController => {
 
     return [
         ...projectControlPanel(gameController),
-        ...projectMain        (gameController)
+        // ...projectMain        (gameController)
     ];
 
 };
