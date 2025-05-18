@@ -5,8 +5,9 @@
  */
 
 import {MISSING_FOREIGN_KEY} from "../server/S7-manyObs-SSE/remoteObservableMap.js";
+import {shapesByName}        from "./shape.js";
 
-export { Player, NO_PLAYER }
+export { Player, NO_PLAYER, Tetromino, NO_TETROMINO }
 
 /**
  * @typedef {
@@ -28,12 +29,28 @@ export { Player, NO_PLAYER }
  * Remotely stored with a key like "TETROMINO-<tetroId>". {@link TETROMINO_PREFIX}
  *
  * @typedef TetrominoModelType
- * @property { ShapeNameType } shapeName
+ * @property { ForeignKeyType } id
+ * @property { ShapeNameType } shapeName - will be used for styling
  * @property { ShapeType } shape - capture the relative rotation shape
  * @property { Number } xPos - x position in logical space units
  * @property { Number } yPos - y position in logical space units
  * @property { Number } zPos - z position in logical space units
  */
+
+/**
+ * @param { TetrominoModelType } paramObj
+ * @constructor
+ * @return {TetrominoModelType}
+ */
+const Tetromino = paramObj => paramObj; // for the type safety
+
+/**
+ * Null-Object Pattern
+ * @type { TetrominoModelType }
+ */
+const NO_TETROMINO = Tetromino({id:MISSING_FOREIGN_KEY, shapeName:"char0", shape:shapesByName.charO,
+                               xPos:0, yPos:0, zPos:0});
+
 
 /**
  * Boxes start their life in the "current" (or upcoming) tetromino where their final x,y,z position
