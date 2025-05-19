@@ -10,7 +10,6 @@ import {Scheduler}                           from "../../kolibri/dataflow/datafl
 import {client}                              from "../../kolibri/rest/restClient.js";
 import {LoggerFactory}                       from "../../kolibri/logger/loggerFactory.js";
 import "../../kolibri/util/array.js";
-import {INITIAL_OBS_VALUE, MappedObservable} from "../../tetris/observableMap/observableMap.js";
 import {PLAYER_SELF_ID}                      from "../../tetris/gameController.js";
 
 // todo: think about remote observable map as a decorator of the local observable map
