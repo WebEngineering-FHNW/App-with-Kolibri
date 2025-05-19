@@ -16,11 +16,8 @@ import {Walk}                                                    from "../kolibr
 import {MISSING_FOREIGN_KEY, POISON_PILL_VALUE, PREFIX_IMMORTAL} from "../server/S7-manyObs-SSE/remoteObservableMap.js";
 import {clientId}                                                from "../kolibri/version.js";
 import {LoggerFactory}              from "../kolibri/logger/loggerFactory.js";
-import {Observable, ObservableList} from "../kolibri/observable.js";
-import {INITIAL_OBS_VALUE}          from "./observableMap/observableMap.js";
-import {missing}                                                 from "./util.js";
-import * as activePlayerObservable                  from "../kolibri/lambda/church.js";
-import {NO_PLAYER, NO_TETROMINO, Player, Tetromino} from "./relationalModel.js";
+import {Observable, ObservableList}                         from "../kolibri/observable.js";
+import {NO_BOX, NO_PLAYER, NO_TETROMINO, Player, Tetromino} from "./relationalModel.js";
 
 export {
     GameController,
@@ -33,7 +30,6 @@ export {
     PLAYER_SELF_ID,
     PLAYER_ACTIVE_ID,
     PLAYER_PREFIX,
-    PLAYER_ALL_IDS
 };
 
 const log = LoggerFactory("ch.fhnw.tetris.gameController");
@@ -48,28 +44,6 @@ const BOX_PREFIX            = "BOX-";
 const PLAYER_PREFIX         = "PLAYER-";
 const PLAYER_ACTIVE_ID      = PREFIX_IMMORTAL + "PLAYER_ACTIVE_ID";
 const PLAYER_SELF_ID        = PLAYER_PREFIX + clientId;
-const PLAYER_ALL_IDS        = PREFIX_IMMORTAL + "PLAYER_ALL_IDS";
-
-
-// --- boxes --- --- --- --- --- --- --- --- --- ---
-
-/** @type { Array<MappedObservableType<BoxModelType>> }
- * Contains all the boxes that live in our 3D space after they have been unlinked from their tetromino
- * such that they can fall and disappear independently.
- * We maintain them separately because they are needed for detection and handling of collisions.
- */
-const boxesBackingList = [];
-
-/**
- * Decorator. Making the list of space boxes observable.
- * @type {IObservableList<MappedObservableType<BoxModelType>>}
- */
-const boxesListObs= ObservableList( boxesBackingList );
-
-
-
-
-
 
 
 // --- game state --- --- --- --- --- --- --- --- ---
@@ -351,22 +325,6 @@ const trySyncTetronimo = (tetromino, tetroId) => {
 
 // --- keep remote observables in local references  --- --- --- --- --- --- --- --- ---
 
-const handleNewTetromino = newTetroObservable => {
-    if (tetrominoBackingList.find( ({id}) => id === newTetroObservable.id)) {
-        console.error("already have an observable for id ", newTetroObservable.id);
-        return
-    }
-    log.info("New Tetromino " + newTetroObservable.id);
-    tetrominoListObs.add(newTetroObservable);
-    newTetroObservable.onChange( /** @type { TetrominoModelType } */ newTetromino => {
-        if (POISON_PILL_VALUE === newTetromino) {
-            log.info(`tetromino removed: ${newTetroObservable.id}`);
-            tetrominoListObs.del(newTetroObservable);
-            return;
-        }
-        trySyncTetronimo(newTetromino, newTetroObservable.id);
-    });
-};
 
 const handleNewBox = newBoxObservable => {
     if (boxesBackingList.find( ({id}) => id === newBoxObservable.id)) {
@@ -394,76 +352,6 @@ const handleNewBox = newBoxObservable => {
 
 
 
-// todo: it would perhaps work nicer to have ourselves also in the list of all players
-// .. and jump over it in the ul list of other players
-
-/**
- * handle that a new player has joined.
- * We maintain an observable list of known players.
- * @impure updates the selfPlayerObs and the playerListObs
- */
-// const handleNewPlayer = newPlayerObservable => {
-//     if (gameProjectorCalled) { // after projection, we should no longer allow obs identity changes
-//         if (knownPlayersBackingList.find( ({id}) => id === newPlayerObservable.id)) {
-//             console.error("already have an observable for id ", newPlayerObservable.id, "change not allowed after projection");
-//             return;
-//         }
-//     }
-//
-//     if (PLAYER_SELF_ID === newPlayerObservable.id) {  // is is ourselves while joining
-//         selfPlayerObs = newPlayerObservable;
-//         return;
-//     }
-//     // it is someone else
-//     log.info(`player joined: ${newPlayerObservable.id}`);
-//     playerListObs.add(newPlayerObservable);
-//     newPlayerObservable.onChange( /** @type { PlayerNameType } */ newPlayer => {
-//         if (POISON_PILL_VALUE === newPlayer) {
-//             playerListObs.del(newPlayerObservable);
-//         }
-//     });
-// };
-
-// const handleActivePlayer = (newActivePlayerObservable) => {
-//     if (gameProjectorCalled) { // after projection, we should no longer allow obs identity changes
-//         if (activePlayerObservable) {
-//             console.error("already have an observable for id ", newActivePlayerObservable.id, "change not allowed after projection");
-//             return;
-//         }
-//     }
-//     activePlayerIdObs = newActivePlayerObservable;
-//     let weWereLastInCharge = false;
-//     activePlayerIdObs.onChange( /** @type { ActivePlayerIdType } */ activePlayerId => {
-//         if (MISSING_FOREIGN_KEY === activePlayerId || POISON_PILL_VALUE === activePlayerId || INITIAL_OBS_VALUE === activePlayerId) {
-//             weWereLastInCharge = false;
-//             takeCharge();
-//             return;
-//         }
-//         if (PLAYER_SELF_ID === activePlayerId) {
-//             if (weWereLastInCharge) {
-//                 return; // only if we have newly _become_ in charge (prevent from starting the downfall twice)
-//             }
-//             log.info("we are now in charge, let's see if we have to start the downfall");
-//             weWereLastInCharge = true;
-//             registerNextFallTask();
-//             return;
-//         }
-//         weWereLastInCharge = false;
-//     });
-// };
-
-
-
-
-
-
-
-
-/**
- * Needs lazy initialization and module-scoped access.
- * @type { ObservableMapType } */
-let observableGameMap;
-
 
 
 
@@ -471,7 +359,7 @@ let observableGameMap;
 
 /**
  * @typedef GameControllerType
- * @property startGame,
+ * @property startGame
  * @property onPlayerAdded
  * @property onPlayerRemoved
  * @property onPlayerChanged
@@ -480,9 +368,12 @@ let observableGameMap;
  * @property onTetrominoAdded
  * @property onTetrominoRemoved
  * @property onCurrentTetrominoIdChanged
- * @property areWeInCharge,
- * @property takeCharge,
- * @property getPlayerName,
+ * @property onBoxAdded
+ * @property onBoxRemoved
+ * @property onBoxChanged
+ * @property areWeInCharge
+ * @property takeCharge
+ * @property getPlayerName
  */
 
 /**
@@ -534,7 +425,6 @@ const GameController = om => {
 
     // --- players --- --- --- --- --- --- --- --- ---
 
-
     /**
      * @private
      */
@@ -566,8 +456,6 @@ const GameController = om => {
      * foreign key (playerId) to the id of the player that is currently in charge of the game.
      */
     const activePlayerIdObs = Observable(MISSING_FOREIGN_KEY);
-
-
 
     /**
      * Whether we are in charge of moving the current tetromino.
@@ -650,6 +538,33 @@ const GameController = om => {
     };
 
 
+    // --- boxes --- --- --- --- --- --- --- --- --- ---
+
+    /** @type { Array<BoxModelType> }
+     * Contains all the boxes that live in our 3D space after they have been unlinked from their tetromino
+     * such that they can fall and disappear independently.
+     * We maintain them separately because they are needed for detection and handling of collisions.
+     */
+    const boxesBackingList = [];
+
+    /**
+     * Decorator. Making the list of space boxes observable.
+     * @type {IObservableList<BoxModelType>}
+     */
+    const boxesListObs= ObservableList( boxesBackingList );
+
+    const boxChangedObs = Observable(NO_BOX);
+
+    const handleBoxUpdate = box => {
+        if (boxesBackingList.find( it => it.id === box.id)) {
+            boxChangedObs.setValue(box);
+            return;
+        }
+        log.info(`new box: ${JSON.stringify(box)}`);
+        boxesListObs.add(box);
+    };
+
+
 
     /**
      * Start the game loop.
@@ -683,6 +598,11 @@ const GameController = om => {
                 tetrominoListObs.del(tetromino);
                 return;
             }
+            if (key.startsWith(BOX_PREFIX)){
+                const box = boxesBackingList.find( it => it.id === key);
+                boxesListObs.del(box);
+                return;
+            }
             log.warn(`unhandled remove key ${key} `);
         });
         om.onChange( (key,value) => {
@@ -702,6 +622,10 @@ const GameController = om => {
                 tetrominoCurrentIdObs.setValue(value); // value is the id
                 return;
             }
+            if (key.startsWith(BOX_PREFIX)){
+                handleBoxUpdate(value);
+                return;
+            }
             log.warn(`unhandled change key ${key} value ${value}`);
         });
 
@@ -719,6 +643,9 @@ const GameController = om => {
         onTetrominoRemoved          : tetrominoListObs.onDel,
         onTetrominoChanged          : tetrominoChangedObs.onChange,
         onCurrentTetrominoIdChanged : tetrominoCurrentIdObs.onChange,
+        onBoxAdded                  : boxesListObs.onAdd,
+        onBoxRemoved                : boxesListObs.onDel,
+        onBoxChanged                : boxChangedObs.onChange,
         areWeInCharge,
         takeCharge,
         getPlayerName,

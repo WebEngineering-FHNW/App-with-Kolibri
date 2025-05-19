@@ -37,7 +37,7 @@ header {
 
         & ul {
             overflow-y:      scroll;
-            max-height:      3lh;
+            max-height:      5lh;
             max-width:       10ch;
             list-style:      none;
             padding:         0;
