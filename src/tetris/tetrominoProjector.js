@@ -6,10 +6,9 @@ import "../kolibri/util/array.js";
 import {dom} from "../kolibri/util/dom.js";
 import {moveBack, moveDown, moveForw, moveLeft, moveRight, rotateYaw, topplePitch, toppleRoll}
                                  from "./tetrominoController.js";
-import {movePosition, turnShape} from "./gameController.js";
 import {LoggerFactory}           from "../kolibri/logger/loggerFactory.js";
 
-export {projectNewTetronimo, registerKeyListener };
+export {projectNewTetronimo };
 
 const log = LoggerFactory("ch.fhnw.kolibri.tetris.tetrominoProjector");
 
@@ -75,35 +74,3 @@ const projectNewTetronimo = tetromino => {
     return [ /** @type { HTMLElement } */ tetroDiv ];
 };
 
-
-/**
- * Key binding for the game (view binding).
- * @collaborators document, game controller, and tetromino controller
- * @impure prevents the key default behavior, will indirectly change the game state and the visualization
- * @param { GameControllerType } gameController
- */
-const registerKeyListener = (gameController) => {
-    document.onkeydown = keyEvt => {    // note: must be on document since not all elements listen for keydown
-        if(keyEvt.ctrlKey || keyEvt.metaKey) { return; }  // allow ctrl-alt-c and other dev tool keys
-        if(! gameController.areWeInCharge()) {
-            gameController.takeCharge();
-            return; // we want keystrokes only to be applied after we have become in charge
-        }
-        if (keyEvt.shiftKey) {
-            switch (keyEvt.key) {
-                case "Shift":       break; // ignore the initial shift signal
-                case "ArrowRight":  keyEvt.preventDefault();turnShape(rotateYaw  ); break;
-                case "ArrowLeft":   keyEvt.preventDefault();turnShape(toppleRoll ); break;
-                case "ArrowUp":     keyEvt.preventDefault();turnShape(topplePitch); break;
-                case "ArrowDown":   keyEvt.preventDefault();movePosition(moveDown); break;
-            }
-        } else {
-            switch (keyEvt.key) {
-                case "ArrowLeft":   keyEvt.preventDefault();movePosition(moveLeft ); break;
-                case "ArrowRight":  keyEvt.preventDefault();movePosition(moveRight); break;
-                case "ArrowUp":     keyEvt.preventDefault();movePosition(moveBack ); break;
-                case "ArrowDown":   keyEvt.preventDefault();movePosition(moveForw ); break;
-            }
-        }
-    };
-};
