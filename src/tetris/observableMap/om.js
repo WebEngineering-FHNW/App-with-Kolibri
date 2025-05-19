@@ -53,12 +53,17 @@ const OM = name => {
 
     const setKeyValue = (key, value) => {
         const keyIsNew   = !hasKey(key);
+        const oldStr = JSON.stringify(backingMap[key]);
+        const newStr = JSON.stringify(value);
         const valueIsNew = keyIsNew
             ? true
-            : JSON.stringify(backingMap[key]) !== JSON.stringify(value);
+            : oldStr !== newStr;
 
         if ( keyIsNew || valueIsNew) {
-            log.debug(`OM.setKeyValue name ${name}, key ${key}, old ${backingMap[key]}, new ${value}, isNew ${valueIsNew}`);
+            log.debug(`OM.setKeyValue name ${name}, key ${key}, 
+            old ${oldStr}, 
+            new ${newStr}, 
+            isNew ${valueIsNew}`);
             backingMap[key] = value;
         }
 

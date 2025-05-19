@@ -1,4 +1,3 @@
-import {INITIAL_OBS_VALUE} from "./observableMap/observableMap.js";
 import {MISSING_FOREIGN_KEY} from "../server/S7-manyObs-SSE/remoteObservableMap.js";
 
 export { ownPropEqual, shapeEqual, missing }
@@ -22,5 +21,4 @@ const shapeEqual= (shapeA, shapeB) =>
 
 const missing = fk =>
     undefined === fk ||
-    INITIAL_OBS_VALUE === fk ||
     MISSING_FOREIGN_KEY === fk;

@@ -143,6 +143,7 @@ const projectMain = gameController => {
     registerKeyListener(gameController);      // the game-specific key bindings
 
     gameController.onTetrominoAdded( tetromino => {
+        if (tetromino.id === MISSING_FOREIGN_KEY) return;
         const [tetroDiv]  = dom(`<div class="tetromino ${tetromino.shapeName}" data-id="${tetromino.id}"></div>`);
         const [coordsDiv] = select(main, ".coords");
         coordsDiv.append(tetroDiv);
@@ -155,47 +156,25 @@ const projectMain = gameController => {
         }
         div.remove();
     });
-    gameController.onTetrominoChanged(tetromino => {
-        const div = main.querySelector(`[data-id="${tetromino.id}"]`);
-        if (!div) {
-            log.warn("cannot find view to update tetromino " + JSON.stringify(tetromino));
-            return;
-        }
-        div.style = `--x:${tetromino.xPos},--y:${tetromino.yPos},--z:${tetromino.zPos},;`;
+
+    gameController.onBoxAdded( box=> {
+        if (box.id === MISSING_FOREIGN_KEY) return;
+        const tetroDiv    = main.querySelector(`[data-id="${box.tetroId}"]`);  //maybe: if not there create it?
+        const boxFaceDivs = 6..times( _=> "<div class='face'></div>").join("");
+        const [boxDiv]    = dom(`<div class="box" data-id="${box.id}">${boxFaceDivs}</div>`);
+        tetroDiv.append(boxDiv);
+    });
+    gameController.onBoxRemoved( box=> {
+        const boxDiv      = main.querySelector(`.box[data-id="${box.id}"]`);
+        boxDiv.remove();
+        // maybe remove tetro if it has no more children
+    });
+    gameController.onBoxChanged( box=> {
+        if (box.id === MISSING_FOREIGN_KEY) return;
+        const boxDiv = main.querySelector(`.box[data-id="${box.id}"]`);
+        boxDiv.style = `--x:${box.xPos};--y:${box.yPos};--z:${box.zPos};`;
     });
 
-    gameController.onBoxAdded(box=> {
-        console.warn("on box added", box);
-    });
-    gameController.onBoxRemoved(box=> {
-        console.warn("on box removed", box);
-    });
-    gameController.onBoxChanged(box=> {
-        console.warn("on box changed", box);
-    });
-
-    // todo: maybe make the binding more stable such that the tetroDiv get added when a box needs it (but only once in total)
-    // gameController.boxesListObs.onAdd( boxObservable => {
-    //     const boxFaceDivs = 6..times( _=> "<div class='face'></div>").join("");
-    //     const [boxDiv]    = dom(`<div class="box" data-id="${boxObservable.id}"> ${ boxFaceDivs} </div>`);
-    //     let boxNeedsAddingToTetro = true;
-    //     boxObservable.onChange( /** @type { BoxModelType } */ box => {
-    //         if (POISON_PILL_VALUE === box) {
-    //             boxDiv.remove();              // the tetro div could remain in the dom (?) after the last box vanished
-    //             return;
-    //         }
-    //         if (box.tetroId && boxNeedsAddingToTetro){
-    //             const tetroDiv = document.body.querySelector(`.tetromino[data-id="${box.tetroId}"]`);
-    //             if (tetroDiv) { // when info comes from remote, the sequence might be off and the tetro div is only available later
-    //                 tetroDiv.append(boxDiv);
-    //                 boxNeedsAddingToTetro = false;
-    //             } else {
-    //                 log.warn("tetro div for box missing: " + box.tetroId);
-    //             }
-    //         }
-    //         boxDiv.setAttribute("style", `--x:${box.xPos};--y:${box.yPos};--z:${box.zPos};`);
-    //     })
-    // });
 
     return mainElements;
 };
@@ -239,7 +218,6 @@ const registerKeyListener = (gameController) => {
  * @return { Array<HTMLElement> }
  */
 const projectGame = gameController => {
-    registerKeyListener(gameController);
     return [
         ...projectControlPanel(gameController),
         ...projectMain        (gameController)

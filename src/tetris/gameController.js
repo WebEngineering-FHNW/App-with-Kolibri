@@ -13,16 +13,16 @@
 import {moveDown, normalize}                                     from "./tetrominoController.js";
 import {shapeNames, shapesByName}                                from "./shape.js";
 import {Walk}                                                    from "../kolibri/sequence/constructors/range/range.js";
-import {MISSING_FOREIGN_KEY, POISON_PILL_VALUE, PREFIX_IMMORTAL} from "../server/S7-manyObs-SSE/remoteObservableMap.js";
+import {MISSING_FOREIGN_KEY, PREFIX_IMMORTAL}                    from "../server/S7-manyObs-SSE/remoteObservableMap.js"; // todo: clean import
 import {clientId}                                                from "../kolibri/version.js";
-import {LoggerFactory}              from "../kolibri/logger/loggerFactory.js";
+import {LoggerFactory}                                           from "../kolibri/logger/loggerFactory.js";
 import {Observable, ObservableList}                              from "../kolibri/observable.js";
 import {Box, NO_BOX, NO_PLAYER, NO_TETROMINO, Player, Tetromino} from "./relationalModel.js";
 
 export {
     GameController,
     TETROMINO_PREFIX,
-    TETROMINO_CURRENT_ID,               // todo: think about retrieving this info from the current boxes
+    TETROMINO_CURRENT_ID,
     GAME_STATE,
     BOX_PREFIX,
     PLAYER_SELF_ID,
@@ -134,22 +134,31 @@ const GameController = om => {
 
     /**
      * @private util
-     * @return {{currentTetromino: TetrominoModelType, currentTetrominoId: ForeignKeyType}}
+     * @return { TetrominoModelType }
      */
-    const getCurrentTetrominoRefs = () => {
-        const currentTetrominoId  = tetrominoCurrentIdObs.getValue();
-        const currentTetromino    = tetrominoBackingList.find(({id}) => id === currentTetrominoId);
-        return {currentTetromino, currentTetrominoId};
+    const getCurrentTetromino = () => {
+        let result = undefined;
+        let id = undefined;
+        om.getValue(TETROMINO_CURRENT_ID)
+          ( _ => console.warn("no current tetromino id"))
+          ( n => id = n);
+        if (id) {
+            om.getValue(id)
+              ( _     => console.warn("no tetromino with current id "+id))
+              ( tetro => result = tetro);
+        }
+        return result;
     };
 
     const onCollision = tetromino => {
         console.warn("onCollision");
+        if(!areWeInCharge()) {
+            return;
+        }
 
         if (tetromino.zPos > 11) {
             fallingDown(false);
         }
-
-        // what does it now mean to unlink the boxes? for the moment: nothing as it does no harm
 
         // todo: check for end of game?
         // todo: check for full level?
@@ -167,7 +176,7 @@ const GameController = om => {
      * @param { NewShapeType } turnFunction
      */
     const turnShape = turnFunction => {
-        const {currentTetrominoObs, currentTetromino, currentTetrominoId} = getCurrentTetrominoRefs();
+        const currentTetromino = getCurrentTetromino();
         if (!currentTetromino) return;
         const oldShape = currentTetromino.shape;
 
@@ -177,13 +186,14 @@ const GameController = om => {
         if (isDisallowedTetroPosition(newShape, position)) {
             return;
         }
-        if (willCollide(newShape, position, currentTetrominoId)) {
+        if (willCollide(newShape, position, currentTetromino.id)) {
             onCollision(currentTetromino);
             return;
         }
         const newTetromino = {...currentTetromino}; // we might not actually need a copy, but it's cleaner
         newTetromino.shape = newShape;
-        currentTetrominoObs.setValue(newTetromino);
+        omSetValue(newTetromino.id, newTetromino);
+
     };
 
     /**
@@ -193,7 +203,7 @@ const GameController = om => {
      * @param { NewPositionType } moveFunction
      */
     const movePosition = moveFunction => {
-        const {currentTetromino, currentTetrominoId} = getCurrentTetrominoRefs();
+        const currentTetromino = getCurrentTetromino();
         if (!currentTetromino) return;
         const newTetromino = {...currentTetromino}; // we might not actually need a copy, but it's cleaner
 
@@ -202,15 +212,21 @@ const GameController = om => {
         if (isDisallowedTetroPosition(currentTetromino.shape, {xPos: x, yPos: y, zPos: z})) {
             return;
         }
-        if (willCollide(currentTetromino.shape, {xPos: x, yPos: y, zPos: z}, currentTetrominoId)) {
+        if (willCollide(currentTetromino.shape, {xPos: x, yPos: y, zPos: z}, newTetromino.id)) {
             onCollision(currentTetromino);
             return;
         }
         newTetromino.xPos = x;
         newTetromino.yPos = y;
         newTetromino.zPos = z;
-        om.setValue(currentTetrominoId, newTetromino)
+        omSetValue(newTetromino.id, newTetromino);
     };
+
+    const omSetValue = (key, value) => {
+        setTimeout( _=> {
+            om.setValue(key,value);
+        },1);
+    }
 
     /**
      * @private
@@ -268,20 +284,17 @@ const GameController = om => {
 
     const willCollide = (shape, position, currentTetrominoId) => {
         const newBoxPositions = expectedBoxPositions(shape, position);
-        if (newBoxPositions.some(({zPos}) => zPos < 0)) {
+        if (newBoxPositions.some(({zPos}) => zPos < 0)) { // below the floor
             return true;
         }
-        const existingBoxPositions =
-                  boxesBackingList
-                      .filter(({id}) => !id.includes(currentTetrominoId))
-                      .map(observable => observable.getValue());
+        const nonCurrentTetroBoxes = boxesBackingList.filter( box => box.tetroId !== currentTetrominoId);
 
         // get all the current box positions but without the current tetro
-        const collides = existingBoxPositions.some(otherBoxPos => {
-            return newBoxPositions.some(newBoxPos => {
-                return otherBoxPos.xPos === newBoxPos.xPos &&
-                       otherBoxPos.yPos === newBoxPos.yPos &&
-                       otherBoxPos.zPos === newBoxPos.zPos;
+        const collides = nonCurrentTetroBoxes.some(otherbox => {
+            return newBoxPositions.some(newBox => {
+                return otherbox.xPos === newBox.xPos &&
+                       otherbox.yPos === newBox.yPos &&
+                       otherbox.zPos === newBox.zPos;
             });
         });
         return collides;
@@ -291,50 +304,11 @@ const GameController = om => {
      * @private util
      * @return {MappedObservableType<BoxModelType>}
      */
-    const getBoxNamedObs = (tetroId, boxIndex) => {
+    const findBox = (tetroId, boxIndex) => {
         const boxId = BOX_PREFIX + tetroId + "-" + boxIndex;
         return boxesBackingList.find(({id}) => id === boxId);
     };
 
-    /**
-     * When a tetro changes, we have to find and update its boxes if possible.
-     * This might be tried a number of times before all the boxes and their tetromino object
-     * are eventually available.
-     *
-     * Note that it might happen that
-     * - a new tetro is created before its boxes
-     * - new boxes are created before their tetro
-     *
-     * solution:
-     * - whenever a tetro is created or changed, _try_ a sync (which might fail due to missing boxes)
-     * - whenever a box is created or changed, _try_ a sync (which might fail due to missing tetro)
-     * @param { TetrominoModelType } tetromino
-     * @param { ForeignKeyType }     tetroId
-     */
-    const trySyncTetronimo = (tetromino, tetroId) => {
-        if (!tetromino) { // happens at startup when the tetro was created but the value not yet set (todo: maybe check)
-            console.error("this check should no longer be needed.");
-            return;
-        }
-        log.debug("try tetro / box sync " + tetroId);
-
-        [0, 1, 2, 3].forEach(boxIndex => {
-            const boxNamedObs = getBoxNamedObs(tetroId, boxIndex);
-            if (!boxNamedObs) {
-                log.debug(`cannot find box ${boxIndex} for tetro ${tetroId}. (can happen when tetro is added before its boxes)`);
-                return;
-            }
-            const box = boxNamedObs.getValue();
-            if (!box) {
-                console.error("this check should no longer be needed.");
-                return;
-            }
-            /** @type { BoxModelType } */ const newBox = updatedBoxValue(tetroId, tetromino, boxIndex);
-            // we reach this part only when the boxes are still "linked"
-            // which means we only have to update our box observables locally (while the tetro is updated remotely)
-            boxNamedObs.setLocalValue(newBox); // we are local here since before unlinking, each client can update independently
-        });
-    };
 
 
 
@@ -427,7 +401,7 @@ const GameController = om => {
      * @warn assumes that {@link activePlayerIdObs} is available
      * @type { () => void }
      */
-    const takeCharge = () => om.setValue(PLAYER_ACTIVE_ID, PLAYER_SELF_ID );
+    const takeCharge = () => omSetValue(PLAYER_ACTIVE_ID, PLAYER_SELF_ID );
 
     const getPlayerName = (playerId) => {
         let result;
@@ -459,6 +433,9 @@ const GameController = om => {
     let tetrominoCurrentIdObs = Observable(MISSING_FOREIGN_KEY);
 
     const handleTetrominoUpdate = tetromino => {
+        // todo: find boxes and set their position
+        updateBoxPositions(tetromino);
+
         if (tetrominoBackingList.find( it => it.id === tetromino.id)) {
             tetrominoChangedObs.setValue(tetromino);
             return;
@@ -475,19 +452,35 @@ const GameController = om => {
         const shape     = shapesByName[shapeName];
         const tetroId   = TETROMINO_PREFIX + clientId + "-" + (runningNum++);
 
-        const tetromino = Tetromino({id:tetroId, shapeName, shape, xPos:0, yPos:0, zPos:12});
+        const tetromino = Tetromino({id:tetroId, shapeName, shape, xPos:0, yPos:0, zPos:0});
 
-        om.setValue(tetroId, tetromino);
+        omSetValue(tetroId, tetromino);
 
         [0, 1, 2, 3].map( boxIndex => {
             const boxId  = BOX_PREFIX + tetroId + "-" + boxIndex;
             const box = Box({id:boxId, tetroId, xPos:0, yPos:0, zPos:0 });
-            om.setValue(boxId, box);
+            omSetValue(boxId, box);
         });
 
-        om.setValue(TETROMINO_CURRENT_ID, tetroId);
+        omSetValue(TETROMINO_CURRENT_ID, tetroId);
     };
 
+    const updateBoxPositions = tetromino => {
+        const boxes = [0,1,2,3].map( n => findBox(tetromino.id, n));
+        if (boxes.some( box => box === undefined)){// not all boxes ready for update
+            return;
+        }
+        let n = 0;
+        boxes.forEach( box => {
+            const updatedBox = { ...box, ...updatedBoxValue(tetromino.id, tetromino, n++)};
+            // if (
+            //     box.xPos !== updatedBox.xPos ||
+            //     box.yPos !== updatedBox.yPos ||
+            //     box.zPos !== updatedBox.zPos ) { // only if there is a real change, publish it
+                omSetValue(box.id, updatedBox);
+            // }
+        });
+    };
 
     // --- boxes --- --- --- --- --- --- --- --- --- ---
 
@@ -514,8 +507,14 @@ const GameController = om => {
             boxChangedObs.setValue(box);
             return;
         }
-        log.info(`new box: ${JSON.stringify(box)}`);
+        log.debug(`new box: ${JSON.stringify(box)}`);
         boxesListObs.add(box);
+        const tetromino = tetrominoBackingList.find( tetro => tetro.id === box.tetroId);
+        if ( tetromino ) {
+            updateBoxPositions(tetromino);
+        } else {
+            log.warn("cannot find tetro for box");
+        }
     };
 
 
@@ -536,7 +535,7 @@ const GameController = om => {
         };
 
         // make ourselves known to the crowd
-        om.setValue(PLAYER_SELF_ID, Player(PLAYER_SELF_ID, PLAYER_SELF_ID.slice(-7) ) );
+        omSetValue(PLAYER_SELF_ID, Player(PLAYER_SELF_ID, PLAYER_SELF_ID.slice(-7) ) );
 
 
         afterStartCallback(); // all observables are set up, the UI can be bound
@@ -591,7 +590,7 @@ const GameController = om => {
         onPlayerAdded               : playerListObs.onAdd,
         onPlayerRemoved             : playerListObs.onDel,
         onPlayerChanged             : playerChangeObs.onChange,
-        setPlayerChanged            : player => om.setValue(player.id, player), // om is the master
+        setPlayerChanged            : player => omSetValue(player.id, player), // om is the master
         onActivePlayerIdChanged     : activePlayerIdObs.onChange,
         onTetrominoAdded            : tetrominoListObs.onAdd,
         onTetrominoRemoved          : tetrominoListObs.onDel,
