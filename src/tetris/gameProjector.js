@@ -1,10 +1,19 @@
-import {dom, select}               from "../kolibri/util/dom.js";
-import {registerForMouseAndTouch}  from "./scene3D/scene.js";
-import {registerKeyListener}                            from "./tetrominoProjector.js";
-import {active, MISSING_FOREIGN_KEY, POISON_PILL_VALUE} from "../server/S7-manyObs-SSE/remoteObservableMap.js";
+import {dom, select}                                    from "../kolibri/util/dom.js";
+import {registerForMouseAndTouch}                       from "./scene3D/scene.js";
+import {MISSING_FOREIGN_KEY }                           from "../server/S7-manyObs-SSE/remoteObservableMap.js"; // todo: import properly
 import {LoggerFactory}                                  from "../kolibri/logger/loggerFactory.js";
-import {PLAYER_SELF_ID}            from "./gameController.js";
-import {Player}                    from "./relationalModel.js";
+import {PLAYER_SELF_ID}                                 from "./gameController.js";
+import {Player}                                         from "./relationalModel.js";
+import {
+    moveBack,
+    moveDown,
+    moveForw,
+    moveLeft,
+    moveRight,
+    rotateYaw,
+    topplePitch,
+    toppleRoll
+} from "./tetrominoController.js";
 
 export {projectGame};
 
@@ -146,6 +155,24 @@ const projectMain = gameController => {
         }
         div.remove();
     });
+    gameController.onTetrominoChanged(tetromino => {
+        const div = main.querySelector(`[data-id="${tetromino.id}"]`);
+        if (!div) {
+            log.warn("cannot find view to update tetromino " + JSON.stringify(tetromino));
+            return;
+        }
+        div.style = `--x:${tetromino.xPos},--y:${tetromino.yPos},--z:${tetromino.zPos},;`;
+    });
+
+    gameController.onBoxAdded(box=> {
+        console.warn("on box added", box);
+    });
+    gameController.onBoxRemoved(box=> {
+        console.warn("on box removed", box);
+    });
+    gameController.onBoxChanged(box=> {
+        console.warn("on box changed", box);
+    });
 
     // todo: maybe make the binding more stable such that the tetroDiv get added when a box needs it (but only once in total)
     // gameController.boxesListObs.onAdd( boxObservable => {
@@ -173,12 +200,46 @@ const projectMain = gameController => {
     return mainElements;
 };
 
+
+/**
+ * Key binding for the game (view binding).
+ * @collaborators document, game controller, and tetromino controller
+ * @impure prevents the key default behavior, will indirectly change the game state and the visualization
+ * @param { GameControllerType } gameController
+ */
+const registerKeyListener = (gameController) => {
+    document.onkeydown = keyEvt => {    // note: must be on document since not all elements listen for keydown
+        if(keyEvt.ctrlKey || keyEvt.metaKey) { return; }  // allow ctrl-alt-c and other dev tool keys
+        if(! gameController.areWeInCharge()) {
+            gameController.takeCharge();
+            return; // we want keystrokes only to be applied after we have become in charge
+        }
+        if (keyEvt.shiftKey) {
+            switch (keyEvt.key) {
+                case "Shift":       break; // ignore the initial shift signal
+                case "ArrowRight":  keyEvt.preventDefault();gameController.turnShape(rotateYaw  ); break;
+                case "ArrowLeft":   keyEvt.preventDefault();gameController.turnShape(toppleRoll ); break;
+                case "ArrowUp":     keyEvt.preventDefault();gameController.turnShape(topplePitch); break;
+                case "ArrowDown":   keyEvt.preventDefault();gameController.movePosition(moveDown); break;
+            }
+        } else {
+            switch (keyEvt.key) {
+                case "ArrowLeft":   keyEvt.preventDefault();gameController.movePosition(moveLeft ); break;
+                case "ArrowRight":  keyEvt.preventDefault();gameController.movePosition(moveRight); break;
+                case "ArrowUp":     keyEvt.preventDefault();gameController.movePosition(moveBack ); break;
+                case "ArrowDown":   keyEvt.preventDefault();gameController.movePosition(moveForw ); break;
+            }
+        }
+    };
+};
+
+
 /**
  * @param { GameControllerType} gameController
  * @return { Array<HTMLElement> }
  */
 const projectGame = gameController => {
-
+    registerKeyListener(gameController);
     return [
         ...projectControlPanel(gameController),
         ...projectMain        (gameController)
