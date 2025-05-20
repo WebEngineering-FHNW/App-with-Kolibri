@@ -90,11 +90,13 @@ const projectControlPanel = gameController => {
         li.textContent = player.name;
     });
 
-    gameController.onPlayerChanged( player  => {
-        if(PLAYER_SELF_ID === player) {
+    const updatePlayerNameInput = player  => {
+        if(PLAYER_SELF_ID === player.id) {
             selfInput.value = player.name;
         }
-    });
+    };
+    gameController.onPlayerAdded  ( updatePlayerNameInput);
+    gameController.onPlayerChanged( updatePlayerNameInput);
 
     // view Binding
     selfInput.oninput = _event => {
@@ -162,6 +164,7 @@ const projectMain = gameController => {
         const tetroDiv    = main.querySelector(`[data-id="${box.tetroId}"]`);  //maybe: if not there create it?
         const boxFaceDivs = 6..times( _=> "<div class='face'></div>").join("");
         const [boxDiv]    = dom(`<div class="box" data-id="${box.id}">${boxFaceDivs}</div>`);
+        boxDiv.style      = `--x:${box.xPos};--y:${box.yPos};--z:${box.zPos};`;
         tetroDiv.append(boxDiv);
     });
     gameController.onBoxRemoved( box=> {

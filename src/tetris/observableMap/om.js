@@ -7,9 +7,13 @@ export {OM}
 
 const log = LoggerFactory("ch.fhnw.kolibri.observable.om");
 
-/** @typedef { (key:String) => void}                    newKeyCallback  */
-/** @typedef { (key:String) => void}                    keyRemovedCallback  */
-/** @typedef { <_T_> (key:String, value:_T_) => void}   onChangeCallback - value is never nullish */
+/**
+ * @typedef { String } ForeignKeyType
+ */
+
+/** @typedef { (key:ForeignKeyType) => void}                    newKeyCallback  */
+/** @typedef { (key:ForeignKeyType) => void}                    keyRemovedCallback  */
+/** @typedef { <_T_> (key:ForeignKeyType, value:_T_) => void}   onChangeCallback - value is never nullish */
 
 
 /**
@@ -18,14 +22,14 @@ const log = LoggerFactory("ch.fhnw.kolibri.observable.om");
  * Observable maps of this type can be synchronized via the {@link AsyncRelayType asynchronous relay}.
  * @typedef OMType
  * @template _T_
- * @property { (key:String, value:_T_) => void}     setValue - stores the value and
+ * @property { (key:ForeignKeyType, value:_T_) => void}     setValue - stores the value and
  * notifies all respective listeners about addition, deletion or value change if it is indeed a change.
  * Implicitly adds the key if it is new and removes the key if it is nullish.
- * @property { (key:String) => MaybeType<_T_>}      getValue  - the value is never nullish
- * @property { (key:String)=> void}                 removeKey - removes and notifies only if key is available
- * @property { (newKeyCallback)=> void}             onKeyAdded
- * @property { (keyRemovedCallback)=>void}          onKeyRemoved
- * @property { (onChangeCallback) => void }         onChange
+ * @property { (key:ForeignKeyType) => MaybeType<_T_>}      getValue  - the value is never nullish
+ * @property { (key:ForeignKeyType)=> void}                 removeKey - removes and notifies only if key is available
+ * @property { (newKeyCallback)=> void}                     onKeyAdded
+ * @property { (keyRemovedCallback)=>void}                  onKeyRemoved
+ * @property { (onChangeCallback) => void }                 onChange
  */
 
 /**

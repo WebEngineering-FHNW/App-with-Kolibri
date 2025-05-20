@@ -33,7 +33,7 @@ export {
 const log = LoggerFactory("ch.fhnw.tetris.gameController");
 
 const TETROMINO_PREFIX      = "TETROMINO-";
-const TETROMINO_CURRENT_ID  = PREFIX_IMMORTAL + "TETROMINO_CURRENT_ID"; // will never be removed once created
+const TETROMINO_CURRENT_ID  = /** @type { ForeignKeyType } */ PREFIX_IMMORTAL + "TETROMINO_CURRENT_ID"; // will never be removed once created
 
 const GAME_STATE            = PREFIX_IMMORTAL + "GAME_STATE";
 
@@ -41,7 +41,7 @@ const BOX_PREFIX            = "BOX-";
 
 const PLAYER_PREFIX         = "PLAYER-";
 const PLAYER_ACTIVE_ID      = PREFIX_IMMORTAL + "PLAYER_ACTIVE_ID";
-const PLAYER_SELF_ID        = PLAYER_PREFIX + clientId;
+const PLAYER_SELF_ID        = /** @type { ForeignKeyType } */ PLAYER_PREFIX + clientId;
 
 // --- game controller --- --- --- --- --- --- --- --- --- --- --- --- --- ---
 
@@ -253,8 +253,9 @@ const GameController = om => {
      * @param { ForeignKeyType }        tetroId
      * @param { TetrominoModelType }    tetromino
      * @param { Number }                boxIndex    - 0..3
-     * @return { BoxModelType }
+     * @return {{tetroId, xPos: *, yPos: *, zPos: *}}
      */
+
     const updatedBoxValue = (tetroId, tetromino, boxIndex) => {
         const boxShapeOffset = (tetromino.shape)[boxIndex];
         const xPos           = tetromino.xPos + boxShapeOffset.x;
@@ -302,15 +303,12 @@ const GameController = om => {
 
     /**
      * @private util
-     * @return {MappedObservableType<BoxModelType>}
+     * @return {BoxModelType}
      */
     const findBox = (tetroId, boxIndex) => {
         const boxId = BOX_PREFIX + tetroId + "-" + boxIndex;
         return boxesBackingList.find(({id}) => id === boxId);
     };
-
-
-
 
     /** @type { () => void } */
     const restart  = () => {
@@ -370,17 +368,30 @@ const GameController = om => {
     const playerChangeObs = Observable(NO_PLAYER);
 
     /**
+     * todo: proper docs, types and move into better position
+     * @template _T_
+     * @param  { Array<_T_>} knownList
+     * @param  { _T_ } model
+     * @return { _T_ | undefined } undefined if not found
+     */
+    const findModel = (knownList, model) => knownList.find( it => it.id === model.id);
+
+    /**
      * handle that a potentially new player has joined.
      * We maintain an observable list of known players.
      * @impure updates the playerListObs
      */
     const handlePlayerUpdate = player => {
-        if (knownPlayersBackingList.find( it => it.id === player.id)) {
-            playerChangeObs.setValue(player);
+        const knownPlayer = findModel(knownPlayersBackingList, player);
+        if (! knownPlayer ) {
+            log.info(`player joined: ${JSON.stringify(player)}`);
+            playerListObs.add(player);
+            if (player.id === PLAYER_SELF_ID) { // we are now known, which means the setup has finished
+                onSetupFinished();
+            }
             return;
         }
-        log.info(`player joined: ${JSON.stringify(player)}`);
-        playerListObs.add(player);
+        playerChangeObs.setValue(player);// normal player value update
     };
 
     /** @type { IObservable<ActivePlayerIdType> }
@@ -398,7 +409,6 @@ const GameController = om => {
 
     /**
      * @impure puts us in charge and notifies all (remote) listeners.
-     * @warn assumes that {@link activePlayerIdObs} is available
      * @type { () => void }
      */
     const takeCharge = () => omSetValue(PLAYER_ACTIVE_ID, PLAYER_SELF_ID );
@@ -450,14 +460,14 @@ const GameController = om => {
 
         const shapeName = shapeNames[Math.floor(Math.random() * shapeNames.length)];
         const shape     = shapesByName[shapeName];
-        const tetroId   = TETROMINO_PREFIX + clientId + "-" + (runningNum++);
+        const tetroId   = /** @type { ForeignKeyType } */ TETROMINO_PREFIX + clientId + "-" + (runningNum++);
 
-        const tetromino = Tetromino({id:tetroId, shapeName, shape, xPos:0, yPos:0, zPos:0});
+        const tetromino =  Tetromino({id:tetroId, shapeName, shape, xPos:0, yPos:0, zPos:0});
 
         omSetValue(tetroId, tetromino);
 
         [0, 1, 2, 3].map( boxIndex => {
-            const boxId  = BOX_PREFIX + tetroId + "-" + boxIndex;
+            const boxId  = /** @type { ForeignKeyType } */ BOX_PREFIX + tetroId + "-" + boxIndex;
             const box = Box({id:boxId, tetroId, xPos:0, yPos:0, zPos:0 });
             omSetValue(boxId, box);
         });
@@ -473,12 +483,7 @@ const GameController = om => {
         let n = 0;
         boxes.forEach( box => {
             const updatedBox = { ...box, ...updatedBoxValue(tetromino.id, tetromino, n++)};
-            // if (
-            //     box.xPos !== updatedBox.xPos ||
-            //     box.yPos !== updatedBox.yPos ||
-            //     box.zPos !== updatedBox.zPos ) { // only if there is a real change, publish it
-                omSetValue(box.id, updatedBox);
-            // }
+            omSetValue(box.id, updatedBox);
         });
     };
 
@@ -529,7 +534,11 @@ const GameController = om => {
         // clean up when leaving (as good as possible - not 100% reliable)
         window.onbeforeunload = (_evt) => {
             if (areWeInCharge()) { // if we are in charge while leaving, put someone else in charge
-                activePlayerIdObs.setValue(knownPlayersBackingList.at(0)?.id ?? MISSING_FOREIGN_KEY); // todo: do not pick ourselves
+                let nextCandidate = knownPlayersBackingList.at(0);
+                if (nextCandidate.id === PLAYER_SELF_ID) {          // if that is ourselves, try the next one
+                    nextCandidate = knownPlayersBackingList.at(1);
+                }
+                activePlayerIdObs.setValue(nextCandidate?.id ?? MISSING_FOREIGN_KEY);
             }
             om.removeKey(PLAYER_SELF_ID);
         };
@@ -582,6 +591,12 @@ const GameController = om => {
             log.warn(`unhandled change key ${key} value ${value}`);
         });
 
+
+    };
+    const onSetupFinished = () => {
+        console.info("technical setup finished");
+
+        console.info("active player",activePlayerIdObs.getValue());
 
     };
 
