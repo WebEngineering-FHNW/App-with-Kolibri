@@ -10,14 +10,24 @@
  * newly available tetrominos.
  */
 
-import {moveDown, normalize}                                     from "./tetrominoController.js";
-import {shapeNames, shapesByName}                                from "./shape.js";
-import {Walk}                                                    from "../kolibri/sequence/constructors/range/range.js";
-import {MISSING_FOREIGN_KEY, PREFIX_IMMORTAL}                    from "../server/S7-manyObs-SSE/remoteObservableMap.js"; // todo: clean import
-import {clientId}                                                from "../kolibri/version.js";
-import {LoggerFactory}                                           from "../kolibri/logger/loggerFactory.js";
-import {Observable, ObservableList}                              from "../kolibri/observable.js";
-import {Box, NO_BOX, NO_PLAYER, NO_TETROMINO, Player, Tetromino} from "./relationalModel.js";
+import {moveDown, normalize}                                                               from "./tetrominoController.js";
+import {shapeNames, shapesByName}                                                          from "./shape.js";
+import {
+    Walk
+}                                                                                          from "../kolibri/sequence/constructors/range/range.js";
+import {clientId}                                                                          from "../kolibri/version.js";
+import {
+    LoggerFactory
+}                                                                                          from "../kolibri/logger/loggerFactory.js";
+import {
+    Observable,
+    ObservableList
+}                                                                                          from "../kolibri/observable.js";
+import {Box, GameState, NO_BOX, NO_GAME_STATE, NO_PLAYER, NO_TETROMINO, Player, Tetromino} from "./relationalModel.js";
+import {
+    MISSING_FOREIGN_KEY,
+    PREFIX_IMMORTAL
+}                                                                                          from "../extension/relationalModelType.js";
 
 export {
     GameController,
@@ -35,12 +45,12 @@ const log = LoggerFactory("ch.fhnw.tetris.gameController");
 const TETROMINO_PREFIX      = "TETROMINO-";
 const TETROMINO_CURRENT_ID  = /** @type { ForeignKeyType } */ PREFIX_IMMORTAL + "TETROMINO_CURRENT_ID"; // will never be removed once created
 
-const GAME_STATE            = PREFIX_IMMORTAL + "GAME_STATE";
+const GAME_STATE            = /** @type { ForeignKeyType } */ PREFIX_IMMORTAL + "GAME_STATE";
 
 const BOX_PREFIX            = "BOX-";
 
 const PLAYER_PREFIX         = "PLAYER-";
-const PLAYER_ACTIVE_ID      = PREFIX_IMMORTAL + "PLAYER_ACTIVE_ID";
+const PLAYER_ACTIVE_ID      = /** @type { ForeignKeyType } */ PREFIX_IMMORTAL + "PLAYER_ACTIVE_ID";
 const PLAYER_SELF_ID        = /** @type { ForeignKeyType } */ PLAYER_PREFIX + clientId;
 
 // --- game controller --- --- --- --- --- --- --- --- --- --- --- --- --- ---
@@ -60,6 +70,7 @@ const PLAYER_SELF_ID        = /** @type { ForeignKeyType } */ PLAYER_PREFIX + cl
  * @property onBoxAdded
  * @property onBoxRemoved
  * @property onBoxChanged
+ * @property onGameStateChanged
  * @property areWeInCharge
  * @property takeCharge
  * @property getPlayerName
@@ -76,35 +87,40 @@ const GameController = om => {
 
 // --- game state --- --- --- --- --- --- --- --- ---
 
-    /** @type { MappedObservableType<GameStateModelType> } */
-    let gameStateObs;
-
-    /** @type { GameStateModelType } */
-    const initialGameState = {fallingDown: false, score: 0};
-
-    const currentOrInitialGameState = () => gameStateObs?.getValue() ?? initialGameState;
+    /** @type { IObservable<GameStateModelType> } */
+    let gameStateObs = Observable(NO_GAME_STATE);
 
     const addToScore = n => {
-        const oldGameState = currentOrInitialGameState();
+        const oldGameState = gameStateObs.getValue();
+        if(oldGameState.id === MISSING_FOREIGN_KEY) {
+            console.error("cannot add to missing game state");
+            return;
+        }
         const newGameState = /** @type { GameStateModelType } */ {...oldGameState};
         newGameState.score = oldGameState.score + n;
-        gameStateObs.setValue(newGameState);
+        publish(newGameState);
     };
 
     const fallingDown = newValue => {
-        const oldGameState       = currentOrInitialGameState();
+        const oldGameState = gameStateObs.getValue();
+        if(oldGameState.id === MISSING_FOREIGN_KEY) {
+            console.error("cannot add to missing game state");
+            return;
+        }
+        if (oldGameState.fallingDown === newValue) { // no change, nothing to publish
+            return;
+        }
         const newGameState       = /** @type { GameStateModelType } */ {...oldGameState};
         newGameState.fallingDown = newValue;
-        gameStateObs.setValue(newGameState);
+        publish(newGameState);
     };
 
     const resetGameState = () => {
-        gameStateObs.setValue(initialGameState);
+        publish(GameState(GAME_STATE, false, 0));
     };
 
 // --- game --- --- --- --- --- --- --- --- ---
 
-// let isGameRunning = false;
 
 // todo: update to new model
     const checkAndHandleFullLevel = spaceBoxes => {
@@ -117,15 +133,17 @@ const GameController = om => {
         // remove all boxes that are on this level from the spaceBoxes and trigger the view update
         const toRemove = spaceBoxes.filter(box => box.getValue().z === level); // remove duplication
         toRemove.forEach(box => {
-            spaceBoxes.removeItem(box);
-            box.setValue({x: -1, y: -1, z: -1}); // will trigger listeners (e.g., the view) to self-remove
+            // todo: handle box removal
+            // spaceBoxes.removeItem(box);
+            // box.setValue({x: -1, y: -1, z: -1}); // will trigger listeners (e.g., the view) to self-remove
         });
 
         // move the remaining higher boxes one level down
         spaceBoxes.forEach(box => {
             const pos = box.getValue();
             if (pos.z > level) {
-                box.setValue(moveDown(pos));
+                // todo: handle box move down
+                // box.setValue(moveDown(pos));
             }
         });
         // there might be more full levels
@@ -138,35 +156,30 @@ const GameController = om => {
      */
     const getCurrentTetromino = () => {
         let result = undefined;
-        let id = undefined;
-        om.getValue(TETROMINO_CURRENT_ID)
-          ( _ => console.warn("no current tetromino id"))
+        let id     = undefined;
+        om.getValue(TETROMINO_CURRENT_ID)                               // find referrer
+          ( _ => log.warn("no current tetromino id"))
           ( n => id = n);
-        if (id) {
-            om.getValue(id)
-              ( _     => console.warn("no tetromino with current id "+id))
-              ( tetro => result = tetro);
-        }
+        om.getValue(id)                                                 // find reference
+          ( _     => log.warn("no tetromino with current id "+id))
+          ( tetro => result = tetro);
         return result;
     };
 
     const onCollision = tetromino => {
-        console.warn("onCollision");
-        if(!areWeInCharge()) {
+        if(!areWeInCharge()) { // only the player in charge handles collisions
+            return;
+        }
+        if (tetromino.zPos > 11) { // we collide at the very top => end of game
+            fallingDown(false);
             return;
         }
 
-        if (tetromino.zPos > 11) {
-            fallingDown(false);
-        }
-
-        // todo: check for end of game?
         // todo: check for full level?
-        // todo: update score?
         // todo: new upcoming tetro?
 
+        addToScore(4);
         makeNewCurrentTetromino();
-
     };
 
     /**
@@ -183,16 +196,18 @@ const GameController = om => {
         const newShape = normalize(turnFunction(oldShape));
         const position = {xPos: currentTetromino.xPos, yPos: currentTetromino.yPos, zPos: currentTetromino.zPos};
 
-        if (isDisallowedTetroPosition(newShape, position)) {
+        const nextBoxPositions = expectedBoxPositions(newShape, position);
+
+        if (isDisallowedTetroPosition(nextBoxPositions)) {
             return;
         }
-        if (willCollide(newShape, position, currentTetromino.id)) {
+        if (willCollide(nextBoxPositions, currentTetromino)) {
             onCollision(currentTetromino);
             return;
         }
         const newTetromino = {...currentTetromino}; // we might not actually need a copy, but it's cleaner
         newTetromino.shape = newShape;
-        omSetValue(newTetromino.id, newTetromino);
+        publish(newTetromino);
 
     };
 
@@ -209,36 +224,39 @@ const GameController = om => {
 
         const {x, y, z} = moveFunction({x: currentTetromino.xPos, y: currentTetromino.yPos, z: currentTetromino.zPos});
 
-        if (isDisallowedTetroPosition(currentTetromino.shape, {xPos: x, yPos: y, zPos: z})) {
+        const nextBoxPositions = expectedBoxPositions(currentTetromino.shape, {xPos: x, yPos: y, zPos: z});
+
+        if (isDisallowedTetroPosition(nextBoxPositions)) {
             return;
         }
-        if (willCollide(currentTetromino.shape, {xPos: x, yPos: y, zPos: z}, newTetromino.id)) {
+        if (willCollide(nextBoxPositions, newTetromino)) {
             onCollision(currentTetromino);
             return;
         }
         newTetromino.xPos = x;
         newTetromino.yPos = y;
         newTetromino.zPos = z;
-        omSetValue(newTetromino.id, newTetromino);
+        publish(newTetromino);
     };
 
     const omSetValue = (key, value) => {
         setTimeout( _=> {
             om.setValue(key,value);
         },1);
-    }
+    };
+    const publish = record => omSetValue(record.id, record);
+    const publishReferrer = (referrer, reference) => omSetValue(referrer, reference);
 
     /**
      * @private
      * Principle game loop implementation: let the current tetromino fall down slowly and check for the end of the game.
      */
     const fallTask = () => {
-        // todo: what if activePlayerId is initial or unknownFK
-        if (!(activePlayerIdObs?.getValue() && weAreInCharge())) { // the active player is known and it is not ourselves
+        if (!areWeInCharge()) {
             log.info("stop falling since we are not in charge");
             return;
         }
-        if (!currentOrInitialGameState().fallingDown) {
+        if (!gameStateObs.getValue().fallingDown) {
             log.info("falling is stopped");
             return;
         }
@@ -250,18 +268,17 @@ const GameController = om => {
 
     /**
      * @pure calculates the final logical box coordinates
-     * @param { ForeignKeyType }        tetroId
      * @param { TetrominoModelType }    tetromino
      * @param { Number }                boxIndex    - 0..3
-     * @return {{tetroId, xPos: *, yPos: *, zPos: *}}
+     * @return {{ xPos: *, yPos: *, zPos: *}}
      */
 
-    const updatedBoxValue = (tetroId, tetromino, boxIndex) => {
-        const boxShapeOffset = (tetromino.shape)[boxIndex];
-        const xPos           = tetromino.xPos + boxShapeOffset.x;
-        const yPos           = tetromino.yPos + boxShapeOffset.y;
-        const zPos           = tetromino.zPos + boxShapeOffset.z;
-        return {tetroId, xPos, yPos, zPos};
+    const finalBoxPosition = (tetromino, boxIndex) => {
+        const shapePosition  = (tetromino.shape)[boxIndex];
+        const xPos           = tetromino.xPos + shapePosition.x;
+        const yPos           = tetromino.yPos + shapePosition.y;
+        const zPos           = tetromino.zPos + shapePosition.z;
+        return {xPos, yPos, zPos};
     };
 
     const isDisallowedBoxPosition = ({xPos, yPos}) => {
@@ -276,22 +293,23 @@ const GameController = om => {
         shadowTetromino.xPos  = position.xPos;
         shadowTetromino.yPos  = position.yPos;
         shadowTetromino.zPos  = position.zPos;
-        return [0, 1, 2, 3].map(shapeIndex => updatedBoxValue("shadow", shadowTetromino, shapeIndex));
+        return [0, 1, 2, 3].map(shapeIndex => finalBoxPosition(shadowTetromino, shapeIndex));
     };
 
-    const isDisallowedTetroPosition = (shape, position) => {
-        return expectedBoxPositions(shape, position).some(boxPos => isDisallowedBoxPosition(boxPos));
+    const isDisallowedTetroPosition = nextBoxPositions => {
+        return nextBoxPositions.some(boxPos => isDisallowedBoxPosition(boxPos));
     };
 
-    const willCollide = (shape, position, currentTetrominoId) => {
-        const newBoxPositions = expectedBoxPositions(shape, position);
-        if (newBoxPositions.some(({zPos}) => zPos < 0)) { // below the floor
+    const willCollide = (nextBoxPositions, tetromino) => {
+        const newBoxPositions = nextBoxPositions;
+        if (newBoxPositions.some(({zPos}) => zPos < 0)) { // "collision" with the floor
             return true;
         }
-        const nonCurrentTetroBoxes = boxesBackingList.filter( box => box.tetroId !== currentTetrominoId);
+        // get all the other "non-moving" boxes, which is all boxes except the ones of the moving tetro
+        const otherBoxes = boxesBackingList.filter( box => box.tetroId !== tetromino.id);
 
-        // get all the current box positions but without the current tetro
-        const collides = nonCurrentTetroBoxes.some(otherbox => {
+        // a collision is when any two boxes would occupy the same position
+        const collides = otherBoxes.some(otherbox => {
             return newBoxPositions.some(newBox => {
                 return otherbox.xPos === newBox.xPos &&
                        otherbox.yPos === newBox.yPos &&
@@ -313,40 +331,39 @@ const GameController = om => {
     /** @type { () => void } */
     const restart  = () => {
 
-        takeCharge();
+        takeCharge(); // we should already be in charge, but just to be clear
 
-        makeNewCurrentTetromino(); // todo: just for kicks
+        fallingDown(false);
 
-        // fallingDown(false);
+        // do not proceed before all backing Lists are empty
+        // todo: disable all user input and show cleanup state
+        const waitForCleanup = () => {
+            // const stillToDelete = boxesBackingList.length +  tetrominoBackingList.length;
+            // log.info(`still to delete: ${stillToDelete}`);
+            //
+            // // remove all boxes
+            // boxesBackingList.forEach(namedObs => {
+            //     observableGameMap.removeObservableForID(namedObs.id);
+            // });
+            //
+            // // remove all tetros
+            // tetrominoCurrentIdObs.setValue(MISSING_FOREIGN_KEY);
+            // tetrominoBackingList.forEach( namedObs => {
+            //     observableGameMap.removeObservableForID(namedObs.id);
+            // });
+            //
+            // if (stillToDelete > 0) {
+            //     setTimeout( waitForCleanup, 500); // todo shorter delay for next call, todo: support bulk deletion
+            // } else {
+                // end of disabled state
+                resetGameState();
+                makeNewCurrentTetromino();
+                fallingDown(true);
+                registerNextFallTask();
 
-        // // do not proceed before all backing Lists are empty
-        // // todo: disable all user input and show cleanup state
-        // const waitForCleanup = () => {
-        //     const stillToDelete = boxesBackingList.length +  tetrominoBackingList.length;
-        //     log.info(`still to delete: ${stillToDelete}`);
-        //
-        //     // remove all boxes
-        //     boxesBackingList.forEach(namedObs => {
-        //         observableGameMap.removeObservableForID(namedObs.id);
-        //     });
-        //
-        //     // remove all tetros
-        //     tetrominoCurrentIdObs.setValue(MISSING_FOREIGN_KEY);
-        //     tetrominoBackingList.forEach( namedObs => {
-        //         observableGameMap.removeObservableForID(namedObs.id);
-        //     });
-        //
-        //     if (stillToDelete > 0) {
-        //         setTimeout( waitForCleanup, 500); // todo shorter delay for next call, todo: support bulk deletion
-        //     } else {
-        //         // end of disabled state
-        //         resetGameState();
-        //         makeNewCurrentTetromino();
-        //         fallingDown(true);
-        //         registerNextFallTask();
-        //     }
-        // };
-        // waitForCleanup();
+            // }
+        };
+        waitForCleanup();
     };
 
 
@@ -367,14 +384,6 @@ const GameController = om => {
      * @type {IObservable<PlayerType>} */
     const playerChangeObs = Observable(NO_PLAYER);
 
-    /**
-     * todo: proper docs, types and move into better position
-     * @template _T_
-     * @param  { Array<_T_>} knownList
-     * @param  { _T_ } model
-     * @return { _T_ | undefined } undefined if not found
-     */
-    const findModel = (knownList, model) => knownList.find( it => it.id === model.id);
 
     /**
      * handle that a potentially new player has joined.
@@ -382,8 +391,10 @@ const GameController = om => {
      * @impure updates the playerListObs
      */
     const handlePlayerUpdate = player => {
-        const knownPlayer = findModel(knownPlayersBackingList, player);
-        if (! knownPlayer ) {
+        const knownPlayerIndex = knownPlayersBackingList.findIndex(it => it.id === player.id);
+        if (knownPlayerIndex >= 0) {
+            knownPlayersBackingList[knownPlayerIndex] = player;
+        } else {
             log.info(`player joined: ${JSON.stringify(player)}`);
             playerListObs.add(player);
             if (player.id === PLAYER_SELF_ID) { // we are now known, which means the setup has finished
@@ -411,7 +422,7 @@ const GameController = om => {
      * @impure puts us in charge and notifies all (remote) listeners.
      * @type { () => void }
      */
-    const takeCharge = () => omSetValue(PLAYER_ACTIVE_ID, PLAYER_SELF_ID );
+    const takeCharge = () => publishReferrer(PLAYER_ACTIVE_ID, PLAYER_SELF_ID );
 
     const getPlayerName = (playerId) => {
         let result;
@@ -443,10 +454,11 @@ const GameController = om => {
     let tetrominoCurrentIdObs = Observable(MISSING_FOREIGN_KEY);
 
     const handleTetrominoUpdate = tetromino => {
-        // todo: find boxes and set their position
         updateBoxPositions(tetromino);
 
-        if (tetrominoBackingList.find( it => it.id === tetromino.id)) {
+        const knownTetroIndex = tetrominoBackingList.findIndex( it => it.id === tetromino.id);
+        if (knownTetroIndex >= 0) {
+            tetrominoBackingList[knownTetroIndex] = tetromino;
             tetrominoChangedObs.setValue(tetromino);
             return;
         }
@@ -456,23 +468,18 @@ const GameController = om => {
 
     let runningNum  = 0;
     const makeNewCurrentTetromino = () => {
-        // addToScore(4); // todo: add game state
-
         const shapeName = shapeNames[Math.floor(Math.random() * shapeNames.length)];
         const shape     = shapesByName[shapeName];
         const tetroId   = /** @type { ForeignKeyType } */ TETROMINO_PREFIX + clientId + "-" + (runningNum++);
-
-        const tetromino =  Tetromino({id:tetroId, shapeName, shape, xPos:0, yPos:0, zPos:0});
-
-        omSetValue(tetroId, tetromino);
+        const tetromino =  Tetromino({id:tetroId, shapeName, shape, xPos:0, yPos:0, zPos:12});
+        publish(tetromino);
 
         [0, 1, 2, 3].map( boxIndex => {
             const boxId  = /** @type { ForeignKeyType } */ BOX_PREFIX + tetroId + "-" + boxIndex;
-            const box = Box({id:boxId, tetroId, xPos:0, yPos:0, zPos:0 });
-            omSetValue(boxId, box);
+            const box    = Box({id:boxId, tetroId, xPos:0, yPos:0, zPos:12 });
+            publish(box);
         });
-
-        omSetValue(TETROMINO_CURRENT_ID, tetroId);
+        publishReferrer(TETROMINO_CURRENT_ID, tetroId);
     };
 
     const updateBoxPositions = tetromino => {
@@ -482,8 +489,8 @@ const GameController = om => {
         }
         let n = 0;
         boxes.forEach( box => {
-            const updatedBox = { ...box, ...updatedBoxValue(tetromino.id, tetromino, n++)};
-            omSetValue(box.id, updatedBox);
+            const updatedBox = { ...box, ...finalBoxPosition(tetromino, n++)};
+            publish(updatedBox);
         });
     };
 
@@ -508,7 +515,9 @@ const GameController = om => {
     const boxChangedObs = Observable(NO_BOX);
 
     const handleBoxUpdate = box => {
-        if (boxesBackingList.find( it => it.id === box.id)) {
+        const knownBoxIndex = boxesBackingList.findIndex(it => it.id === box.id);
+        if (knownBoxIndex >= 0) {
+            boxesBackingList[knownBoxIndex] = box;
             boxChangedObs.setValue(box);
             return;
         }
@@ -544,7 +553,7 @@ const GameController = om => {
         };
 
         // make ourselves known to the crowd
-        omSetValue(PLAYER_SELF_ID, Player(PLAYER_SELF_ID, PLAYER_SELF_ID.slice(-7) ) );
+        publish(Player(PLAYER_SELF_ID, PLAYER_SELF_ID.slice(-7) ) );
 
 
         afterStartCallback(); // all observables are set up, the UI can be bound
@@ -568,6 +577,10 @@ const GameController = om => {
             log.warn(`unhandled remove key ${key} `);
         });
         om.onChange( (key,value) => {
+            if (GAME_STATE === key) {
+                gameStateObs.setValue(value);
+                return;
+            }
             if (key.startsWith(PLAYER_PREFIX)){
                 handlePlayerUpdate(value);
                 return;
@@ -594,10 +607,19 @@ const GameController = om => {
 
     };
     const onSetupFinished = () => {
-        console.info("technical setup finished");
+        log.info("technical setup finished");
 
-        console.info("active player",activePlayerIdObs.getValue());
+        if(gameStateObs.getValue().id === MISSING_FOREIGN_KEY) {
+            log.info("we are the first user - creating game state");
+            publish(GameState(GAME_STATE, false, 0));
+        }
 
+        if(activePlayerIdObs.getValue() === MISSING_FOREIGN_KEY) {
+            log.info("there is no active player - we take charge");
+            takeCharge();
+        }
+
+        log.info("game setup finished");
     };
 
     return {
@@ -605,7 +627,7 @@ const GameController = om => {
         onPlayerAdded               : playerListObs.onAdd,
         onPlayerRemoved             : playerListObs.onDel,
         onPlayerChanged             : playerChangeObs.onChange,
-        setPlayerChanged            : player => omSetValue(player.id, player), // om is the master
+        setPlayerChanged            : player => publish(player), // om is the master
         onActivePlayerIdChanged     : activePlayerIdObs.onChange,
         onTetrominoAdded            : tetrominoListObs.onAdd,
         onTetrominoRemoved          : tetrominoListObs.onDel,
@@ -614,6 +636,7 @@ const GameController = om => {
         onBoxAdded                  : boxesListObs.onAdd,
         onBoxRemoved                : boxesListObs.onDel,
         onBoxChanged                : boxChangedObs.onChange,
+        onGameStateChanged          : gameStateObs.onChange,
         areWeInCharge,
         takeCharge,
         getPlayerName,

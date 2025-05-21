@@ -1,8 +1,9 @@
+import                                                       "../kolibri/util/array.js";
 import {dom, select}                                    from "../kolibri/util/dom.js";
 import {registerForMouseAndTouch}                       from "./scene3D/scene.js";
-import {MISSING_FOREIGN_KEY }                           from "../server/S7-manyObs-SSE/remoteObservableMap.js"; // todo: import properly
 import {LoggerFactory}                                  from "../kolibri/logger/loggerFactory.js";
 import {PLAYER_SELF_ID}                                 from "./gameController.js";
+import {MISSING_FOREIGN_KEY}                            from "../extension/relationalModelType.js";
 import {Player}                                         from "./relationalModel.js";
 import {
     moveBack,
@@ -27,7 +28,7 @@ const log = LoggerFactory("ch.fhnw.kolibri.tetris.gameProjector");
 const projectControlPanel = gameController => {
     const view              = dom(`
     <header>
-        <div class="self"><input size=10 value="${gameController.getPlayerName(PLAYER_SELF_ID)}"></div>
+        <div class="self"><input size=10></div>
         <button>Start/Restart</button>
         <div class="playerList">
             <ul></ul>
@@ -62,9 +63,9 @@ const projectControlPanel = gameController => {
         }
     });
 
-    // gameController.gameStateObs.onChange( /** @type { GameStateModelType } */ gameState => {
-    //     scoreDiv.textContent = gameState.score;
-    // });
+    gameController.onGameStateChanged( /** @type { GameStateModelType } */ gameState => {
+        scoreDiv.textContent = gameState.score;
+    });
 
 
     // this could go into a nested li-projector
