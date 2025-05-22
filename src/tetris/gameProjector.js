@@ -45,7 +45,6 @@ const projectControlPanel = gameController => {
     // data binding
 
     playerController.onActivePlayerIdChanged(/** @type { ForeignKeyType } */playerId => {
-        log.info("active player changed to id " +  playerId);
         for(const li of playerList.children) {
             li.classList.remove("active");
             if (li.getAttribute("data-id") === playerId) {
