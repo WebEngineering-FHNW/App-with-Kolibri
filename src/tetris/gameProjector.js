@@ -143,9 +143,13 @@ const projectMain = gameController => {
         div.remove();
     });
 
-    gameController.onBoxAdded( box=> {
+    gameController.onBoxAdded( box => {
         if (box.id === MISSING_FOREIGN_KEY) return;
         const tetroDiv    = mayAddTetroDiv(gameController.findTetrominoById(box.tetroId));
+        if (! tetroDiv) {
+            console.error("cannot add box view since its tetromino view cannot be found or built.", box.id);
+            return;
+        }
         const boxFaceDivs = 6..times( _=> "<div class='face'></div>").join("");
         const [boxDiv]    = dom(`<div class="box" data-id="${box.id}">${boxFaceDivs}</div>`);
         boxDiv.style      = `--x:${box.xPos};--y:${box.yPos};--z:${box.zPos};`;

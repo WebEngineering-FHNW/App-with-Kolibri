@@ -133,13 +133,15 @@ const PlayerController = (om, setValue, onSetupFinished) => {
 
 
     const leave = () => {
-        om.removeKey(PLAYER_SELF_ID);
+        setTimeout(_=> {
+            om.removeKey(PLAYER_SELF_ID);
+        },1);
         if (areWeInCharge()) { // if we are in charge while leaving, put someone else in charge
             let nextCandidate = knownPlayersBackingList.at(0);
             if (thisIsUs(nextCandidate)) {          // if that is ourselves, try the next one
                 nextCandidate = knownPlayersBackingList.at(1);
             }
-            activePlayerIdObs.setValue(nextCandidate?.id ?? MISSING_FOREIGN_KEY);
+            publishReferrer(PLAYER_ACTIVE_ID, nextCandidate?.id ?? MISSING_FOREIGN_KEY);
         }
     };
 
