@@ -55,11 +55,6 @@ const BOX_PREFIX            = "BOX-";
  * @typedef GameControllerType
  * @property playerController
  * @property startGame
- * @property onPlayerAdded
- * @property onPlayerRemoved
- * @property onPlayerChanged
- * @property setPlayerChanged
- * @property onActivePlayerIdChanged
  * @property onTetrominoAdded
  * @property onTetrominoRemoved
  * @property onTetrominoChanged
@@ -68,9 +63,6 @@ const BOX_PREFIX            = "BOX-";
  * @property onBoxRemoved
  * @property onBoxChanged
  * @property onGameStateChanged
- * @property areWeInCharge
- * @property takeCharge
- * @property getPlayerName
  * @property turnShape
  * @property movePosition
  */
@@ -546,11 +538,6 @@ const GameController = om => {
     return {
         startGame,
         playerController,
-        onPlayerAdded               : playerController.onPlayerAdded,
-        onPlayerRemoved             : playerController.onPlayerRemoved,
-        onPlayerChanged             : playerController.onPlayerChanged,
-        setPlayerChanged            : playerController.setPlayerChanged,
-        onActivePlayerIdChanged     : playerController.onActivePlayerIdChanged,
         onTetrominoAdded            : tetrominoListObs.onAdd,
         onTetrominoRemoved          : tetrominoListObs.onDel,
         onTetrominoChanged          : tetrominoChangedObs.onChange,
@@ -559,9 +546,6 @@ const GameController = om => {
         onBoxRemoved                : boxesListObs.onDel,
         onBoxChanged                : boxChangedObs.onChange,
         onGameStateChanged          : gameStateObs.onChange,
-        areWeInCharge               : playerController.areWeInCharge,
-        takeCharge                  : playerController.takeCharge,
-        getPlayerName               : playerController.getPlayerName,
         restart,
         turnShape,
         movePosition,

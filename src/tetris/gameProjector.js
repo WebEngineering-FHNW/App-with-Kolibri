@@ -13,6 +13,7 @@ import {
     topplePitch,
     toppleRoll
 } from "./tetrominoController.js";
+import {projectPlayerList}                              from "./player/playerProjector.js";
 
 export {projectGame};
 
@@ -28,30 +29,19 @@ const projectControlPanel = gameController => {
     <header>
         <div class="self"><input size=10></div>
         <button>Start/Restart</button>
-        <div class="playerList">
-            <ul></ul>
-        </div>
-        <div class="score">0</div>
     </header>`);
 
     const [header]          = view;
-    const [selfInput]       = select(header, "div.self input");
-    const [startButton]     = select(header, "button");
-    const [playerList]      = select(header, "div.playerList > ul");
-    const [scoreDiv]        = select(header, "div.score");
 
     const playerController = gameController.playerController;
+    header.append(...projectPlayerList(playerController));
+    header.append(...dom(`<div class="score">0</div>`));
+
+    const [selfInput]       = select(header, "div.self input");
+    const [startButton]     = select(header, "button");
+    const [scoreDiv]        = select(header, "div.score");
 
     // data binding
-
-    playerController.onActivePlayerIdChanged(/** @type { ForeignKeyType } */playerId => {
-        for(const li of playerList.children) {
-            li.classList.remove("active");
-            if (li.getAttribute("data-id") === playerId) {
-                li.classList.add("active");
-            }
-        }
-    });
 
     playerController.onActivePlayerIdChanged( _ => {
         if (playerController.areWeInCharge()) {
@@ -65,29 +55,6 @@ const projectControlPanel = gameController => {
         scoreDiv.textContent = gameState.score;
     });
 
-
-    // this could go into a nested li-projector
-    playerController.onPlayerAdded(player => {
-        const [liView] = dom(`<li data-id="${player.id}">${player.name}</li>`);
-        playerList.append(liView);
-    });
-    playerController.onPlayerRemoved( removedPlayer => {
-        const li = playerList.querySelector(`[data-id="${removedPlayer.id}"]`);
-        if (!li){
-            log.warn("cannot find view to remove player "+JSON.stringify(removedPlayer));
-            return;
-        }
-        li.remove();
-    });
-    playerController.onPlayerChanged( player  => {
-        if(MISSING_FOREIGN_KEY === player.id) { return; }
-        const li = playerList.querySelector(`[data-id="${player.id}"]`);
-        if (!li){
-            log.warn("cannot find view to change player "+JSON.stringify(player));
-            return;
-        }
-        li.textContent = player.name;
-    });
 
     const updatePlayerNameInput = player  => {
         if(playerController.thisIsUs(player)) {
@@ -191,8 +158,8 @@ const projectMain = gameController => {
 const registerKeyListener = (gameController) => {
     document.onkeydown = keyEvt => {    // note: must be on document since not all elements listen for keydown
         if(keyEvt.ctrlKey || keyEvt.metaKey) { return; }  // allow ctrl-alt-c and other dev tool keys
-        if(! gameController.areWeInCharge()) {
-            gameController.takeCharge();
+        if(! gameController.playerController.areWeInCharge()) {
+            gameController.playerController.takeCharge();
             return; // we want keystrokes only to be applied after we have become in charge
         }
         if (keyEvt.shiftKey) {
