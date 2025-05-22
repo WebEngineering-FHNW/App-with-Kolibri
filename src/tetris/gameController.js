@@ -410,6 +410,12 @@ const GameController = om => {
      */
     const activePlayerIdObs = Observable(MISSING_FOREIGN_KEY);
 
+    activePlayerIdObs.onChange( playerId => {
+       if (playerId === PLAYER_SELF_ID) { // we have become in charge
+           registerNextFallTask();        // therefore we are now responsible for keeping the fall task alive
+       }
+    });
+
     /**
      * Whether we are in charge of moving the current tetromino.
      * @type { () => Boolean }
