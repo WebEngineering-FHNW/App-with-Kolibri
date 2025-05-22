@@ -58,6 +58,7 @@ const BOX_PREFIX            = "BOX-";
  * @property onTetrominoAdded
  * @property onTetrominoRemoved
  * @property onTetrominoChanged
+ * @property findTetrominoById
  * @property onCurrentTetrominoIdChanged
  * @property onBoxAdded
  * @property onBoxRemoved
@@ -323,38 +324,36 @@ const GameController = om => {
 
     /** @type { () => void } */
     const restart  = () => {
-
         playerController.takeCharge(); // we should already be in charge, but just to be clear
-
         fallingDown(false);
+        publishReferrer(TETROMINO_CURRENT_ID, MISSING_FOREIGN_KEY);  // no current tetro while we clean up
 
         // do not proceed before all backing Lists are empty
         // todo: disable all user input and show cleanup state
         const waitForCleanup = () => {
-            // const stillToDelete = boxesBackingList.length +  tetrominoBackingList.length;
-            // log.info(`still to delete: ${stillToDelete}`);
-            //
-            // // remove all boxes
-            // boxesBackingList.forEach(namedObs => {
-            //     observableGameMap.removeObservableForID(namedObs.id);
-            // });
-            //
-            // // remove all tetros
-            // tetrominoCurrentIdObs.setValue(MISSING_FOREIGN_KEY);
-            // tetrominoBackingList.forEach( namedObs => {
-            //     observableGameMap.removeObservableForID(namedObs.id);
-            // });
-            //
-            // if (stillToDelete > 0) {
-            //     setTimeout( waitForCleanup, 500); // todo shorter delay for next call, todo: support bulk deletion
-            // } else {
-                // end of disabled state
+            const stillToDelete = boxesBackingList.length +  tetrominoBackingList.length;
+            log.info(`still to delete: ${stillToDelete}`);
+
+            boxesBackingList.forEach( box => {
+                setTimeout(_=> {
+                    om.removeKey(box.id);
+                },1);
+            });
+            tetrominoBackingList.forEach( tetromino => {
+                setTimeout(_=> {
+                    om.removeKey(tetromino.id);
+                },1);
+            });
+
+            if (stillToDelete > 0) {
+                setTimeout( waitForCleanup, 300); // todo shorter delay for next call, todo: support bulk deletion
+            } else {
                 resetGameState();
                 makeNewCurrentTetromino();
                 fallingDown(true);
                 registerNextFallTask();
+            }
 
-            // }
         };
         waitForCleanup();
     };
@@ -381,6 +380,10 @@ const GameController = om => {
     * The value is undefined before any player has started the game.
     */
     let tetrominoCurrentIdObs = Observable(MISSING_FOREIGN_KEY);
+
+    const findTetrominoById = tetroId => {
+        return tetrominoBackingList.find( it => it.id === tetroId);
+    };
 
     const handleTetrominoUpdate = tetromino => {
         updateBoxPositions(tetromino);
@@ -541,6 +544,7 @@ const GameController = om => {
         onTetrominoAdded            : tetrominoListObs.onAdd,
         onTetrominoRemoved          : tetrominoListObs.onDel,
         onTetrominoChanged          : tetrominoChangedObs.onChange,
+        findTetrominoById,
         onCurrentTetrominoIdChanged : tetrominoCurrentIdObs.onChange,
         onBoxAdded                  : boxesListObs.onAdd,
         onBoxRemoved                : boxesListObs.onDel,
