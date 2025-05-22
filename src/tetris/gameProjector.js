@@ -2,9 +2,7 @@ import                                                       "../kolibri/util/ar
 import {dom, select}                                    from "../kolibri/util/dom.js";
 import {registerForMouseAndTouch}                       from "./scene3D/scene.js";
 import {LoggerFactory}                                  from "../kolibri/logger/loggerFactory.js";
-import {PLAYER_SELF_ID}                                 from "./gameController.js";
 import {MISSING_FOREIGN_KEY}                            from "../extension/relationalModelType.js";
-import {Player}                                         from "./relationalModel.js";
 import {
     moveBack,
     moveDown,
@@ -42,10 +40,11 @@ const projectControlPanel = gameController => {
     const [playerList]      = select(header, "div.playerList > ul");
     const [scoreDiv]        = select(header, "div.score");
 
+    const playerController = gameController.playerController;
+
     // data binding
 
-
-    gameController.onActivePlayerIdChanged( /** @type { ForeignKeyType } */ playerId => {
+    playerController.onActivePlayerIdChanged(/** @type { ForeignKeyType } */playerId => {
         log.info("active player changed to id " +  playerId);
         for(const li of playerList.children) {
             li.classList.remove("active");
@@ -55,8 +54,8 @@ const projectControlPanel = gameController => {
         }
     });
 
-    gameController.onActivePlayerIdChanged( _ => {
-        if (gameController.areWeInCharge()) {
+    playerController.onActivePlayerIdChanged( _ => {
+        if (playerController.areWeInCharge()) {
             header.classList.add("active");
         } else {
             header.classList.remove("active");
@@ -69,11 +68,11 @@ const projectControlPanel = gameController => {
 
 
     // this could go into a nested li-projector
-    gameController.onPlayerAdded(player => {
+    playerController.onPlayerAdded(player => {
         const [liView] = dom(`<li data-id="${player.id}">${player.name}</li>`);
         playerList.append(liView);
     });
-    gameController.onPlayerRemoved( removedPlayer => {
+    playerController.onPlayerRemoved( removedPlayer => {
         const li = playerList.querySelector(`[data-id="${removedPlayer.id}"]`);
         if (!li){
             log.warn("cannot find view to remove player "+JSON.stringify(removedPlayer));
@@ -81,7 +80,7 @@ const projectControlPanel = gameController => {
         }
         li.remove();
     });
-    gameController.onPlayerChanged( player  => {
+    playerController.onPlayerChanged( player  => {
         if(MISSING_FOREIGN_KEY === player.id) { return; }
         const li = playerList.querySelector(`[data-id="${player.id}"]`);
         if (!li){
@@ -92,16 +91,16 @@ const projectControlPanel = gameController => {
     });
 
     const updatePlayerNameInput = player  => {
-        if(PLAYER_SELF_ID === player.id) {
+        if(playerController.thisIsUs(player)) {
             selfInput.value = player.name;
         }
     };
-    gameController.onPlayerAdded  ( updatePlayerNameInput);
-    gameController.onPlayerChanged( updatePlayerNameInput);
+    playerController.onPlayerAdded  ( updatePlayerNameInput);
+    playerController.onPlayerChanged( updatePlayerNameInput);
 
     // view Binding
     selfInput.oninput = _event => {
-        gameController.setPlayerChanged( Player(PLAYER_SELF_ID, selfInput.value) );
+        playerController.setOwnName( selfInput.value );
     };
 
     // Using direct property assignment (onclick) overwrites any previous listeners

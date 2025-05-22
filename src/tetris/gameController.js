@@ -23,11 +23,14 @@ import {
     Observable,
     ObservableList
 }                                                                                          from "../kolibri/observable.js";
-import {Box, GameState, NO_BOX, NO_GAME_STATE, NO_PLAYER, NO_TETROMINO, Player, Tetromino} from "./relationalModel.js";
+import {Box, GameState, NO_BOX, NO_GAME_STATE, NO_TETROMINO, Tetromino} from "./relationalModel.js";
 import {
     MISSING_FOREIGN_KEY,
     PREFIX_IMMORTAL
 }                                                                                          from "../extension/relationalModelType.js";
+import {
+    PlayerController
+}                                                                                          from "./player/playerController.js";
 
 export {
     GameController,
@@ -35,9 +38,6 @@ export {
     TETROMINO_CURRENT_ID,
     GAME_STATE,
     BOX_PREFIX,
-    PLAYER_SELF_ID,
-    PLAYER_ACTIVE_ID,
-    PLAYER_PREFIX,
 };
 
 const log = LoggerFactory("ch.fhnw.tetris.gameController");
@@ -49,14 +49,11 @@ const GAME_STATE            = /** @type { ForeignKeyType } */ PREFIX_IMMORTAL + 
 
 const BOX_PREFIX            = "BOX-";
 
-const PLAYER_PREFIX         = "PLAYER-";
-const PLAYER_ACTIVE_ID      = /** @type { ForeignKeyType } */ PREFIX_IMMORTAL + "PLAYER_ACTIVE_ID";
-const PLAYER_SELF_ID        = /** @type { ForeignKeyType } */ PLAYER_PREFIX + clientId;
-
 // --- game controller --- --- --- --- --- --- --- --- --- --- --- --- --- ---
 
 /**
  * @typedef GameControllerType
+ * @property playerController
  * @property startGame
  * @property onPlayerAdded
  * @property onPlayerRemoved
@@ -84,6 +81,17 @@ const PLAYER_SELF_ID        = /** @type { ForeignKeyType } */ PLAYER_PREFIX + cl
  * @returns { GameControllerType }
  */
 const GameController = om => {
+
+// --- Observable Map centralized access --- --- ---
+
+    // todo: jsdoc types
+    const omSetValue = (key, value) => {
+        setTimeout( _=> {
+            om.setValue(key,value);
+        },1);
+    };
+    const publish = record => omSetValue(record.id, record);
+    const publishReferrer = (referrer, reference) => omSetValue(referrer, reference);
 
 // --- game state --- --- --- --- --- --- --- --- ---
 
@@ -167,7 +175,7 @@ const GameController = om => {
     };
 
     const onCollision = tetromino => {
-        if(!areWeInCharge()) { // only the player in charge handles collisions
+        if(! playerController.areWeInCharge()) { // only the player in charge handles collisions
             return;
         }
         if (tetromino.zPos > 11) { // we collide at the very top => end of game
@@ -239,20 +247,13 @@ const GameController = om => {
         publish(newTetromino);
     };
 
-    const omSetValue = (key, value) => {
-        setTimeout( _=> {
-            om.setValue(key,value);
-        },1);
-    };
-    const publish = record => omSetValue(record.id, record);
-    const publishReferrer = (referrer, reference) => omSetValue(referrer, reference);
 
     /**
      * @private
      * Principle game loop implementation: let the current tetromino fall down slowly and check for the end of the game.
      */
     const fallTask = () => {
-        if (!areWeInCharge()) {
+        if (! playerController.areWeInCharge()) {
             log.info("stop falling since we are not in charge");
             return;
         }
@@ -331,7 +332,7 @@ const GameController = om => {
     /** @type { () => void } */
     const restart  = () => {
 
-        takeCharge(); // we should already be in charge, but just to be clear
+        playerController.takeCharge(); // we should already be in charge, but just to be clear
 
         fallingDown(false);
 
@@ -367,76 +368,6 @@ const GameController = om => {
     };
 
 
-    // --- players --- --- --- --- --- --- --- --- ---
-
-    /**
-     * @private
-     */
-    const knownPlayersBackingList = [];
-    /** This is a local observable list to model the list of known players.
-     *  Each entry is a remotely observable player name, such that we can change
-     *  the name in place.
-     * @type {IObservableList<PlayerType>}
-     */
-    const playerListObs = ObservableList(knownPlayersBackingList);
-
-    /** publish all player value changes
-     * @type {IObservable<PlayerType>} */
-    const playerChangeObs = Observable(NO_PLAYER);
-
-
-    /**
-     * handle that a potentially new player has joined.
-     * We maintain an observable list of known players.
-     * @impure updates the playerListObs
-     */
-    const handlePlayerUpdate = player => {
-        const knownPlayerIndex = knownPlayersBackingList.findIndex(it => it.id === player.id);
-        if (knownPlayerIndex >= 0) {
-            knownPlayersBackingList[knownPlayerIndex] = player;
-        } else {
-            log.info(`player joined: ${JSON.stringify(player)}`);
-            playerListObs.add(player);
-            if (player.id === PLAYER_SELF_ID) { // we are now known, which means the setup has finished
-                onSetupFinished();
-            }
-            return;
-        }
-        playerChangeObs.setValue(player);// normal player value update
-    };
-
-    /** @type { IObservable<ActivePlayerIdType> }
-     * foreign key (playerId) to the id of the player that is currently in charge of the game.
-     */
-    const activePlayerIdObs = Observable(MISSING_FOREIGN_KEY);
-
-    activePlayerIdObs.onChange( playerId => {
-       if (playerId === PLAYER_SELF_ID) { // we have become in charge
-           registerNextFallTask();        // therefore we are now responsible for keeping the fall task alive
-       }
-    });
-
-    /**
-     * Whether we are in charge of moving the current tetromino.
-     * @type { () => Boolean }
-     * NB: when joining as a new player, the value might not yet be present,
-     * but we are, of course, not in charge in that situation.
-     */
-    const areWeInCharge = () => activePlayerIdObs.getValue() === PLAYER_SELF_ID;
-
-    /**
-     * @impure puts us in charge and notifies all (remote) listeners.
-     * @type { () => void }
-     */
-    const takeCharge = () => publishReferrer(PLAYER_ACTIVE_ID, PLAYER_SELF_ID );
-
-    const getPlayerName = (playerId) => {
-        let result;
-        om.getValue(playerId)
-          (_=> result = "n/a")
-          (player => result = player.name);
-        return result;
-    };
 
 
     // --- tetrominos --- --- --- --- --- --- --- --- ---
@@ -537,6 +468,27 @@ const GameController = om => {
         }
     };
 
+    const onSetupFinished = () => {
+        log.info("technical setup finished");
+
+        if(gameStateObs.getValue().id === MISSING_FOREIGN_KEY) {
+            log.info("we are the first user - creating game state");
+            publish(GameState(GAME_STATE, false, 0));
+        }
+
+        if( ! playerController.isThereAnActivePlayer()) {
+            log.info("there is no active player - we take charge");
+            playerController.takeCharge();
+        }
+
+        log.info("game setup finished");
+    };
+
+    const playerController = PlayerController(om, omSetValue, onSetupFinished);
+
+    playerController.onWeHaveBecomeActive( _ => {
+        registerNextFallTask();  // we are now responsible for keeping the fall task alive
+    });
 
 
     /**
@@ -545,31 +497,18 @@ const GameController = om => {
      */
     const startGame = (afterStartCallback) => {
 
-
         // clean up when leaving (as good as possible - not 100% reliable)
         window.onbeforeunload = (_evt) => {
-            if (areWeInCharge()) { // if we are in charge while leaving, put someone else in charge
-                let nextCandidate = knownPlayersBackingList.at(0);
-                if (nextCandidate.id === PLAYER_SELF_ID) {          // if that is ourselves, try the next one
-                    nextCandidate = knownPlayersBackingList.at(1);
-                }
-                activePlayerIdObs.setValue(nextCandidate?.id ?? MISSING_FOREIGN_KEY);
-            }
-            om.removeKey(PLAYER_SELF_ID);
+            playerController.leave();
         };
 
-        // make ourselves known to the crowd
-        publish(Player(PLAYER_SELF_ID, PLAYER_SELF_ID.slice(-7) ) );
-
+        playerController.registerSelf();
 
         afterStartCallback(); // all observables are set up, the UI can be bound
 
+        playerController.startListening();
+
         om.onKeyRemoved( key => {
-            if (key.startsWith(PLAYER_PREFIX)){
-                const player = knownPlayersBackingList.find( it => it.id === key);
-                playerListObs.del(player);
-                return;
-            }
             if (key.startsWith(TETROMINO_PREFIX)){
                 const tetromino = tetrominoBackingList.find( it => it.id === key);
                 tetrominoListObs.del(tetromino);
@@ -580,19 +519,10 @@ const GameController = om => {
                 boxesListObs.del(box);
                 return;
             }
-            log.warn(`unhandled remove key ${key} `);
         });
         om.onChange( (key,value) => {
             if (GAME_STATE === key) {
                 gameStateObs.setValue(value);
-                return;
-            }
-            if (key.startsWith(PLAYER_PREFIX)){
-                handlePlayerUpdate(value);
-                return;
-            }
-            if (PLAYER_ACTIVE_ID === key){
-                activePlayerIdObs.setValue(value); // value is the id
                 return;
             }
             if (key.startsWith(TETROMINO_PREFIX)){
@@ -607,34 +537,20 @@ const GameController = om => {
                 handleBoxUpdate(value);
                 return;
             }
-            log.warn(`unhandled change key ${key} value ${value}`);
         });
 
 
     };
-    const onSetupFinished = () => {
-        log.info("technical setup finished");
 
-        if(gameStateObs.getValue().id === MISSING_FOREIGN_KEY) {
-            log.info("we are the first user - creating game state");
-            publish(GameState(GAME_STATE, false, 0));
-        }
-
-        if(activePlayerIdObs.getValue() === MISSING_FOREIGN_KEY) {
-            log.info("there is no active player - we take charge");
-            takeCharge();
-        }
-
-        log.info("game setup finished");
-    };
 
     return {
         startGame,
-        onPlayerAdded               : playerListObs.onAdd,
-        onPlayerRemoved             : playerListObs.onDel,
-        onPlayerChanged             : playerChangeObs.onChange,
-        setPlayerChanged            : player => publish(player), // om is the master
-        onActivePlayerIdChanged     : activePlayerIdObs.onChange,
+        playerController,
+        onPlayerAdded               : playerController.onPlayerAdded,
+        onPlayerRemoved             : playerController.onPlayerRemoved,
+        onPlayerChanged             : playerController.onPlayerChanged,
+        setPlayerChanged            : playerController.setPlayerChanged,
+        onActivePlayerIdChanged     : playerController.onActivePlayerIdChanged,
         onTetrominoAdded            : tetrominoListObs.onAdd,
         onTetrominoRemoved          : tetrominoListObs.onDel,
         onTetrominoChanged          : tetrominoChangedObs.onChange,
@@ -643,9 +559,9 @@ const GameController = om => {
         onBoxRemoved                : boxesListObs.onDel,
         onBoxChanged                : boxChangedObs.onChange,
         onGameStateChanged          : gameStateObs.onChange,
-        areWeInCharge,
-        takeCharge,
-        getPlayerName,
+        areWeInCharge               : playerController.areWeInCharge,
+        takeCharge                  : playerController.takeCharge,
+        getPlayerName               : playerController.getPlayerName,
         restart,
         turnShape,
         movePosition,
