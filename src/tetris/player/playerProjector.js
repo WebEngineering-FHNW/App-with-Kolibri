@@ -16,7 +16,6 @@ const projectPlayerList = playerController => {
             <ul></ul>
         </div>
     `);
-
     const [playerList] = select(view[0], "ul");
 
     // data binding

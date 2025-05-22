@@ -1,8 +1,14 @@
-import                                                       "../kolibri/util/array.js";
-import {dom, select}                                    from "../kolibri/util/dom.js";
-import {registerForMouseAndTouch}                       from "./scene3D/scene.js";
-import {LoggerFactory}                                  from "../kolibri/logger/loggerFactory.js";
-import {MISSING_FOREIGN_KEY}                            from "../extension/relationalModelType.js";
+import "../kolibri/util/array.js";
+import {dom, select} from "../kolibri/util/dom.js";
+import {
+    registerForMouseAndTouch
+}                    from "./scene3D/scene.js";
+import {
+    LoggerFactory
+}                    from "../kolibri/logger/loggerFactory.js";
+import {
+    MISSING_FOREIGN_KEY
+}                    from "../extension/relationalModelType.js";
 import {
     moveBack,
     moveDown,
@@ -12,8 +18,10 @@ import {
     rotateYaw,
     topplePitch,
     toppleRoll
-} from "./tetrominoController.js";
-import {projectPlayerList}                              from "./player/playerProjector.js";
+}                    from "./tetrominoController.js";
+import {
+    projectPlayerList
+}                    from "./player/playerProjector.js";
 
 export {projectGame};
 
@@ -110,11 +118,21 @@ const projectMain = gameController => {
     registerForMouseAndTouch(main);           // the general handling of living in a 3D scene
     registerKeyListener(gameController);      // the game-specific key bindings
 
-    gameController.onTetrominoAdded( tetromino => {
+
+    const mayAddTetroDiv = tetromino => {
+        if (!tetromino) return;
         if (tetromino.id === MISSING_FOREIGN_KEY) return;
+        const mayTetroDiv = main.querySelector(`.tetromino[data-id="${tetromino.id}"]`);
+        if (mayTetroDiv) {
+            return mayTetroDiv;
+        }
         const [tetroDiv]  = dom(`<div class="tetromino ${tetromino.shapeName}" data-id="${tetromino.id}"></div>`);
         const [coordsDiv] = select(main, ".coords");
         coordsDiv.append(tetroDiv);
+        return tetroDiv;
+    };
+    gameController.onTetrominoAdded( tetromino => {
+        mayAddTetroDiv(tetromino);
     });
     gameController.onTetrominoRemoved( tetromino => {
         const div = main.querySelector(`[data-id="${tetromino.id}"]`);
@@ -127,7 +145,7 @@ const projectMain = gameController => {
 
     gameController.onBoxAdded( box=> {
         if (box.id === MISSING_FOREIGN_KEY) return;
-        const tetroDiv    = main.querySelector(`[data-id="${box.tetroId}"]`);  //maybe: if not there create it?
+        const tetroDiv    = mayAddTetroDiv(gameController.findTetrominoById(box.tetroId));
         const boxFaceDivs = 6..times( _=> "<div class='face'></div>").join("");
         const [boxDiv]    = dom(`<div class="box" data-id="${box.id}">${boxFaceDivs}</div>`);
         boxDiv.style      = `--x:${box.xPos};--y:${box.yPos};--z:${box.zPos};`;
