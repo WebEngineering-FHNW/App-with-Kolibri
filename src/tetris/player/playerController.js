@@ -99,8 +99,6 @@ const PlayerController = (om, setValue, onSetupFinished) => {
         });
     };
 
-
-
     /**
      * Whether we are in charge of moving the current tetromino.
      * @type { () => Boolean }
