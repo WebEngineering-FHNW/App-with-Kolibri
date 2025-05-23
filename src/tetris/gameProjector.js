@@ -91,6 +91,9 @@ const projectControlPanel = gameController => {
  * @return { HTMLCollection }
  */
 const projectMain = gameController => {
+
+    const boxFaceDivs = 6..times( _=> "<div class='face'></div>").join("");
+
     const mainElements = dom(`
         <main id="main" class="scene3d noSelection">
             <div class="coords" style="
@@ -103,6 +106,12 @@ const projectMain = gameController => {
                 </div>
                 <div class="plane show xz-plane"></div>
                 <div class="plane show yz-plane"></div>
+                <div class="tetromino ghost" >
+                    <div class="box">${boxFaceDivs}</div>   
+                    <div class="box">${boxFaceDivs}</div>   
+                    <div class="box">${boxFaceDivs}</div>   
+                    <div class="box">${boxFaceDivs}</div>   
+                </div>
                 <!--    tetrominos to be added here -->
             </div>
         </main>
@@ -115,9 +124,21 @@ const projectMain = gameController => {
 
     // view binding
     const main = mainElements[0];
+    const [coordsDiv]          = select(main,     ".coords");
+    const [ghostDiv]           = select(main,     ".ghost");
+    const [...ghostBoxesDivs]  = select(ghostDiv, ".box");
+
+
     registerForMouseAndTouch(main);           // the general handling of living in a 3D scene
     registerKeyListener(gameController);      // the game-specific key bindings
 
+    gameController.onCurrentTetrominoIdChanged( tetroId => { // show ghost only if we have a current tetro
+        if (tetroId === MISSING_FOREIGN_KEY) {
+            ghostDiv.classList.remove("show");
+        } else {
+            ghostDiv.classList.add("show");
+        }
+    });
 
     const mayAddTetroDiv = tetromino => {
         if (!tetromino) return;
@@ -127,7 +148,6 @@ const projectMain = gameController => {
             return mayTetroDiv;
         }
         const [tetroDiv]  = dom(`<div class="tetromino ${tetromino.shapeName}" data-id="${tetromino.id}"></div>`);
-        const [coordsDiv] = select(main, ".coords");
         coordsDiv.append(tetroDiv);
         return tetroDiv;
     };
@@ -143,6 +163,15 @@ const projectMain = gameController => {
         div.remove();
     });
 
+    const updateBoxDivPosition = (box, boxDiv) => {
+        boxDiv.style = `--x:${box.xPos};--y:${box.yPos};--z:${box.zPos};`;
+        const boxIdx = box.id.slice(-1); // 0..3 // not so nice. better: a box can maintain its index
+        if (gameController.isCurrentTetrominoId(box.tetroId)) { // when moving a current tetro box - also move the ghost
+            const ghostBoxDiv = ghostBoxesDivs[Number(boxIdx)];
+            ghostBoxDiv.style = `--x:${box.xPos};--y:${box.yPos};--z:0;`; // always mark the floor. more sophistication should go into a controller
+        }
+    };
+
     gameController.onBoxAdded( box => {
         if (box.id === MISSING_FOREIGN_KEY) return;
         const tetroDiv    = mayAddTetroDiv(gameController.findTetrominoById(box.tetroId));
@@ -150,9 +179,8 @@ const projectMain = gameController => {
             console.error("cannot add box view since its tetromino view cannot be found or built.", box.id);
             return;
         }
-        const boxFaceDivs = 6..times( _=> "<div class='face'></div>").join("");
         const [boxDiv]    = dom(`<div class="box" data-id="${box.id}">${boxFaceDivs}</div>`);
-        boxDiv.style      = `--x:${box.xPos};--y:${box.yPos};--z:${box.zPos};`;
+        updateBoxDivPosition(boxDiv, box);
         tetroDiv.append(boxDiv);
     });
     gameController.onBoxRemoved( box=> {
@@ -163,7 +191,7 @@ const projectMain = gameController => {
     gameController.onBoxChanged( box=> {
         if (box.id === MISSING_FOREIGN_KEY) return;
         const boxDiv = main.querySelector(`.box[data-id="${box.id}"]`);
-        boxDiv.style = `--x:${box.xPos};--y:${box.yPos};--z:${box.zPos};`;
+        updateBoxDivPosition(box, boxDiv);
     });
 
 

@@ -60,6 +60,7 @@ const BOX_PREFIX            = "BOX-";
  * @property onTetrominoChanged
  * @property findTetrominoById
  * @property onCurrentTetrominoIdChanged
+ * @property isCurrentTetrominoId
  * @property onBoxAdded
  * @property onBoxRemoved
  * @property onBoxChanged
@@ -546,6 +547,7 @@ const GameController = om => {
         onTetrominoChanged          : tetrominoChangedObs.onChange,
         findTetrominoById,
         onCurrentTetrominoIdChanged : tetrominoCurrentIdObs.onChange,
+        isCurrentTetrominoId        : id => id === tetrominoCurrentIdObs.getValue(),
         onBoxAdded                  : boxesListObs.onAdd,
         onBoxRemoved                : boxesListObs.onDel,
         onBoxChanged                : boxChangedObs.onChange,
