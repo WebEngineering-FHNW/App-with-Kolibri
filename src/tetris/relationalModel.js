@@ -7,7 +7,7 @@
 import {shapesByName}        from "./shape.js";
 import {MISSING_FOREIGN_KEY} from "../extension/relationalModelType.js";
 
-export { Player, NO_PLAYER, Tetromino, NO_TETROMINO, Box, NO_BOX, GameState, NO_GAME_STATE }
+export { Tetromino, NO_TETROMINO, Box, NO_BOX}
 
 /**
  * @typedef {
@@ -91,59 +91,3 @@ const NO_BOX = Box({id:MISSING_FOREIGN_KEY, tetroId: MISSING_FOREIGN_KEY, xPos:0
  * @typedef CurrentTetronimoModelType
  * @property { ForeignKeyType } tetroId - the id of tetromino that is considered the "current" one, foreign key
  */
-
-/**
- * @typedef PlayerType
- * @property { ForeignKeyType } id
- * @property { String }  name
- * Remotely stored with a key like "PLAYER-<playerId>". {@link PLAYER_PREFIX}
- */
-
-/**
- * @param { ForeignKeyType } id
- * @param { String } name
- * @constructor
- * @return {PlayerType}
- */
-const Player = (id, name) => ({id, name}); // for the type safety
-
-/**
- * Null-Object Pattern
- * @type { PlayerType }
- */
-const NO_PLAYER = Player(MISSING_FOREIGN_KEY, "no name");
-
-/**
- * @typedef { ForeignKeyType } ActivePlayerIdType
- * Remotely stored with a unique key see {@link PLAYER_ACTIVE_ID}
- * The id of the player that is considered the "active" one, foreign key
- */
-
-
-/**
- * Game state. The active user has to care for updating this.
- * @typedef GameStateModelType
- * @property { ForeignKeyType } id
- * @property { Boolean } fallingDown - Whether the current tetronimo is supposed to be falling.
- * @property { Number  } score
- */
-
-/**
- * @param { ForeignKeyType } id
- * @param { Boolean } fallingDown
- * @param { Number } score
- * @constructor
- * @return {GameStateModelType}
- */
-const GameState = (id, fallingDown, score) => ({id, fallingDown, score}); // for the type safety
-
-/**
- * Null-Object Pattern
- * @type { GameStateModelType }
- */
-const NO_GAME_STATE = GameState(MISSING_FOREIGN_KEY, false, 0);
-
-
-// todo: it might need more types for game state (running, ended, etc. plus score, etc.)
-// todo: it might need "upcoming" tetromino
-

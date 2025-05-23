@@ -4,8 +4,8 @@
 import {MISSING_FOREIGN_KEY, PREFIX_IMMORTAL} from "../../extension/relationalModelType.js";
 import {clientId}                             from "../../kolibri/version.js";
 import {LoggerFactory}                        from "../../kolibri/logger/loggerFactory.js";
-import {Observable, ObservableList} from "../../kolibri/observable.js";
-import {NO_PLAYER, Player}          from "../relationalModel.js";
+import {Observable, ObservableList}           from "../../kolibri/observable.js";
+import {NO_PLAYER, Player}                    from "./playerModel.js";
 
 export { PlayerController }
 
@@ -39,13 +39,15 @@ const PLAYER_SELF_ID   = /** @type { ForeignKeyType } */ PLAYER_PREFIX + clientI
 /**
  * @constructor
  * @param { OMType } om
- * @param { Function } setValue
+ * @param { Function } setValue - the strategy on how to set om values
  * @param { () => void } onSetupFinished - callback when setup is finished as indicated by the fact that we ourselves have become known.
  * @returns { PlayerControllerType }
  */
 const PlayerController = (om, setValue, onSetupFinished) => {
 
-    // todo jsdoc types
+    /**
+     * @param { PlayerType } player
+     */
     const publishPlayer = player => setValue(player.id, player);
     const publishReferrer = (referrer, reference) => setValue(referrer, reference);
 
