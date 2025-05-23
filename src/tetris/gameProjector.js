@@ -22,6 +22,7 @@ import {
 import {
     projectPlayerList
 }                    from "./player/playerProjector.js";
+import {projectGameState} from "./gameState/gameStateProjector.js";
 
 export {projectGame};
 
@@ -43,11 +44,10 @@ const projectControlPanel = gameController => {
 
     const playerController = gameController.playerController;
     header.append(...projectPlayerList(playerController));
-    header.append(...dom(`<div class="score">0</div>`));
+    header.append(...projectGameState(gameController.gameStateController));
 
     const [selfInput]       = select(header, "div.self input");
     const [startButton]     = select(header, "button");
-    const [scoreDiv]        = select(header, "div.score");
 
     // data binding
 
@@ -58,11 +58,6 @@ const projectControlPanel = gameController => {
             header.classList.remove("active");
         }
     });
-
-    gameController.onGameStateChanged( /** @type { GameStateModelType } */ gameState => {
-        scoreDiv.textContent = gameState.score;
-    });
-
 
     const updatePlayerNameInput = player  => {
         if(playerController.thisIsUs(player)) {
