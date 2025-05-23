@@ -101,7 +101,7 @@ footer {
     grid-area:       1/1;
     --x:             0;
     --y:             0;
-    --z:             0;
+    --z:             12;
     width:           var(--box-width);
     aspect-ratio:    1 / 1;
     display:         grid; /* child positioning (the faces) */
@@ -171,7 +171,7 @@ footer {
     border:           none;
 }
 
-.ghost .face:nth-child(2) { /* floor face */
+.ghost.show .face:nth-child(2) { /* floor face */
     background-color: yellow;
     box-shadow:       0 0 3cqmin yellow;
     opacity:          1;
