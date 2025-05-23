@@ -10,27 +10,17 @@
  * newly available tetrominos.
  */
 
-import {moveDown, normalize}                                                               from "./tetrominoController.js";
-import {shapeNames, shapesByName}                                                          from "./shape.js";
+import {moveDown, normalize}                                            from "./tetrominoController.js";
+import {shapeNames, shapesByName}                                       from "./shape.js";
 import {
     Walk
-}                                                                                          from "../kolibri/sequence/constructors/range/range.js";
-import {clientId}                                                                          from "../kolibri/version.js";
-import {
-    LoggerFactory
-}                                                                                          from "../kolibri/logger/loggerFactory.js";
-import {
-    Observable,
-    ObservableList
-}                                                                                          from "../kolibri/observable.js";
+}                                                                       from "../kolibri/sequence/constructors/range/range.js";
+import {clientId}                                                       from "../kolibri/version.js";
+import {LoggerFactory}                                                  from "../kolibri/logger/loggerFactory.js";
+import {Observable, ObservableList}                                     from "../kolibri/observable.js";
 import {Box, GameState, NO_BOX, NO_GAME_STATE, NO_TETROMINO, Tetromino} from "./relationalModel.js";
-import {
-    MISSING_FOREIGN_KEY,
-    PREFIX_IMMORTAL
-}                                                                                          from "../extension/relationalModelType.js";
-import {
-    PlayerController
-}                                                                                          from "./player/playerController.js";
+import {MISSING_FOREIGN_KEY, PREFIX_IMMORTAL}                           from "../extension/relationalModelType.js";
+import {PlayerController}                                               from "./player/playerController.js";
 
 export {
     GameController,
@@ -387,7 +377,7 @@ const GameController = om => {
     };
 
     const handleTetrominoUpdate = tetromino => {
-        updateBoxPositions(tetromino);
+        publishUpdatedBoxPositions(tetromino);
 
         const knownTetroIndex = tetrominoBackingList.findIndex( it => it.id === tetromino.id);
         if (knownTetroIndex >= 0) {
@@ -415,16 +405,14 @@ const GameController = om => {
         publishReferrer(TETROMINO_CURRENT_ID, tetroId);
     };
 
-    const updateBoxPositions = tetromino => {
-        const boxes = [0,1,2,3].map( n => findBox(tetromino.id, n));
-        if (boxes.some( box => box === undefined)){// not all boxes ready for update
+    const publishUpdatedBoxPositions = tetromino => {
+        const boxes = [0, 1, 2, 3].map( n => findBox(tetromino.id, n));
+        if (boxes.some( box => box === undefined)){ // not all boxes ready for update
             return;
         }
-        let n = 0;
-        boxes.forEach( box => {
-            const updatedBox = { ...box, ...finalBoxPosition(tetromino, n++)};
-            publish(updatedBox);
-        });
+        [0, 1, 2, 3]
+            .map(n => ({...boxes[n], ...finalBoxPosition(tetromino, n)}))
+            .forEach(publish);
     };
 
     // --- boxes --- --- --- --- --- --- --- --- --- ---
@@ -458,7 +446,7 @@ const GameController = om => {
         boxesListObs.add(box);
         const tetromino = tetrominoBackingList.find( tetro => tetro.id === box.tetroId);
         if ( tetromino ) {
-            updateBoxPositions(tetromino);
+            publishUpdatedBoxPositions(tetromino);
         } else {
             log.warn("cannot find tetro for box");
         }
