@@ -115,7 +115,7 @@ const GameController = om => {
 
 
     const checkAndHandleFullLevel = boxes => {
-        const isFull = level => boxes.filter(box => box.getValue().zPos === level).length === 7 * 7;
+        const isFull = level => boxes.filter(box => box.zPos === level).length === 7 * 7;
         // const isFull = level => boxes.filter(box => box.zPos === level).length >= 7; // for testing
         const level  = [...Walk(12)].findIndex(isFull);
         if (level < 0) {
