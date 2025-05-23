@@ -111,6 +111,22 @@ footer {
                      calc(var(--z) * var(--box-width));
     transition:      all .1s ease-in-out;
 }
+.tetromino.ghost .box {
+    --z:            0;
+}
+
+.box.destroy {
+    opacity:        0;
+    scale:          6;
+    translate:      calc(var(--x) * var(--box-width))
+                    calc(var(--y) * var(--box-width))
+                    0;
+    transition:     translate .7s cubic-bezier(1, 0.5, 1, 1),
+                    scale      1s cubic-bezier(1, 0.2, 1, 1),
+                    opacity  1.2s cubic-bezier(1, 0.1, 1, 1)
+;
+}
+
 
 /* all children (faces) go directly on top of each other */
 .face {
