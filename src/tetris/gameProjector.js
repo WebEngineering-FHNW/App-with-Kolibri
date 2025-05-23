@@ -128,7 +128,6 @@ const projectMain = gameController => {
     const [ghostDiv]           = select(main,     ".ghost");
     const [...ghostBoxesDivs]  = select(ghostDiv, ".box");
 
-
     registerForMouseAndTouch(main);           // the general handling of living in a 3D scene
     registerKeyListener(gameController);      // the game-specific key bindings
 
@@ -160,7 +159,10 @@ const projectMain = gameController => {
             log.warn("cannot find view to remove tetromino " + JSON.stringify(tetromino));
             return;
         }
-        div.remove();
+        setTimeout( _=> {
+            div.remove();
+        }, 1500); // todo take from config
+        // div.remove();
     });
 
     const updateBoxDivPosition = (box, boxDiv) => {
@@ -184,9 +186,15 @@ const projectMain = gameController => {
         tetroDiv.append(boxDiv);
     });
     gameController.onBoxRemoved( box=> {
-        const boxDiv      = main.querySelector(`.box[data-id="${box.id}"]`);
-        boxDiv.remove();
-        // maybe remove tetro if it has no more children
+        const boxDiv   = main.querySelector(`.box[data-id="${box.id}"]`);
+        boxDiv.classList.add("destroy");
+        setTimeout( _=> {
+            boxDiv.remove();
+        }, 1500); // todo take from config
+        const tetroDiv = main.querySelector(`.tetromino[data-id="${box.tetroId}"]`); // remove tetro if it has no more children
+        if (tetroDiv && tetroDiv.children.length < 1) {
+            tetroDiv.remove();
+        }
     });
     gameController.onBoxChanged( box=> {
         if (box.id === MISSING_FOREIGN_KEY) return;
