@@ -114,32 +114,39 @@ const GameController = om => {
 // --- game --- --- --- --- --- --- --- --- ---
 
 
-// todo: update to new model
-    const checkAndHandleFullLevel = spaceBoxes => {
-        const isFull = level => spaceBoxes.filter(box => box.getValue().z === level).length === 7 * 7;
+    const checkAndHandleFullLevel = boxes => {
+        const isFull = level => boxes.filter(box => box.getValue().zPos === level).length === 7 * 7;
+        // const isFull = level => boxes.filter(box => box.zPos === level).length >= 7; // for testing
         const level  = [...Walk(12)].findIndex(isFull);
         if (level < 0) {
             return;
         }
 
-        // remove all boxes that are on this level from the spaceBoxes and trigger the view update
-        const toRemove = spaceBoxes.filter(box => box.getValue().z === level); // remove duplication
-        toRemove.forEach(box => {
-            // todo: handle box removal
-            // spaceBoxes.removeItem(box);
-            // box.setValue({x: -1, y: -1, z: -1}); // will trigger listeners (e.g., the view) to self-remove
+        // update game state to double the score
+        const gameState = gameStateObs.getValue();
+        const newGameState = {...gameState, score: gameState.score * 2};
+        gameStateObs.setValue(newGameState); // to avoid missing updates // todo: think about extra function changeGameState
+        publish(newGameState);
+
+        // remove all boxes that are on this level from the boxes and trigger the view update
+        const toRemove = boxes.filter(box => box.zPos === level); // remove duplication
+        toRemove.forEach( box => {
+            setTimeout( _=> {
+                om.removeKey(box.id);
+            },1)
         });
 
         // move the remaining higher boxes one level down
-        spaceBoxes.forEach(box => {
-            const pos = box.getValue();
-            if (pos.z > level) {
-                // todo: handle box move down
-                // box.setValue(moveDown(pos));
+        boxes.forEach(box => {
+            if (box.zPos > level) {
+                const updatedBox = {...box, zPos: box.zPos - 1};
+                publish(updatedBox);
             }
         });
-        // there might be more full levels
-        checkAndHandleFullLevel(spaceBoxes);
+        // there might be more full levels, but give it some time for the cleanup
+        setTimeout( _=> {
+            checkAndHandleFullLevel(boxes);
+        },200);
     };
 
     /**
@@ -167,7 +174,8 @@ const GameController = om => {
             return;
         }
 
-        // todo: check for full level?
+        checkAndHandleFullLevel(boxesBackingList);
+
         // todo: new upcoming tetro?
 
         addToScore(4);
@@ -320,7 +328,6 @@ const GameController = om => {
         publishReferrer(TETROMINO_CURRENT_ID, MISSING_FOREIGN_KEY);  // no current tetro while we clean up
 
         // do not proceed before all backing Lists are empty
-        // todo: disable all user input and show cleanup state
         const waitForCleanup = () => {
             const stillToDelete = boxesBackingList.length +  tetrominoBackingList.length;
             log.info(`still to delete: ${stillToDelete}`);

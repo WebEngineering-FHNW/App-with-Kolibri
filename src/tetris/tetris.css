@@ -117,14 +117,15 @@ footer {
 
 .box.destroy {
     opacity:        0;
-    scale:          6;
+    scale:          10;
+    filter:         blur(.2cqmin);
     translate:      calc(var(--x) * var(--box-width))
                     calc(var(--y) * var(--box-width))
-                    0;
-    transition:     translate .7s cubic-bezier(1, 0.5, 1, 1),
-                    scale      1s cubic-bezier(1, 0.2, 1, 1),
-                    opacity  1.2s cubic-bezier(1, 0.1, 1, 1)
-;
+                    calc((-1/2)   * var(--box-width));
+    transition:     translate .7s     cubic-bezier(1, 0.7, 1, 1),
+                    scale     .6s .6s ease-out,
+                    opacity   .5s .6s linear,
+                    filter    .4s     linear;
 }
 
 
