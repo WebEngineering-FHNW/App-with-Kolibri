@@ -20,6 +20,7 @@ import {PlayerController}    from "../player/playerController.js";
 import {GameStateController} from "../gameState/gameStateController.js";
 import {TetrominoController} from "../tetromino/tetrominoController.js";
 import {BoxController}       from "../box/boxController.js";
+import {Scheduler}           from "../../kolibri/dataflow/dataflow.js";
 
 export {
     GameController
@@ -46,10 +47,15 @@ const GameController = om => {
 
 // --- Observable Map centralized access --- --- ---
 
+    const scheduler = Scheduler();
     const omPublishStrategy = callback => {
-        setTimeout( _=> {
+        scheduler.add( done => {
             callback();
+            setTimeout( _=> {
+            done();
         },1);
+        })
+
     };
 
     const checkAndHandleFullLevel = () => {
