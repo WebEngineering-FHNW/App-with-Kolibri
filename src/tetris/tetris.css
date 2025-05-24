@@ -116,16 +116,21 @@ footer {
 }
 
 .box.destroy {
-    opacity:        0;
     scale:          10;
-    filter:         blur(.2cqmin);
     translate:      calc(var(--x) * var(--box-width))
                     calc(var(--y) * var(--box-width))
                     calc((-1/2)   * var(--box-width));
     transition:     translate .7s     cubic-bezier(1, 0.7, 1, 1),
-                    scale     .6s .6s ease-out,
-                    opacity   .5s .6s linear,
-                    filter    .4s     linear;
+                    scale     .6s .6s ease-out;
+}
+
+.box.destroy .face {
+    opacity:        0;
+    filter:         blur(.2cqmin);
+    transform:      rotateY(0deg) rotateX(0deg);
+    transition:     transform  1s .4s linear,
+                    opacity   .5s  1s linear,
+                    filter    .6s .5s linear;
 }
 
 

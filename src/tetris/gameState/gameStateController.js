@@ -57,7 +57,7 @@ const GameStateController = (om, omPublishStrategy) => {
         }
         const newGameState = /** @type { GameStateModelType } */ {...oldGameState};
         newGameState.score = changeFn(oldGameState.score);
-        gameStateObs.setValue(newGameState); // eager update to avoid lost update
+        // gameStateObs.setValue(newGameState); // eager update to avoid lost update
         publish(newGameState);
     };
 
@@ -80,7 +80,9 @@ const GameStateController = (om, omPublishStrategy) => {
     };
 
     const resetGameState = () => {
-        publish(GameState(GAME_STATE, false, 0));
+        const initialState = GameState(GAME_STATE, false, 0);
+        gameStateObs.setValue(initialState); // todo: eager update really a good idea here?
+        publish(initialState);
     };
 
     const setup = () => {
