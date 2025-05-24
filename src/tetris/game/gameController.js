@@ -49,12 +49,12 @@ const GameController = om => {
 
     const scheduler = Scheduler();
     const omPublishStrategy = callback => {
-        scheduler.add( done => {
+        scheduler.add(done => {
             callback();
-            setTimeout( _=> {
-            done();
-        },1);
-        })
+            setTimeout(_ => {
+                done();
+            }, 0);
+        });
 
     };
 
@@ -75,7 +75,7 @@ const GameController = om => {
         // there might be more full levels, but give it some time for the cleanup
         setTimeout( _=> {
             checkAndHandleFullLevel();
-        },200);
+        },500);
     };
 
     const onCollision = tetromino => {
@@ -245,7 +245,7 @@ const GameController = om => {
                 gameStateController.setFallingDown(true);
                 registerNextFallTask();                         // proceed
             } else {
-                setTimeout(waitForCleanup, 300);
+                setTimeout(waitForCleanup, 500);
             }
         };
         waitForCleanup();
@@ -253,10 +253,6 @@ const GameController = om => {
 
     const onSetupFinished = () => {
         gameStateController.setup();
-        if( ! playerController.isThereAnActivePlayer()) {
-            log.info("there is no active player - we take charge");
-            // playerController.takeCharge();
-        }
         log.info("game ready to go");
     };
 

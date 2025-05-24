@@ -137,7 +137,7 @@ const projectMain = gameController => {
         }
         setTimeout( _=> {
             div.remove();
-        }, 1500); // todo take from config, must be aligned with CSS animations/transitions timing
+        }, 2000); // todo take from config, must be aligned with CSS animations/transitions timing
     });
 
     const updateBoxDivPosition = (box, boxDiv) => {
@@ -149,17 +149,18 @@ const projectMain = gameController => {
         }
     };
 
-    gameController.boxController.onBoxAdded( box => {
-        if (box.id === MISSING_FOREIGN_KEY) return;
-        const tetroDiv    = mayAddTetroDiv(gameController.tetrominoController.findTetrominoById(box.tetroId));
-        if (! tetroDiv) {
-            console.error("cannot add box view since its tetromino view cannot be found or built.", box.id);
-            return;
-        }
-        const [boxDiv]    = dom(`<div class="box" data-id="${box.id}">${boxFaceDivs}</div>`);
-        updateBoxDivPosition(box, boxDiv);
-        tetroDiv.append(boxDiv);
-    });
+    const handleNewBoxDiv = box => {
+            if (box.id === MISSING_FOREIGN_KEY) return;
+            const tetroDiv    = mayAddTetroDiv(gameController.tetrominoController.findTetrominoById(box.tetroId));
+            if (! tetroDiv) {
+                console.error("cannot add box view since its tetromino view cannot be found or built.", box.id);
+                return;
+            }
+            const [boxDiv]    = dom(`<div class="box" data-id="${box.id}">${boxFaceDivs}</div>`);
+            updateBoxDivPosition(box, boxDiv);
+            tetroDiv.append(boxDiv);
+    };
+    gameController.boxController.onBoxAdded(handleNewBoxDiv);
     gameController.boxController.onBoxRemoved( box=> {
         const boxDiv   = main.querySelector(`.box[data-id="${box.id}"]`);
         if (!boxDiv) return; // difficult to say when this might happen, but better be defensive
@@ -176,7 +177,9 @@ const projectMain = gameController => {
         if (box.id === MISSING_FOREIGN_KEY) return;
         const boxDiv = main.querySelector(`.box[data-id="${box.id}"]`);
         if(!boxDiv) {
-            log.error("unknown div for box "+box.id);
+            log.warn("unknown div for box "+box.id+" . Trying to create one.");
+            // handleNewBoxDiv(box); // this might happen for change requests on removed boxes.
+            // todo: think about maintaining a list of removed box keys...
             return;
         }
         updateBoxDivPosition(box, boxDiv);
