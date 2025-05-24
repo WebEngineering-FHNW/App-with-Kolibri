@@ -1,6 +1,6 @@
 
 
-export { zeroPosition, shapesByName, shapeNames };
+export { shapesByName, shapeNames };
 
 /**
  * @typedef Position3dType
@@ -9,11 +9,6 @@ export { zeroPosition, shapesByName, shapeNames };
  * @property { Number } y - 0 or positive integral number, mutable
  * @property { Number } z - 0 or positive integral number, mutable
  */
-
-/**
- * @type { Position3dType }
- */
-const zeroPosition = { x:0, y:0, z:0 };
 
 /**
  * @typedef { [ Position3dType, Position3dType, Position3dType, Position3dType ] } ShapeType

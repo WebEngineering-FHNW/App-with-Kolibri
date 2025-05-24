@@ -4,7 +4,7 @@
  * the local game and the collaborative game.
  */
 
-import {shapesByName}        from "./shape.js";
+import {shapesByName}        from "./shape/shapeModel.js";
 import {MISSING_FOREIGN_KEY} from "../extension/relationalModelType.js";
 
 export { Tetromino, NO_TETROMINO, Box, NO_BOX}
