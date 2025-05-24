@@ -80,9 +80,9 @@ const GameController = om => {
             gameStateController.setFallingDown(false);
             return;
         }
+        gameStateController.updateScore( score => score + 4);
         checkAndHandleFullLevel();
         // todo: new upcoming tetro?
-        gameStateController.updateScore( score => score + 4);
         tetrominoController.makeNewCurrentTetromino();
     };
 

@@ -157,11 +157,12 @@ const projectMain = gameController => {
             return;
         }
         const [boxDiv]    = dom(`<div class="box" data-id="${box.id}">${boxFaceDivs}</div>`);
-        updateBoxDivPosition(boxDiv, box);
+        updateBoxDivPosition(box, boxDiv);
         tetroDiv.append(boxDiv);
     });
     gameController.boxController.onBoxRemoved( box=> {
         const boxDiv   = main.querySelector(`.box[data-id="${box.id}"]`);
+        if (!boxDiv) return; // difficult to say when this might happen, but better be defensive
         boxDiv.classList.add("destroy");
         setTimeout( _=> { // remove only after visualization is done
             boxDiv.remove();
