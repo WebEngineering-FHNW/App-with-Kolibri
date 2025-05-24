@@ -1,9 +1,9 @@
 /**
  * @module tetris/tetrominoControllerTest
  */
-import {TestSuite}                        from "../kolibri/util/test.js";
-import {normalize, rotateYaw} from "./tetrominoController.js";
-import {shapeEqual} from "./util.js";
+import {TestSuite}            from "../../kolibri/util/test.js";
+import {normalize, rotateYaw} from "./shapeController.js";
+import {shapeEqual}           from "../util.js";
 
 const controllerSuite = TestSuite("tetris/tetrominoControl");
 

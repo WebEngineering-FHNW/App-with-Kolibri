@@ -8,7 +8,7 @@ import {
 }                    from "../kolibri/logger/loggerFactory.js";
 import {
     MISSING_FOREIGN_KEY
-}                    from "../extension/relationalModelType.js";
+} from "../extension/relationalModelType.js";
 import {
     moveBack,
     moveDown,
@@ -18,10 +18,10 @@ import {
     rotateYaw,
     topplePitch,
     toppleRoll
-}                    from "./tetrominoController.js";
+} from "./shape/shapeController.js";
 import {
     projectPlayerList
-}                    from "./player/playerProjector.js";
+} from "./player/playerProjector.js";
 import {projectGameState} from "./gameState/gameStateProjector.js";
 
 export {projectGame};
