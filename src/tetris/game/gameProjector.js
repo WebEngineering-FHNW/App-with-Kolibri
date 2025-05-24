@@ -172,9 +172,12 @@ const projectMain = gameController => {
             tetroDiv.remove();
         }
     });
-    gameController.boxController.onBoxChanged( box=> {
+    gameController.boxController.onBoxChanged( box => {
         if (box.id === MISSING_FOREIGN_KEY) return;
         const boxDiv = main.querySelector(`.box[data-id="${box.id}"]`);
+        if(!boxDiv) {
+            log.error("unknown div for box "+box.id);
+        }
         updateBoxDivPosition(box, boxDiv);
     });
     return mainElements;
