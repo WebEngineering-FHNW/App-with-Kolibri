@@ -1,28 +1,10 @@
-import "../kolibri/util/array.js";
-import {dom, select} from "../kolibri/util/dom.js";
-import {
-    registerForMouseAndTouch
-}                    from "./scene3D/scene.js";
-import {
-    LoggerFactory
-}                    from "../kolibri/logger/loggerFactory.js";
-import {
-    MISSING_FOREIGN_KEY
-} from "../extension/relationalModelType.js";
-import {
-    moveBack,
-    moveDown,
-    moveForw,
-    moveLeft,
-    moveRight,
-    rotateYaw,
-    topplePitch,
-    toppleRoll
-} from "./shape/shapeController.js";
-import {
-    projectPlayerList
-} from "./player/playerProjector.js";
-import {projectGameState} from "./gameState/gameStateProjector.js";
+import "../../kolibri/util/array.js";
+import {dom, select}              from "../../kolibri/util/dom.js";
+import {registerForMouseAndTouch} from "../scene3D/scene.js";
+import {LoggerFactory}            from "../../kolibri/logger/loggerFactory.js";
+import {MISSING_FOREIGN_KEY}      from "../../extension/relationalModelType.js";
+import {projectPlayerList}        from "../player/playerProjector.js";
+import {projectGameState}         from "../gameState/gameStateProjector.js";
 
 export {projectGame};
 
@@ -124,9 +106,8 @@ const projectMain = gameController => {
     const [...ghostBoxesDivs]  = select(ghostDiv, ".box");
 
     registerForMouseAndTouch(main);           // the general handling of living in a 3D scene
-    registerKeyListener(gameController);      // the game-specific key bindings
 
-    gameController.onCurrentTetrominoIdChanged( tetroId => { // show ghost only if we have a current tetro
+    gameController.tetrominoController.onCurrentTetrominoIdChanged( tetroId => { // show ghost only if we have a current tetro
         if (tetroId === MISSING_FOREIGN_KEY) {
             ghostDiv.classList.remove("show");
         } else {
@@ -145,10 +126,10 @@ const projectMain = gameController => {
         coordsDiv.append(tetroDiv);
         return tetroDiv;
     };
-    gameController.onTetrominoAdded( tetromino => {
+    gameController.tetrominoController.onTetrominoAdded( tetromino => {
         mayAddTetroDiv(tetromino);
     });
-    gameController.onTetrominoRemoved( tetromino => {
+    gameController.tetrominoController.onTetrominoRemoved( tetromino => {
         const div = main.querySelector(`[data-id="${tetromino.id}"]`);
         if (!div){
             log.warn("cannot find view to remove tetromino " + JSON.stringify(tetromino));
@@ -156,22 +137,21 @@ const projectMain = gameController => {
         }
         setTimeout( _=> {
             div.remove();
-        }, 1500); // todo take from config
-        // div.remove();
+        }, 1500); // todo take from config, must be aligned with CSS animations/transitions timing
     });
 
     const updateBoxDivPosition = (box, boxDiv) => {
         boxDiv.style = `--x:${box.xPos};--y:${box.yPos};--z:${box.zPos};`;
         const boxIdx = box.id.slice(-1); // 0..3 // not so nice. better: a box can maintain its index
-        if (gameController.isCurrentTetrominoId(box.tetroId)) { // when moving a current tetro box - also move the ghost
+        if (gameController.tetrominoController.isCurrentTetrominoId(box.tetroId)) { // when moving a current tetro box - also move the ghost
             const ghostBoxDiv = ghostBoxesDivs[Number(boxIdx)];
             ghostBoxDiv.style = `--x:${box.xPos};--y:${box.yPos};--z:0;`; // always mark the floor. more sophistication should go into a controller
         }
     };
 
-    gameController.onBoxAdded( box => {
+    gameController.boxController.onBoxAdded( box => {
         if (box.id === MISSING_FOREIGN_KEY) return;
-        const tetroDiv    = mayAddTetroDiv(gameController.findTetrominoById(box.tetroId));
+        const tetroDiv    = mayAddTetroDiv(gameController.tetrominoController.findTetrominoById(box.tetroId));
         if (! tetroDiv) {
             console.error("cannot add box view since its tetromino view cannot be found or built.", box.id);
             return;
@@ -180,58 +160,23 @@ const projectMain = gameController => {
         updateBoxDivPosition(boxDiv, box);
         tetroDiv.append(boxDiv);
     });
-    gameController.onBoxRemoved( box=> {
+    gameController.boxController.onBoxRemoved( box=> {
         const boxDiv   = main.querySelector(`.box[data-id="${box.id}"]`);
         boxDiv.classList.add("destroy");
-        setTimeout( _=> {
+        setTimeout( _=> { // remove only after visualization is done
             boxDiv.remove();
-        }, 1500); // todo take from config
+        }, 1500); // todo take from config, make sure it aligns with css anim/transition timing
         const tetroDiv = main.querySelector(`.tetromino[data-id="${box.tetroId}"]`); // remove tetro if it has no more children
         if (tetroDiv && tetroDiv.children.length < 1) {
             tetroDiv.remove();
         }
     });
-    gameController.onBoxChanged( box=> {
+    gameController.boxController.onBoxChanged( box=> {
         if (box.id === MISSING_FOREIGN_KEY) return;
         const boxDiv = main.querySelector(`.box[data-id="${box.id}"]`);
         updateBoxDivPosition(box, boxDiv);
     });
-
-
     return mainElements;
-};
-
-
-/**
- * Key binding for the game (view binding).
- * @collaborators document, game controller, and tetromino controller
- * @impure prevents the key default behavior, will indirectly change the game state and the visualization
- * @param { GameControllerType } gameController
- */
-const registerKeyListener = (gameController) => {
-    document.onkeydown = keyEvt => {    // note: must be on document since not all elements listen for keydown
-        if(keyEvt.ctrlKey || keyEvt.metaKey) { return; }  // allow ctrl-alt-c and other dev tool keys
-        if(! gameController.playerController.areWeInCharge()) {
-            gameController.playerController.takeCharge();
-            return; // we want keystrokes only to be applied after we have become in charge
-        }
-        if (keyEvt.shiftKey) {
-            switch (keyEvt.key) {
-                case "Shift":       break; // ignore the initial shift signal
-                case "ArrowRight":  keyEvt.preventDefault();gameController.turnShape(rotateYaw  ); break;
-                case "ArrowLeft":   keyEvt.preventDefault();gameController.turnShape(toppleRoll ); break;
-                case "ArrowUp":     keyEvt.preventDefault();gameController.turnShape(topplePitch); break;
-                case "ArrowDown":   keyEvt.preventDefault();gameController.movePosition(moveDown); break;
-            }
-        } else {
-            switch (keyEvt.key) {
-                case "ArrowLeft":   keyEvt.preventDefault();gameController.movePosition(moveLeft ); break;
-                case "ArrowRight":  keyEvt.preventDefault();gameController.movePosition(moveRight); break;
-                case "ArrowUp":     keyEvt.preventDefault();gameController.movePosition(moveBack ); break;
-                case "ArrowDown":   keyEvt.preventDefault();gameController.movePosition(moveForw ); break;
-            }
-        }
-    };
 };
 
 

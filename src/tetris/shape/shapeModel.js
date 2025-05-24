@@ -3,6 +3,21 @@
 export { shapesByName, shapeNames };
 
 /**
+ * @typedef {
+ * "charI" |
+ * "charT" |
+ * "char0" |
+ * "charS" |
+ * "charZ" |
+ * "charL" |
+ * "charF" |
+ * "branch" |
+ * "screwRight" |
+ * "screwLeft"
+ * } ShapeNameType
+ */
+
+/**
  * @typedef Position3dType
  * Can be used as an absolute position or as a displacement vector.
  * @property { Number } x - 0 or positive integral number, mutable

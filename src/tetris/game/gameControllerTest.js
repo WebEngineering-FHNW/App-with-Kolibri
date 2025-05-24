@@ -1,10 +1,10 @@
 /**
  * @module tetris/gameControllerTest
  */
-import {TestSuite}                        from "../kolibri/util/test.js";
-import {checkAndHandleFullLevel}          from "./gameController.js";
-import {Observable}                       from "../kolibri/observable.js";
-import {ownPropEqual}                     from "./util.js";
+import {TestSuite}               from "../../kolibri/util/test.js";
+import {checkAndHandleFullLevel} from "./gameController.js";
+import {Observable}   from "../../kolibri/observable.js";
+import {ownPropEqual} from "../util/util.js";
 
 const controllerSuite = TestSuite("tetris/gameControl");
 

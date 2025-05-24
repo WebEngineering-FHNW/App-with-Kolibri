@@ -1,7 +1,7 @@
-import {GameController,} from "./gameController.js";
-import {defaultConsoleLogging}     from "../kolibri/logger/loggingSupport.js";
-import {projectGame}             from "./gameProjector.js";
-import {connect}                 from "../server/S8-OM-SSE/connect.js";
+import {GameController,}       from "./game/gameController.js";
+import {defaultConsoleLogging} from "../kolibri/logger/loggingSupport.js";
+import {projectGame}           from "./game/gameProjector.js";
+import {connect}               from "../server/S8-OM-SSE/connect.js";
 import {OM}                      from "./observableMap/om.js";
 
 defaultConsoleLogging("ch.fhnw", LOG_DEBUG);
