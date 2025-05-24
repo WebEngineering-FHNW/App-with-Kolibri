@@ -7,7 +7,7 @@ import {LoggerFactory}                        from "../../kolibri/logger/loggerF
 import {Observable, ObservableList}           from "../../kolibri/observable.js";
 import {NO_PLAYER, Player}                    from "./playerModel.js";
 
-export { PlayerController }
+export { PlayerController, PLAYER_PREFIX, PLAYER_ACTIVE_ID }
 
 const log = LoggerFactory("ch.fhnw.tetris.player.playerController");
 
@@ -39,17 +39,17 @@ const PLAYER_SELF_ID   = /** @type { ForeignKeyType } */ PLAYER_PREFIX + clientI
 /**
  * @constructor
  * @param { OMType } om
- * @param { Function } setValue - the strategy on how to set om values
+ * @param { Function } omPublishStrategy - the strategy on how to set om values
  * @param { () => void } onSetupFinished - callback when setup is finished as indicated by the fact that we ourselves have become known.
  * @returns { PlayerControllerType }
  */
-const PlayerController = (om, setValue, onSetupFinished) => {
+const PlayerController = (om, omPublishStrategy, onSetupFinished) => {
 
-    /**
-     * @param { PlayerType } player
-     */
-    const publishPlayer = player => setValue(player.id, player);
-    const publishReferrer = (referrer, reference) => setValue(referrer, reference);
+    /** @param { PlayerType } player */
+    const publish = player => omPublishStrategy ( _=> om.setValue(player.id, player) ) ;
+    const publishReferrer = (referrer, reference) => omPublishStrategy ( _=> om.setValue(referrer, reference) );
+    /** @param {ForeignKeyType} playerId */
+    const publishRemoveKey = playerId => omPublishStrategy( _ => om.removeKey(playerId));
 
     /**
      * @private
@@ -125,19 +125,17 @@ const PlayerController = (om, setValue, onSetupFinished) => {
     };
 
     const registerSelf = () => {            // make ourselves known to the crowd
-        publishPlayer(Player(PLAYER_SELF_ID, PLAYER_SELF_ID.slice(-7) ) );
+        publish(Player(PLAYER_SELF_ID, PLAYER_SELF_ID.slice(-7) ) );
     };
 
     const thisIsOurId = playerId => PLAYER_SELF_ID === playerId;
     const thisIsUs    = player   => thisIsOurId(player?.id);
 
-    const setOwnName = name => publishPlayer( Player(PLAYER_SELF_ID, name) );
+    const setOwnName = name => publish( Player(PLAYER_SELF_ID, name) );
 
 
     const leave = () => {
-        setTimeout(_=> {
-            om.removeKey(PLAYER_SELF_ID);
-        },1);
+        publishRemoveKey(PLAYER_SELF_ID);
         if (areWeInCharge()) { // if we are in charge while leaving, put someone else in charge
             let nextCandidate = knownPlayersBackingList.at(0);
             if (thisIsUs(nextCandidate)) {          // if that is ourselves, try the next one
@@ -162,7 +160,6 @@ const PlayerController = (om, setValue, onSetupFinished) => {
             }
             if (PLAYER_ACTIVE_ID === key) {
                 activePlayerIdObs.setValue(value); // value is the id
-                return;
             }
         });
     };
@@ -172,7 +169,7 @@ const PlayerController = (om, setValue, onSetupFinished) => {
         onPlayerAdded:           playerListObs.onAdd,
         onPlayerRemoved:         playerListObs.onDel,
         onPlayerChanged:         playerChangeObs.onChange,
-        setPlayerChanged:        publishPlayer,
+        setPlayerChanged:        publish,
         onActivePlayerIdChanged: activePlayerIdObs.onChange,
         onWeHaveBecomeActive,
         isThereAnActivePlayer,

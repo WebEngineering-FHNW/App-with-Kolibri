@@ -1,9 +1,9 @@
-import {dom, select}         from "../../kolibri/util/dom.js";
-import {LoggerFactory}       from "../../kolibri/logger/loggerFactory.js";
+import {dom}           from "../../kolibri/util/dom.js";
+import {LoggerFactory} from "../../kolibri/logger/loggerFactory.js";
 
 export { projectGameState };
 
-const log = LoggerFactory("ch.fhnw.tetris.gameStateProjector");
+const log = LoggerFactory("ch.fhnw.tetris.gameState.gameStateProjector");
 
 /**
  * @param { GameStateControllerType } gameStateController

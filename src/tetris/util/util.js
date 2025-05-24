@@ -1,6 +1,5 @@
-import {MISSING_FOREIGN_KEY} from "../server/S7-manyObs-SSE/remoteObservableMap.js";
 
-export { ownPropEqual, shapeEqual, missing }
+export { ownPropEqual, shapeEqual }
 
 // todo: might go into Kolibri utils.
 /**
@@ -19,6 +18,3 @@ const ownPropEqual = (objA, objB) =>
 const shapeEqual= (shapeA, shapeB) =>
     shapeA.every( (positionA, idx) => ownPropEqual(positionA, shapeB[idx]) );
 
-const missing = fk =>
-    undefined === fk ||
-    MISSING_FOREIGN_KEY === fk;

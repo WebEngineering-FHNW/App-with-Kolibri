@@ -2,8 +2,8 @@
  * @module tetris/gameStateContoller
  */
 
-import {LoggerFactory}                                      from "../../kolibri/logger/loggerFactory.js";
-import {Observable}                                         from "../../kolibri/observable.js";
+import {LoggerFactory}                        from "../../kolibri/logger/loggerFactory.js";
+import {Observable}                           from "../../kolibri/observable.js";
 import {MISSING_FOREIGN_KEY, PREFIX_IMMORTAL} from "../../extension/relationalModelType.js";
 import {GameState, NO_GAME_STATE}             from "./gameStateModel.js";
 
@@ -32,17 +32,17 @@ const GAME_STATE  = /** @type { ForeignKeyType } */ PREFIX_IMMORTAL + "GAME_STAT
 /**
  * @constructor
  * @param { OMType } om
- * @param { Function } setValue - the strategy on how to set values on the OM
+ * @param { Function } omPublishStrategy - the strategy on how to set values on the OM
  * @returns { GameStateControllerType }
  */
-const GameStateController = (om, setValue) => {
+const GameStateController = (om, omPublishStrategy) => {
 
 // --- Observable Map centralized access --- --- ---
 
     /**
      * @param { GameStateModelType } gameState
      */
-    const publish = gameState => setValue(gameState.id, gameState);
+    const publish = gameState => omPublishStrategy ( _=> om.setValue(gameState.id, gameState) ) ;
 
 // --- game state --- --- --- --- --- --- --- --- ---
 

@@ -3,7 +3,7 @@
  */
 import {TestSuite}            from "../../kolibri/util/test.js";
 import {normalize, rotateYaw} from "./shapeController.js";
-import {shapeEqual}           from "../util.js";
+import {shapeEqual}           from "../util/util.js";
 
 const controllerSuite = TestSuite("tetris/tetrominoControl");
 
