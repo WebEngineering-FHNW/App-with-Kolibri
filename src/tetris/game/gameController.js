@@ -249,7 +249,7 @@ const GameController = om => {
         gameStateController.setup();
         if( ! playerController.isThereAnActivePlayer()) {
             log.info("there is no active player - we take charge");
-            playerController.takeCharge();
+            // playerController.takeCharge();
         }
         log.info("game ready to go");
     };

@@ -177,6 +177,7 @@ const projectMain = gameController => {
         const boxDiv = main.querySelector(`.box[data-id="${box.id}"]`);
         if(!boxDiv) {
             log.error("unknown div for box "+box.id);
+            return;
         }
         updateBoxDivPosition(box, boxDiv);
     });
