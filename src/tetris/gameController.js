@@ -10,11 +10,9 @@
  * newly available tetrominos.
  */
 
-import {moveDown, normalize}      from "./tetrominoController.js";
+import {moveDown, normalize}      from "./shape/shapeController.js";
 import {shapeNames, shapesByName} from "./shape/shapeModel.js";
-import {
-    Walk
-}                                 from "../kolibri/sequence/constructors/range/range.js";
+import {Walk}                                 from "../kolibri/sequence/constructors/range/range.js";
 import {clientId}                                                       from "../kolibri/version.js";
 import {LoggerFactory}                                                  from "../kolibri/logger/loggerFactory.js";
 import {Observable, ObservableList}                                     from "../kolibri/observable.js";
