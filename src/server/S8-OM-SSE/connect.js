@@ -47,9 +47,12 @@ const connect = (baseUrl, om) => {
                 const key   = payload[KEY_PARAM];
                 const value = payload[UPDATE_ACTION_PARAM];
                 const receivedVersion = value[VERSION_KEY];
-                if (receivedVersion <= versions[key]) {
-                    log.debug(`ignore update: new version <= old version:  ${receivedVersion} <= ${versions[key]}.`);
+                if (receivedVersion < versions[key]) {
+                    log.debug(`ignore update: new version < old version:  ${receivedVersion} <= ${versions[key]}.`);
                     return;
+                }
+                if (receivedVersion === versions[key]) {
+                    log.debug("version is equal but value might still have changed (?)");
                 }
                 scheduler.addOk( _=> {
                     rom.setValue(key, value[DATA_KEY]);

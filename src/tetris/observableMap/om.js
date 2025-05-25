@@ -55,6 +55,8 @@ const OM = name => {
 
     const hasKey = key => backingMap.hasOwnProperty(key);
 
+    const timeoutMap = {}; // key => timeoutId
+
     const setKeyValue = (key, value) => {
         const keyIsNew   = !hasKey(key);
         const oldStr = JSON.stringify(backingMap[key]);
@@ -68,14 +70,26 @@ const OM = name => {
             old ${oldStr}, 
             new ${newStr}, 
             isNew ${valueIsNew}`);
-            backingMap[key] = value;
-        }
 
-        if (keyIsNew) {
-            addListeners.forEach( callback => callback(key));
-        }
-        if(valueIsNew) {
-            changeListeners.forEach( callback => callback(key, value));
+            const timeoutId = timeoutMap[key]; // debouncing value updates that come in short succession
+            if ( timeoutId ) {
+                log.debug(_=>`bounced ${key}, waiting: ${Object.keys(timeoutMap).length}`);
+                clearTimeout(timeoutId);
+            }
+
+            timeoutMap[key] = setTimeout(_=>{
+
+                delete timeoutMap[key];
+                backingMap[key] = value;
+
+                if (keyIsNew) {
+                    addListeners.forEach( callback => callback(key));
+                }
+                if(valueIsNew) {
+                    changeListeners.forEach( callback => callback(key, value));
+                }
+
+            }, 10); // too low: no effect, too high: slow updates
         }
     };
 
