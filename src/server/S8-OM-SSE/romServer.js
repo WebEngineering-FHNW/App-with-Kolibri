@@ -19,6 +19,7 @@ import * as loglevel                                           from "../../kolib
 import {ConsoleAppender}                                       from "../../kolibri/logger/appender/consoleAppender.js";
 import {LoggerFactory}                                         from "../../kolibri/logger/loggerFactory.js";
 import {OM}                                                    from "../../tetris/observableMap/om.js";
+import {ownPropEqual} from "../../tetris/util/util.js";
 
 addToAppenderList(ConsoleAppender());
 setLoggingContext("ch.fhnw");
@@ -123,11 +124,35 @@ const handleValueUpdate = (req, res) => {
             incomingData += input ? String(input) : "";
             const incoming = JSON.parse(incomingData);
             log.debug(`handling post: ${incomingData}`);
-            const storedValue = {
+            const contentToBeStored = {
                 [VERSION_KEY]: incoming[VERSION_KEY],
                 [DATA_KEY]   : incoming[UPDATE_ACTION_PARAM]
             };
-            rom.setValue(incoming[KEY_PARAM], storedValue);
+            const key = incoming[KEY_PARAM];
+
+            // the rom.setValue has its own value-really-changed guard
+            // but since we store the version number with the data, this guard would always
+            // consider this to be a change and notify the (remote) observers.
+
+            rom.getValue(key)  // set value only if version is higher than old version and data has really changed
+               (_nothing => {
+                   rom.setValue(key, contentToBeStored); // we have a new key - just add.
+               })
+               (oldContent => {
+                   const oldVersion = Number(oldContent[VERSION_KEY]);
+                   const newVersion = Number(contentToBeStored[VERSION_KEY]);
+                   if (newVersion <= oldVersion) {
+                       log.debug(`new version ${newVersion} <= old version ${oldVersion} - not setting key ${key}`);
+                       return;
+                   }
+                   const oldData = oldContent[DATA_KEY];
+                   const newData = contentToBeStored[DATA_KEY];
+                   if ( oldData === newData || ownPropEqual(oldData, newData)) { // todo: nested objects (we dont have them atm)
+                       log.debug(`version ${newVersion} is new but data did not change - not setting key ${key}`);
+                   } else {
+                       rom.setValue(key, contentToBeStored);
+                   }
+                });
             res.end(JSON.stringify("ok"));
         });
         return;

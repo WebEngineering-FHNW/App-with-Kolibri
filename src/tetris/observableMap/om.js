@@ -49,7 +49,8 @@ const OM = name => {
     const onChange     = listener => {
         changeListeners.push(listener);
         for(const [key, value] of Object.entries(backingMap)){ // immediate callback
-            listener(key, value); // oldValue? removeMe?
+            const oldValue = backingMap[key];
+            listener(key, value, oldValue); // todo removeMe? (not as critical since OMs are long-running)
         }
     };
 
@@ -57,8 +58,16 @@ const OM = name => {
 
     const setKeyValue = (key, value) => {
         const keyIsNew   = !hasKey(key);
-        const oldStr = JSON.stringify(backingMap[key]);
-        const newStr = JSON.stringify(value);
+        const oldCompareValue = backingMap[key]; // compare values without the "version" key (if any)
+        // if (oldCompareValue?.version){        // todo: see, whether we really need this - it seems "special"
+        //     delete oldCompareValue.version;
+        // }
+        const oldStr = JSON.stringify(oldCompareValue);
+        const newCompareValue = value;
+        // if (newCompareValue?.version) {
+        //     delete newCompareValue.version;
+        // }
+        const newStr = JSON.stringify(newCompareValue);
         const valueIsNew = keyIsNew
             ? true
             : oldStr !== newStr;
