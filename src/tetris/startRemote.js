@@ -5,7 +5,7 @@ import {connect}               from "../server/S8-OM-SSE/connect.js";
 import {OM}                      from "./observableMap/om.js";
 import {LOG_WARN} from "../kolibri/logger/logLevel.js";
 
-defaultConsoleLogging("ch.fhnw", LOG_WARN);
+defaultConsoleLogging("ch.fhnw.tetris", LOG_INFO);
 
 const om = OM("index.html");
 

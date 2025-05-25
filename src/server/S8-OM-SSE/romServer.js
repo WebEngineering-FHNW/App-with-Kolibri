@@ -22,8 +22,8 @@ import {OM}                                                    from "../../tetri
 import {ownPropEqual} from "../../tetris/util/util.js";
 
 addToAppenderList(ConsoleAppender());
-setLoggingContext("ch.fhnw");
-setLoggingLevel(loglevel.LOG_WARN);
+setLoggingContext("ch.fhnw.tetris");
+setLoggingLevel(loglevel.LOG_INFO);
 
 const log = LoggerFactory("ch.fhnw.remote.romServer");
 

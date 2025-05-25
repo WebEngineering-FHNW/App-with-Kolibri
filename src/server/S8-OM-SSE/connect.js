@@ -13,7 +13,7 @@ import {AsyncRelay}    from "../../tetris/observableMap/asyncRelay.js";
 
 export { connect }
 
-const log = LoggerFactory("ch.fhnw.kolibri.remote.connect");
+const log = LoggerFactory("ch.fhnw.tetris.remote.connect");
 
 /**
  * Setting up the connection between the observable map and the romServer such that
