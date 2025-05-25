@@ -50,7 +50,7 @@ const GameController = om => {
     const omPublishStrategy = callback => {
         setTimeout(_ => {
             callback();
-        }, 5);
+        }, 1);
     };
 
     const checkAndHandleFullLevel = () => {
