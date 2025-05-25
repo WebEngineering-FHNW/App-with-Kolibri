@@ -50,8 +50,12 @@ const projectControlPanel = gameController => {
     playerController.onPlayerChanged( updatePlayerNameInput);
 
     // view Binding
-    selfInput.oninput = _event => {
-        playerController.setOwnName( selfInput.value );
+    let timeoutId;
+    selfInput.oninput = _event => { // bind with debounce
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(_ => {
+            playerController.setOwnName( selfInput.value );
+        }, 50);
     };
 
     // Using direct property assignment (onclick) overwrites any previous listeners
