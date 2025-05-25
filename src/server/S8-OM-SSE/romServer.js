@@ -1,7 +1,3 @@
-/*
-cd src
-
-*/
 
 import {createServer}      from 'node:http';
 import {handleFileRequest} from "../S2-file-server/fileRequestHandler.js";
@@ -19,11 +15,11 @@ import * as loglevel                                           from "../../kolib
 import {ConsoleAppender}                                       from "../../kolibri/logger/appender/consoleAppender.js";
 import {LoggerFactory}                                         from "../../kolibri/logger/loggerFactory.js";
 import {OM}                                                    from "../../tetris/observableMap/om.js";
-import {ownPropEqual} from "../../tetris/util/util.js";
+import {ownPropEqual}                                          from "../../tetris/util/util.js";
 
 addToAppenderList(ConsoleAppender());
 setLoggingContext("ch.fhnw.tetris");
-setLoggingLevel(loglevel.LOG_DEBUG);
+setLoggingLevel(loglevel.LOG_INFO);
 
 const log = LoggerFactory("ch.fhnw.tetris.romServer");
 

@@ -49,13 +49,8 @@ const projectControlPanel = gameController => {
     playerController.onPlayerAdded  ( updatePlayerNameInput);
     playerController.onPlayerChanged( updatePlayerNameInput);
 
-    // view Binding
-    let timeoutId;
-    selfInput.oninput = _event => { // bind with debounce
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(_ => {
+    selfInput.oninput = _event => {
             playerController.setOwnName( selfInput.value );
-        }, 100);
     };
 
     // Using direct property assignment (onclick) overwrites any previous listeners
@@ -153,11 +148,20 @@ const projectMain = gameController => {
         }
     };
 
-    const handleNewBoxDiv = box => {
+    const handleNewBoxDiv = (box, count) => {
             if (box.id === MISSING_FOREIGN_KEY) return;
+            if (count === undefined) count = 0;
+            if (count++ > 4) {
+                console.error(`cannot add box ${box.id} after ${count} retries`);
+                return;
+            } // max recursive count
             const tetroDiv    = mayAddTetroDiv(gameController.tetrominoController.findTetrominoById(box.tetroId));
             if (! tetroDiv) {
-                console.error("cannot add box view since its tetromino view cannot be found or built.", box.id);
+                // this is an indication of data inconsistency, and it might be better to do a full reload
+                log.warn("cannot add box view since its tetromino view cannot be found or built." + box.id);
+                setTimeout( _=> { // try again after a while
+                   handleNewBoxDiv(box, count);
+                }, count * 200);
                 return;
             }
             const [boxDiv]    = dom(`<div class="box" data-id="${box.id}">${boxFaceDivs}</div>`);
