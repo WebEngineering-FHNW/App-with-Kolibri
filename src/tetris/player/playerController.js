@@ -83,7 +83,6 @@ const PlayerController = (om, omPublishStrategy, onSetupFinished) => {
             if (player.id === PLAYER_SELF_ID) { // we are now known, which means the setup has finished
                 onSetupFinished();
             }
-            return;
         }
         playerChangeObs.setValue(player);// normal player value update
     };

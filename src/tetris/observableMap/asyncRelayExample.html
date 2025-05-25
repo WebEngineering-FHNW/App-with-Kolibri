@@ -67,21 +67,19 @@
 
     // issue a lot of concurrent changes (note the use of setTimeout, we need to set values in a UI action)
     Walk(50).forEach$(n=> {
-        setTimeout(_=> {
             om1.setValue("sharedInput", n)
-        }, n * 10);
     });
-    Walk(50).forEach$(n=> {
-        setTimeout(_=> {
-            om2.setValue("sharedInput", n*10)
-        }, n * 10);
-    });
-    Walk(50).forEach$(n=> {
-        setTimeout(_=> {
-            rom.setValue("sharedInput", n*100)
-        }, n * 10);
-    });
+    setTimeout( _=> {
+        Walk(50).forEach$(n=> {
+                om2.setValue("sharedInput", n*10)
+        });
+    },100);
 
+    setTimeout( _=> {
+        Walk(50).forEach$(n=> {
+                rom.setValue("sharedInput", n*100)
+        });
+    },200);
 
 </script>
 
