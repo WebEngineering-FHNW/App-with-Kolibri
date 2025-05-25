@@ -53,6 +53,7 @@ const connect = (baseUrl, om) => {
                 }
                 versions[key] = receivedVersion; // set the highest version as soon as possible
                 scheduler.addOk( _=> {
+                    console.warn(value[DATA_KEY]);
                     rom.setValue(key, value[DATA_KEY]);
                 });
                 break;
