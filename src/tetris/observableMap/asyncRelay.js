@@ -3,7 +3,7 @@ import {LoggerFactory} from "../../kolibri/logger/loggerFactory.js";
 
 export {AsyncRelay}
 
-const log = LoggerFactory("ch.fhnw.kolibri.observable.asyncRelay");
+const log = LoggerFactory("ch.fhnw.tetris.observable.asyncRelay");
 
 /**
  * @typedef { (rom:OMType) => (om:OMType) => SchedulerType } AsyncRelayType

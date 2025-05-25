@@ -55,7 +55,7 @@ const projectControlPanel = gameController => {
         clearTimeout(timeoutId);
         timeoutId = setTimeout(_ => {
             playerController.setOwnName( selfInput.value );
-        }, 50);
+        }, 100);
     };
 
     // Using direct property assignment (onclick) overwrites any previous listeners

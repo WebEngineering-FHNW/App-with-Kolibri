@@ -12,7 +12,7 @@ export {
     GAME_STATE,
 };
 
-const log = LoggerFactory("ch.fhnw.tetris.gameStateController");
+const log = LoggerFactory("ch.fhnw.tetris.gameState.gameStateController");
 
 const GAME_STATE  = /** @type { ForeignKeyType } */ PREFIX_IMMORTAL + "GAME_STATE";
 

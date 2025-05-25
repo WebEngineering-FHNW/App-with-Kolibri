@@ -4,7 +4,7 @@ import {LoggerFactory} from "../../kolibri/logger/loggerFactory.js";
 export {OM}
 
 
-const log = LoggerFactory("ch.fhnw.kolibri.observable.om");
+const log = LoggerFactory("ch.fhnw.tetris.observable.om");
 
 /**
  * @typedef { String } ForeignKeyType
