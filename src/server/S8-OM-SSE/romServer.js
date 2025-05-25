@@ -23,9 +23,9 @@ import {ownPropEqual} from "../../tetris/util/util.js";
 
 addToAppenderList(ConsoleAppender());
 setLoggingContext("ch.fhnw.tetris");
-setLoggingLevel(loglevel.LOG_INFO);
+setLoggingLevel(loglevel.LOG_DEBUG);
 
-const log = LoggerFactory("ch.fhnw.remote.romServer");
+const log = LoggerFactory("ch.fhnw.tetris.romServer");
 
 const port      = 8080;
 const hostname  = 'localhost';
@@ -77,6 +77,7 @@ const handleSSE = (req, res) => {
             [ACTION_KEY]:  UPDATE_ACTION_NAME,
             [PAYLOAD_KEY]: {key, value}
         };
+        log.debug(_=> `sending ${JSON.stringify( data )} `);
         res.write('data:'  + JSON.stringify( data ) + '\n\n');
     };
     rom.onChange(sendChange); // flush whenever some key has a new value and when connecting

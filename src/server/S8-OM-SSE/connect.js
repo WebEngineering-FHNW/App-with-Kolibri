@@ -51,9 +51,9 @@ const connect = (baseUrl, om) => {
                     log.debug(`ignore update: new version <= old version:  ${receivedVersion} <= ${versions[key]}.`);
                     return;
                 }
-                versions[key] = receivedVersion; // set the highest version as soon as possible
                 scheduler.addOk( _=> {
                     rom.setValue(key, value[DATA_KEY]);
+                    versions[key] = receivedVersion; // this line must be exactly here or data will get missing
                 });
                 break;
             case REMOVE_ACTION_NAME:
