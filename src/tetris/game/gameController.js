@@ -47,15 +47,10 @@ const GameController = om => {
 
 // --- Observable Map centralized access --- --- ---
 
-    const scheduler = Scheduler();
     const omPublishStrategy = callback => {
-        scheduler.add(done => {
+        setTimeout(_ => {
             callback();
-            setTimeout(_ => {
-                done();
-            }, 0);
-        });
-
+        }, 5);
     };
 
     const checkAndHandleFullLevel = () => {
@@ -64,6 +59,7 @@ const GameController = om => {
         if (level < 0) {
             return;
         }
+        // todo: only if we are in charge?
         gameStateController.updateScore( score => score * 2);       // on full level, double the score
         boxController.removeBoxesWhere(box => box.zPos === level);  // clear the level
         boxController
@@ -195,6 +191,7 @@ const GameController = om => {
         return collides;
     };
 
+    const actionKeys = "ArrowRight ArrowLeft ArrowUp ArrowDown".split(" ");
     /**
      * Key binding for the game (view binding).
      * @collaborators document, game controller, and tetromino controller
@@ -202,25 +199,28 @@ const GameController = om => {
      */
     const registerKeyListener = () => {
         document.onkeydown = keyEvt => {    // note: must be on document since not all elements listen for keydown
-            if(keyEvt.ctrlKey || keyEvt.metaKey) { return; }  // allow ctrl-alt-c and other dev tool keys
-            if(! playerController.areWeInCharge()) {
+            if( actionKeys.includes(keyEvt.key)) {
+                keyEvt.preventDefault();
+            } else {
+                return;
+            }
+            if( playerController.areWeInCharge() === false) {
                 playerController.takeCharge();
                 return; // we want keystrokes only to be applied after we have become in charge
             }
             if (keyEvt.shiftKey) {
                 switch (keyEvt.key) {
-                    case "Shift":       break; // ignore the initial shift signal
-                    case "ArrowRight":  keyEvt.preventDefault();turnShape(rotateYaw  ); break;
-                    case "ArrowLeft":   keyEvt.preventDefault();turnShape(toppleRoll ); break;
-                    case "ArrowUp":     keyEvt.preventDefault();turnShape(topplePitch); break;
-                    case "ArrowDown":   keyEvt.preventDefault();movePosition(moveDown); break;
+                    case "ArrowRight":  turnShape(rotateYaw  ); break;
+                    case "ArrowLeft":   turnShape(toppleRoll ); break;
+                    case "ArrowUp":     turnShape(topplePitch); break;
+                    case "ArrowDown":   movePosition(moveDown); break;
                 }
             } else {
                 switch (keyEvt.key) {
-                    case "ArrowLeft":   keyEvt.preventDefault();movePosition(moveLeft ); break;
-                    case "ArrowRight":  keyEvt.preventDefault();movePosition(moveRight); break;
-                    case "ArrowUp":     keyEvt.preventDefault();movePosition(moveBack ); break;
-                    case "ArrowDown":   keyEvt.preventDefault();movePosition(moveForw ); break;
+                    case "ArrowLeft":   movePosition(moveLeft ); break;
+                    case "ArrowRight":  movePosition(moveRight); break;
+                    case "ArrowUp":     movePosition(moveBack ); break;
+                    case "ArrowDown":   movePosition(moveForw ); break;
                 }
             }
         };
@@ -235,6 +235,7 @@ const GameController = om => {
 
         // do not proceed before all backing Lists are empty
         const waitForCleanup = () => {
+            playerController   .takeCharge(); // things might have changed meanwhile
             boxController      .removeBoxesWhere( _box => true); // remove all boxes
             tetrominoController.removeAll();
 
