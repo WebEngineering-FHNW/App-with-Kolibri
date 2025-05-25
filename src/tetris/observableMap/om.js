@@ -1,4 +1,3 @@
-
 import {Just, Nothing} from "../../kolibri/stdlib.js";
 import {LoggerFactory} from "../../kolibri/logger/loggerFactory.js";
 
@@ -58,22 +57,14 @@ const OM = name => {
 
     const setKeyValue = (key, value) => {
         const keyIsNew   = !hasKey(key);
-        const oldCompareValue = backingMap[key]; // compare values without the "version" key (if any)
-        // if (oldCompareValue?.version){        // todo: see, whether we really need this - it seems "special"
-        //     delete oldCompareValue.version;
-        // }
-        const oldStr = JSON.stringify(oldCompareValue);
-        const newCompareValue = value;
-        // if (newCompareValue?.version) {
-        //     delete newCompareValue.version;
-        // }
-        const newStr = JSON.stringify(newCompareValue);
+        const oldStr = JSON.stringify(backingMap[key]);
+        const newStr = JSON.stringify(value);
         const valueIsNew = keyIsNew
             ? true
             : oldStr !== newStr;
 
         if ( keyIsNew || valueIsNew) {
-            log.debug(`OM.setKeyValue name ${name}, key ${key}, 
+            log.debug(_=>`OM.setKeyValue name ${name}, key ${key}, 
             old ${oldStr}, 
             new ${newStr}, 
             isNew ${valueIsNew}`);

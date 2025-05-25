@@ -36,7 +36,7 @@ const AsyncRelay = rom => om => {
     });
     om.onChange( (key, value) => {
         romScheduler.addOk( _=> {
-            log.debug(`relay: om onchange key ${key} value ${value}`);
+            log.debug(_=>`relay: om onchange key ${key} value ${value}`);
             rom.setValue(key, value)
         } );
     });

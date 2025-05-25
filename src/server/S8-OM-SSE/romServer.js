@@ -23,7 +23,7 @@ import {ownPropEqual} from "../../tetris/util/util.js";
 
 addToAppenderList(ConsoleAppender());
 setLoggingContext("ch.fhnw");
-setLoggingLevel(loglevel.LOG_DEBUG);
+setLoggingLevel(loglevel.LOG_WARN);
 
 const log = LoggerFactory("ch.fhnw.remote.romServer");
 
@@ -142,13 +142,13 @@ const handleValueUpdate = (req, res) => {
                    const oldVersion = Number(oldContent[VERSION_KEY]);
                    const newVersion = Number(contentToBeStored[VERSION_KEY]);
                    if (newVersion <= oldVersion) {
-                       log.debug(`new version ${newVersion} <= old version ${oldVersion} - not setting key ${key}`);
+                       log.debug(_=>`new version ${newVersion} <= old version ${oldVersion} - not setting key ${key}`);
                        return;
                    }
                    const oldData = oldContent[DATA_KEY];
                    const newData = contentToBeStored[DATA_KEY];
                    if ( oldData === newData || ownPropEqual(oldData, newData)) { // todo: nested objects (we dont have them atm)
-                       log.debug(`version ${newVersion} is new but data did not change - not setting key ${key}`);
+                       log.debug(_=>`version ${newVersion} is new but data did not change - not setting key ${key}`);
                    } else {
                        rom.setValue(key, contentToBeStored);
                    }

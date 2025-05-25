@@ -12,10 +12,10 @@
     import {GameController}        from "./game/gameController.js";
     import {projectGame}           from "./game/gameProjector.js";
     import {defaultConsoleLogging} from "../kolibri/logger/loggingSupport.js";
-    import {OM}                    from "./observableMap/om.js";
-    import {LOG_DEBUG}                 from "../kolibri/logger/logLevel.js";
+    import {OM}                  from "./observableMap/om.js";
+    import {LOG_DEBUG, LOG_WARN} from "../kolibri/logger/logLevel.js";
 
-    defaultConsoleLogging("ch.fhnw.tetris.gameController", LOG_DEBUG);
+    defaultConsoleLogging("ch.fhnw.tetris.gameController", LOG_WARN);
 
 
     const om = OM("tetris.html");
