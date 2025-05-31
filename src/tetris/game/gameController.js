@@ -52,12 +52,14 @@ const GameController = om => {
     };
 
     const checkAndHandleFullLevel = () => {
+        if(! playerController.areWeInCharge()) {
+            return;
+        }
         const isFull = level => boxController.findAllBoxesWhere(box => box.zPos === level).length >= 7 * 7;
         const level  = [...Walk(12)].findIndex(isFull);
         if (level < 0) {
             return;
         }
-        // todo: only if we are in charge?
         gameStateController.updateScore( score => score * 2);       // on full level, double the score
         boxController.removeBoxesWhere(box => box.zPos === level);  // clear the level
         boxController
@@ -244,7 +246,7 @@ const GameController = om => {
                 gameStateController.setFallingDown(true);
                 registerNextFallTask();                         // proceed
             } else {
-                setTimeout(waitForCleanup, 500);
+                setTimeout(waitForCleanup, 50);
             }
         };
         waitForCleanup();

@@ -7,7 +7,7 @@ import {LOG_DEBUG, LOG_WARN} from "../kolibri/logger/logLevel.js";
 
 defaultConsoleLogging("ch.fhnw.tetris", LOG_INFO);
 
-const om = OM("index.html", 20); // 1 in minimum to make updates async
+const om = OM("index.html", 10); // 1 in minimum to make updates async
 
 connect(window.location.origin, om);
 

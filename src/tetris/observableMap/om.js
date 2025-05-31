@@ -57,10 +57,12 @@ const OM = (name, debounceMS = 10) => {
 
     const changeTimeoutMap = {}; // key => timeoutId
     const removeTimeoutMap = {}; // key => timeoutId
-    const knownToBeDeletedKeys = []; // todo: think about lazy eviction strategy
+    const knownToBeDeletedKeys = [];
 
     const setKeyValue = (key, value) => {
-        if (knownToBeDeletedKeys.includes(key)) return; // do not resurrect zombies
+        if (knownToBeDeletedKeys.includes(key)) {
+            return;                                 // do not resurrect zombies
+        }
         const keyIsNew   = !hasKey(key);
         const oldStr = JSON.stringify(backingMap[key]);
         const newStr = JSON.stringify(value);
@@ -103,6 +105,9 @@ const OM = (name, debounceMS = 10) => {
         if (!hasKey(key)) {
             return;
         }
+        if(knownToBeDeletedKeys.length > 200) {
+            knownToBeDeletedKeys.splice(100); // only keep the last 100 at most
+        }
         knownToBeDeletedKeys.unshift(key);
         // todo: think about removing duplication in debounce handling
         const timeoutId = removeTimeoutMap[key]; // de-bouncing value updates that come in short succession
@@ -122,7 +127,7 @@ const OM = (name, debounceMS = 10) => {
         removeTimeoutMap[key] = setTimeout(_ => {  // bounce
             delete removeTimeoutMap[key];
             notifyAll();
-        }, debounceMS * 10 ); // give all remaining value updates a chance to come first
+        }, debounceMS ); // give all remaining value updates a chance to come first
 
     };
 
