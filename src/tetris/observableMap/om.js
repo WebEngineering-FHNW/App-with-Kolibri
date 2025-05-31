@@ -3,7 +3,6 @@ import {LoggerFactory} from "../../kolibri/logger/loggerFactory.js";
 
 export {OM}
 
-
 const log = LoggerFactory("ch.fhnw.tetris.observable.om");
 
 /**
@@ -56,9 +55,12 @@ const OM = (name, debounceMS = 10) => {
 
     const hasKey = key => backingMap.hasOwnProperty(key);
 
-    const timeoutMap = {}; // key => timeoutId
+    const changeTimeoutMap = {}; // key => timeoutId
+    const removeTimeoutMap = {}; // key => timeoutId
+    const knownToBeDeletedKeys = []; // todo: think about lazy eviction strategy
 
     const setKeyValue = (key, value) => {
+        if (knownToBeDeletedKeys.includes(key)) return; // do not resurrect zombies
         const keyIsNew   = !hasKey(key);
         const oldStr = JSON.stringify(backingMap[key]);
         const newStr = JSON.stringify(value);
@@ -72,9 +74,9 @@ const OM = (name, debounceMS = 10) => {
             new ${newStr}, 
             isNew ${valueIsNew}`);
 
-            const timeoutId = timeoutMap[key]; // de-bouncing value updates that come in short succession
+            const timeoutId = changeTimeoutMap[key]; // de-bouncing value updates that come in short succession
             if ( timeoutId ) {
-                log.debug(_=>`bounced ${key} change, waiting: ${Object.keys(timeoutMap).length}`);
+                log.debug(_=>`bounced ${key} change, waiting: ${Object.keys(changeTimeoutMap).length}`);
                 clearTimeout(timeoutId);
             }
             const notifyAll = () => {
@@ -89,11 +91,11 @@ const OM = (name, debounceMS = 10) => {
                 notifyAll();
                 return;
             }
-            timeoutMap[key] = setTimeout( _=> {  // bounce
-                delete timeoutMap[key];
+            changeTimeoutMap[key] = setTimeout( _=> {  // bounce
+                delete changeTimeoutMap[key];
                 backingMap[key] = value;
                 notifyAll();
-            }, debounceMS); // too low: no effect, too high: slow updates
+            }, debounceMS ); // too low: no effect, too high: slow updates
         }
     };
 
@@ -101,10 +103,11 @@ const OM = (name, debounceMS = 10) => {
         if (!hasKey(key)) {
             return;
         }
+        knownToBeDeletedKeys.unshift(key);
         // todo: think about removing duplication in debounce handling
-        const timeoutId = timeoutMap[key]; // de-bouncing value updates that come in short succession
+        const timeoutId = removeTimeoutMap[key]; // de-bouncing value updates that come in short succession
         if ( timeoutId ) {
-            log.debug(_=>`de-bounced ${key} removal, waiting: ${Object.keys(timeoutMap).length}`);
+            log.debug(_=>`de-bounced ${key} removal, waiting: ${Object.keys(removeTimeoutMap).length}`);
             clearTimeout(timeoutId);
         }
         const notifyAll = () => {
@@ -116,10 +119,10 @@ const OM = (name, debounceMS = 10) => {
             notifyAll();
             return;
         }
-        timeoutMap[key] = setTimeout(_ => {  // bounce
-            delete timeoutMap[key];
+        removeTimeoutMap[key] = setTimeout(_ => {  // bounce
+            delete removeTimeoutMap[key];
             notifyAll();
-        }, debounceMS); // too low: no effect, too high: slow updates
+        }, debounceMS * 10 ); // give all remaining value updates a chance to come first
 
     };
 
