@@ -27,7 +27,7 @@ const port      = 8080;
 const hostname  = 'localhost';
 const baseURL   = `http://${hostname}:${port}`;
 
-const rom = OM("server");
+const rom = OM("server", 10); // make the value updates async without much delay
 
 // internal counter
 let eventId = 1;

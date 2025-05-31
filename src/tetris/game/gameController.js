@@ -48,9 +48,7 @@ const GameController = om => {
 // --- Observable Map centralized access --- --- ---
 
     const omPublishStrategy = callback => {
-        // setTimeout(_ => { // seems to be no longer needed when om debounces
-            callback();
-        // }, 1);
+            callback(); // todo: could be inlined and params removed
     };
 
     const checkAndHandleFullLevel = () => {

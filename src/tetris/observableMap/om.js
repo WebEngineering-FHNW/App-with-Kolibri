@@ -11,7 +11,7 @@ const log = LoggerFactory("ch.fhnw.tetris.observable.om");
  */
 
 /** @typedef { (key:ForeignKeyType) => void}                    newKeyCallback  */
-/** @typedef { (key:ForeignKeyType) => void}                    keyRemovedCallback  */
+/** @typedef { <_T_> (key:ForeignKeyType, value:_T_) => void}   keyRemovedCallback  */
 /** @typedef { <_T_> (key:ForeignKeyType, value:_T_) => void}   onChangeCallback - value is never nullish */
 
 
@@ -33,10 +33,11 @@ const log = LoggerFactory("ch.fhnw.tetris.observable.om");
 
 /**
  * @param { String? } name - to identify the OM (mainly for logging and debugging purposes)
+ * @param { Number? } debounceMS - debounce time in milliseconds, defaults to 10, non-negative, 0 means "no debounce"
  * @return { OMType }
  * @constructor
  */
-const OM = name => {
+const OM = (name, debounceMS = 10) => {
 
     const backingMap      = {};
     const addListeners    = [];
@@ -71,35 +72,55 @@ const OM = name => {
             new ${newStr}, 
             isNew ${valueIsNew}`);
 
-            const timeoutId = timeoutMap[key]; // debouncing value updates that come in short succession
+            const timeoutId = timeoutMap[key]; // de-bouncing value updates that come in short succession
             if ( timeoutId ) {
-                log.debug(_=>`bounced ${key}, waiting: ${Object.keys(timeoutMap).length}`);
+                log.debug(_=>`bounced ${key} change, waiting: ${Object.keys(timeoutMap).length}`);
                 clearTimeout(timeoutId);
             }
-
-            timeoutMap[key] = setTimeout(_=>{
-
+            const notifyAll = () => {
+                if (keyIsNew) {
+                     addListeners.forEach( callback => callback(key));
+                 }
+                 if(valueIsNew) {
+                     changeListeners.forEach( callback => callback(key, value));
+                 }
+            };
+            if (debounceMS <= 0 ) {
+                notifyAll();
+                return;
+            }
+            timeoutMap[key] = setTimeout( _=> {  // bounce
                 delete timeoutMap[key];
                 backingMap[key] = value;
-
-                if (keyIsNew) {
-                    addListeners.forEach( callback => callback(key));
-                }
-                if(valueIsNew) {
-                    changeListeners.forEach( callback => callback(key, value));
-                }
-
-            }, 10); // too low: no effect, too high: slow updates
+                notifyAll();
+            }, debounceMS); // too low: no effect, too high: slow updates
         }
     };
 
     const removeKey = key => {
-        if(!hasKey(key)) {
+        if (!hasKey(key)) {
             return;
         }
-        const removedValue = backingMap[key];
-        delete backingMap[key];
-        removeListeners.forEach( callback => callback(key, removedValue));
+        // todo: think about removing duplication in debounce handling
+        const timeoutId = timeoutMap[key]; // de-bouncing value updates that come in short succession
+        if ( timeoutId ) {
+            log.debug(_=>`de-bounced ${key} removal, waiting: ${Object.keys(timeoutMap).length}`);
+            clearTimeout(timeoutId);
+        }
+        const notifyAll = () => {
+            const removedValue = backingMap[key];
+            delete backingMap[key];
+            removeListeners.forEach(callback => callback(key, removedValue));
+        };
+        if (debounceMS <= 0) {
+            notifyAll();
+            return;
+        }
+        timeoutMap[key] = setTimeout(_ => {  // bounce
+            delete timeoutMap[key];
+            notifyAll();
+        }, debounceMS); // too low: no effect, too high: slow updates
+
     };
 
     const getValue = key =>
