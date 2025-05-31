@@ -29,3 +29,4 @@ export const KEY_ACTION  = "action";
 export const KEY_PAYLOAD = "payload";
 export const KEY_DATA    = "data";
 export const KEY_VERSION = "version";
+export const KEY_ORIGIN  = "origin";

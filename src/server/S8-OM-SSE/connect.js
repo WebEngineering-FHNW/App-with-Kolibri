@@ -4,12 +4,13 @@ import {
     KEY_PAYLOAD,
     PATH_REMOVE_ACTION,
     PATH_REMOTE_OBSERVABLE,
-    PATH_UPDATE_ACTION, PARAM_UPDATE_ACTION, KEY_VERSION
-}                      from "./romConstants.js";
+    PATH_UPDATE_ACTION, PARAM_UPDATE_ACTION, KEY_VERSION, KEY_ORIGIN
+} from "./romConstants.js";
 import {LoggerFactory} from "../../kolibri/logger/loggerFactory.js";
 import {client}        from "../../kolibri/rest/restClient.js";
 import {OM}            from "../../tetris/observableMap/om.js";
 import {AsyncRelay}    from "../../tetris/observableMap/asyncRelay.js";
+import {clientId} from "../../kolibri/version.js";
 
 export { connect }
 
@@ -44,9 +45,17 @@ const connect = (baseUrl, om) => {
         const payload = data[KEY_PAYLOAD];
         switch (action) {
             case PATH_UPDATE_ACTION:
-                const key   = payload[PARAM_KEY];
-                const value = payload[PARAM_UPDATE_ACTION];
+                const key             = payload[PARAM_KEY];
+                const value           = payload[PARAM_UPDATE_ACTION];
                 const receivedVersion = value[KEY_VERSION];
+                const receivedOrigin  = value[KEY_ORIGIN];
+                if (!receivedOrigin) {
+                    log.warn("no origin when receiving updates");
+                }
+                if (clientId === receivedOrigin) {
+                    log.debug(`do not echo my own changes`);
+                    return;
+                }
                 if (receivedVersion < versions[key]) {
                     log.debug(`ignore update: new version < old version:  ${receivedVersion} <= ${versions[key]}.`);
                     return;
@@ -54,17 +63,27 @@ const connect = (baseUrl, om) => {
                 if (receivedVersion === versions[key]) {
                     log.debug("version is equal but value might still have changed (?)");
                 }
-                scheduler.addOk( _=> {
+                scheduler.addOk(_ => {
                     rom.setValue(key, value[KEY_DATA]);
                     versions[key] = receivedVersion; // this line must be exactly here or data will get missing
                 });
                 break;
-            case PATH_REMOVE_ACTION:
-                scheduler.addOk( _=> {
-                    const key = payload[PARAM_KEY];
-                    rom.removeKey(key);
-                    delete versions[key]; // remove the version guard as late as possible
-                });
+            case PATH_REMOVE_ACTION: {
+                    const key            = payload[PARAM_KEY];
+                    const value          = payload[PARAM_UPDATE_ACTION];
+                    const receivedOrigin = value[KEY_ORIGIN];
+                    if (!receivedOrigin) {
+                        log.warn("no origin (remove)");
+                    }
+                    if (clientId === receivedOrigin) {
+                        log.debug(`do not echo my own removal`);
+                        return;
+                    }
+                    scheduler.addOk(_ => {
+                        rom.removeKey(key);
+                        delete versions[key]; // remove the version guard as late as possible
+                    });
+                }
                 break;
             default:
                 log.error(`cannot process received data: ${event.data}`)
@@ -75,8 +94,9 @@ const connect = (baseUrl, om) => {
         const version = versions[key] ?? 0;
         versions[key] = version + 1;
         const data = {
-            [KEY_VERSION]:          versions[key],
-            [PARAM_KEY] :           key,
+            [KEY_VERSION]         : versions[key],
+            [KEY_ORIGIN]          : clientId,
+            [PARAM_KEY]           : key,
             [PARAM_UPDATE_ACTION] : value
         };
         log.debug(`sending update key ${key} value ${value} version ${versions[key]}`);
@@ -87,7 +107,8 @@ const connect = (baseUrl, om) => {
 
     rom.onKeyRemoved( ( key ) => {
         const data = {
-            [PARAM_KEY] : key
+            [KEY_ORIGIN]          : clientId,
+            [PARAM_KEY]           : key
         };
         log.debug(`sending remove key ${key}`);
         client(baseUrl + '/' + PATH_REMOVE_ACTION, "DELETE", data)
