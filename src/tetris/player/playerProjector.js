@@ -20,6 +20,7 @@ const projectPlayerList = playerController => {
 
     // data binding
 
+    // give the active player the css class "active", remove it from all other player items
     playerController.onActivePlayerIdChanged(/** @type { ForeignKeyType } */ playerId => {
         for(const li of playerList.children) {
             li.classList.remove("active");
@@ -28,6 +29,17 @@ const projectPlayerList = playerController => {
             }
         }
     });
+
+    // when active player changes - put him/her on top of the list
+    playerController.onActivePlayerIdChanged(/** @type { ForeignKeyType } */ playerId => {
+        const [activePlayerLi] = select(playerList, `[data-id="${playerId}"]`);
+        if (!activePlayerLi) {
+            return;
+        }
+        activePlayerLi.remove();
+        playerList.prepend(activePlayerLi);
+    });
+
     playerController.onPlayerAdded(player => {
         const [liView] = dom(`<li data-id="${player.id}">${player.name}</li>`);
         playerList.append(liView);
