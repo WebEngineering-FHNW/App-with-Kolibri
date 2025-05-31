@@ -8,7 +8,7 @@ import {
     KEY_PAYLOAD, PATH_REMOVE_ACTION,
     PATH_REMOTE_OBSERVABLE,
     PATH_UPDATE_ACTION,
-    PARAM_UPDATE_ACTION, KEY_VERSION
+    PARAM_UPDATE_ACTION, KEY_VERSION, KEY_ORIGIN
 } from "./romConstants.js";
 import {addToAppenderList, setLoggingContext, setLoggingLevel} from "../../kolibri/logger/logging.js";
 import * as loglevel                                           from "../../kolibri/logger/logLevel.js";
@@ -77,13 +77,13 @@ const handleSSE = (req, res) => {
         res.write('data:'  + JSON.stringify( data ) + '\n\n');
     };
     rom.onChange(sendChange); // flush whenever some key has a new value and when connecting
-    const sendRemove = key => {
+    const sendRemove = (key, removedValue) => {
         eventId++;
         res.write('id:'    + eventId + '\n');
         res.write('event:' + PATH_REMOTE_OBSERVABLE + '\n');
         const data = {
             [KEY_ACTION]:  PATH_REMOVE_ACTION,
-            [KEY_PAYLOAD]: { key }
+            [KEY_PAYLOAD]: { key, value: removedValue }
         };
         res.write('data:'  + JSON.stringify( data ) + '\n\n');
     };
@@ -123,6 +123,7 @@ const handleValueUpdate = (req, res) => {
             log.debug(`handling post: ${incomingData}`);
             const contentToBeStored = {
                 [KEY_VERSION]: incoming[KEY_VERSION],
+                [KEY_ORIGIN] : incoming[KEY_ORIGIN],
                 [KEY_DATA]   : incoming[PARAM_UPDATE_ACTION]
             };
             const key = incoming[PARAM_KEY];
