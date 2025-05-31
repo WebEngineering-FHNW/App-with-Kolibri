@@ -97,8 +97,9 @@ const OM = name => {
         if(!hasKey(key)) {
             return;
         }
+        const removedValue = backingMap[key];
         delete backingMap[key];
-        removeListeners.forEach( callback => callback(key));
+        removeListeners.forEach( callback => callback(key, removedValue));
     };
 
     const getValue = key =>
