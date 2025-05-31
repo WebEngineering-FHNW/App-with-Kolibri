@@ -3,12 +3,12 @@ import {createServer}      from 'node:http';
 import {handleFileRequest} from "../S2-file-server/fileRequestHandler.js";
 
 import {
-    ACTION_KEY, DATA_KEY,
-    KEY_PARAM,
-    PAYLOAD_KEY, REMOVE_ACTION_NAME,
-    TOPIC_REMOTE_OBSERVABLE,
-    UPDATE_ACTION_NAME,
-    UPDATE_ACTION_PARAM, VERSION_KEY
+    KEY_ACTION, KEY_DATA,
+    PARAM_KEY,
+    KEY_PAYLOAD, PATH_REMOVE_ACTION,
+    PATH_REMOTE_OBSERVABLE,
+    PATH_UPDATE_ACTION,
+    PARAM_UPDATE_ACTION, KEY_VERSION
 } from "./romConstants.js";
 import {addToAppenderList, setLoggingContext, setLoggingLevel} from "../../kolibri/logger/logging.js";
 import * as loglevel                                           from "../../kolibri/logger/logLevel.js";
@@ -68,10 +68,10 @@ const handleSSE = (req, res) => {
         // }
         eventId++;
         res.write('id:'    + eventId + '\n');
-        res.write('event:' + TOPIC_REMOTE_OBSERVABLE + '\n');
+        res.write('event:' + PATH_REMOTE_OBSERVABLE + '\n');
         const data = {
-            [ACTION_KEY]:  UPDATE_ACTION_NAME,
-            [PAYLOAD_KEY]: {key, value}
+            [KEY_ACTION]:  PATH_UPDATE_ACTION,
+            [KEY_PAYLOAD]: {key, value}
         };
         log.debug(_=> `sending ${JSON.stringify( data )} `);
         res.write('data:'  + JSON.stringify( data ) + '\n\n');
@@ -80,10 +80,10 @@ const handleSSE = (req, res) => {
     const sendRemove = key => {
         eventId++;
         res.write('id:'    + eventId + '\n');
-        res.write('event:' + TOPIC_REMOTE_OBSERVABLE + '\n');
+        res.write('event:' + PATH_REMOTE_OBSERVABLE + '\n');
         const data = {
-            [ACTION_KEY]:  REMOVE_ACTION_NAME,
-            [PAYLOAD_KEY]: { key }
+            [KEY_ACTION]:  PATH_REMOVE_ACTION,
+            [KEY_PAYLOAD]: { key }
         };
         res.write('data:'  + JSON.stringify( data ) + '\n\n');
     };
@@ -102,7 +102,7 @@ const handleKeyRemoval = (req, res) => {
     req.on("end",  input => {
         incomingData += input ? String(input) : "";
         const data  = JSON.parse(incomingData);
-        rom.removeKey(data[KEY_PARAM]);
+        rom.removeKey(data[PARAM_KEY]);
         res.end(JSON.stringify("ok"));
     })
 };
@@ -122,10 +122,10 @@ const handleValueUpdate = (req, res) => {
             const incoming = JSON.parse(incomingData);
             log.debug(`handling post: ${incomingData}`);
             const contentToBeStored = {
-                [VERSION_KEY]: incoming[VERSION_KEY],
-                [DATA_KEY]   : incoming[UPDATE_ACTION_PARAM]
+                [KEY_VERSION]: incoming[KEY_VERSION],
+                [KEY_DATA]   : incoming[PARAM_UPDATE_ACTION]
             };
-            const key = incoming[KEY_PARAM];
+            const key = incoming[PARAM_KEY];
 
             // the rom.setValue has its own value-really-changed guard
             // but since we store the version number with the data, this guard would always
@@ -136,14 +136,14 @@ const handleValueUpdate = (req, res) => {
                    rom.setValue(key, contentToBeStored); // we have a new key - just add.
                })
                (oldContent => {
-                   const oldVersion = Number(oldContent[VERSION_KEY]);
-                   const newVersion = Number(contentToBeStored[VERSION_KEY]);
+                   const oldVersion = Number(oldContent[KEY_VERSION]);
+                   const newVersion = Number(contentToBeStored[KEY_VERSION]);
                    if (newVersion <= oldVersion) {
                        log.debug(_=>`new version ${newVersion} <= old version ${oldVersion} - not setting key ${key}`);
                        return;
                    }
-                   const oldData = oldContent[DATA_KEY];
-                   const newData = contentToBeStored[DATA_KEY];
+                   const oldData = oldContent[KEY_DATA];
+                   const newData = contentToBeStored[KEY_DATA];
                    if ( oldData === newData || ownPropEqual(oldData, newData)) { // todo: nested objects (we dont have them atm)
                        log.debug(_=>`version ${newVersion} is new but data did not change - not setting key ${key}`);
                    } else {
@@ -161,11 +161,11 @@ const handleValueUpdate = (req, res) => {
 
 const server = createServer( (req, res) => {
   log.debug(`${req.method} ${req.url}`);
-  if ("/" + TOPIC_REMOTE_OBSERVABLE === req.url) {
+  if ("/" + PATH_REMOTE_OBSERVABLE === req.url) {
       handleSSE(req, res);
       return;
   }
-  if ( req.url.startsWith("/" + UPDATE_ACTION_NAME) ) {
+  if ( req.url.startsWith("/" + PATH_UPDATE_ACTION) ) {
       handleValueUpdate(req, res);
       return;
   }
