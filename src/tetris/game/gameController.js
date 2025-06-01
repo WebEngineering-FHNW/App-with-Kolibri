@@ -85,6 +85,10 @@ const GameController = om => {
         gameStateController.updateScore( score => score + 4);
         checkAndHandleFullLevel();
         // todo: new upcoming tetro?
+
+        if(! playerController.areWeInCharge()) {        // box removal is async and things might have changed.
+            return;
+        }
         tetrominoController.makeNewCurrentTetromino();
     };
 
@@ -142,7 +146,7 @@ const GameController = om => {
         tetrominoController.updateTetromino(newTetromino);
     };
 
-
+    let currentlyFalling = false; // whether we _actually_ fall - as opposed to whether we _should_ fall (gameState)
     /**
      * @private
      * Principle game loop implementation: let the current tetromino fall down slowly and check for the end of the game.
@@ -150,17 +154,25 @@ const GameController = om => {
     const fallTask = () => {
         if (! playerController.areWeInCharge()) {
             log.info("stop falling since we are not in charge");
+            currentlyFalling = false;
             return;
         }
         if (!gameStateController.isFallingDown()) {
             log.info("falling is stopped");
+            currentlyFalling = false;
             return;
         }
+        currentlyFalling = true;
         movePosition(moveDown);
+        currentlyFalling = false;
         registerNextFallTask();
     };
 
-    const registerNextFallTask = () => setTimeout(fallTask, 1 * 1000);
+    const registerNextFallTask = () => {
+        if (currentlyFalling) return; // do not fall twice the speed
+        currentlyFalling = true;
+        setTimeout(fallTask, 1 * 1000);
+    };
 
     const isDisallowedBoxPosition = ({xPos, yPos}) => {
         if (xPos < 0 || xPos > 6) return true;
@@ -227,15 +239,15 @@ const GameController = om => {
     };
 
 
-    /** @type { () => void } */
-    const restart  = () => {
-        playerController   .takeCharge();               // we should already be in charge, but just to be clear
+    /** @type { (onFinishedCallback: Function) => void } */
+    const restart  = (onFinishedCallback) => {
+        if (!playerController.areWeInCharge()) return;
         gameStateController.setFallingDown(false);      // hold on
         tetrominoController.setNoCurrentTetromino();
 
         // do not proceed before all backing Lists are empty
         const waitForCleanup = () => {
-            playerController   .takeCharge(); // things might have changed meanwhile
+            if (!playerController.areWeInCharge()) return; // things might have changed meanwhile
             boxController      .removeBoxesWhere( _box => true); // remove all boxes
             tetrominoController.removeAll();
 
@@ -244,7 +256,8 @@ const GameController = om => {
                 gameStateController.resetGameState();
                 tetrominoController.makeNewCurrentTetromino();
                 gameStateController.setFallingDown(true);
-                registerNextFallTask();                         // proceed
+                registerNextFallTask();                     // proceed
+                onFinishedCallback();
             } else {
                 setTimeout(waitForCleanup, 50);
             }
