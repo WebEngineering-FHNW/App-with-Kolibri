@@ -19,7 +19,7 @@ const projectControlPanel = gameController => {
     const view              = dom(`
     <header>
         <div class="self"><input size=10></div>
-        <button>Start/Restart</button>
+        <button disabled>Start/Restart</button>
     </header>`);
 
     const [header]          = view;
@@ -33,6 +33,13 @@ const projectControlPanel = gameController => {
 
     // data binding
 
+    playerController.onActivePlayerIdChanged( _ => {
+        if (playerController.areWeInCharge()) {
+            startButton.removeAttribute("disabled");
+        } else {
+            startButton.setAttribute("disabled", "");
+        }
+    });
     playerController.onActivePlayerIdChanged( _ => {
         if (playerController.areWeInCharge()) {
             header.classList.add("active");
@@ -55,7 +62,13 @@ const projectControlPanel = gameController => {
 
     // Using direct property assignment (onclick) overwrites any previous listeners
     // Only the last assignment will be executed when the button is clicked
-    startButton.onclick = _ => gameController.restart();
+    startButton.onclick = _ => {
+        startButton.setAttribute("disabled", "");
+        gameController.restart( ()=> {
+            if (!playerController.areWeInCharge()) return;
+            startButton.removeAttribute("disabled");
+        });
+    };
 
     return view;
 };
