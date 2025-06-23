@@ -1,18 +1,17 @@
-
 import {
     KEY_ACTION, KEY_DATA, PARAM_KEY,
     KEY_PAYLOAD,
     PATH_REMOVE_ACTION,
     PATH_REMOTE_OBSERVABLE,
     PATH_UPDATE_ACTION, PARAM_UPDATE_ACTION, KEY_VERSION, KEY_ORIGIN
-} from "./romConstants.js";
+}                      from "./romConstants.js";
 import {LoggerFactory} from "../../kolibri/logger/loggerFactory.js";
 import {client}        from "../../kolibri/rest/restClient.js";
-import {OM}            from "../../tetris/observableMap/om.js";
-import {AsyncRelay}    from "../../tetris/observableMap/asyncRelay.js";
-import {clientId} from "../../kolibri/version.js";
+import {clientId}      from "../../kolibri/version.js";
+import {AsyncRelay}    from "../../kolibri/observable/asyncRelay.js";
+import {ObservableMap} from "../../kolibri/observable/observableMap.js";
 
-export { connect }
+export {connect};
 
 const log = LoggerFactory("ch.fhnw.tetris.remote.connect");
 
@@ -21,11 +20,11 @@ const log = LoggerFactory("ch.fhnw.tetris.remote.connect");
  * changes in the map will be sent to the server and changes from the server side are
  * published to the map. This handles adding and removing keys as well as value changes.
  * @param { String } baseUrl - connection target
- * @param { OMType } om      - the observable map that connects to the server
+ * @param { ObservableMapType } om      - the observable map that connects to the server
  */
 const connect = (baseUrl, om) => {
 
-    const rom = OM("remote", 10); // debounce on the remote proxy
+    const rom = ObservableMap("remote", 10); // debounce on the remote proxy
 
     const versions = {}; // keys to their latest known version number
 
@@ -69,50 +68,50 @@ const connect = (baseUrl, om) => {
                 });
                 break;
             case PATH_REMOVE_ACTION: {
-                    const key            = payload[PARAM_KEY];
-                    const value          = payload[PARAM_UPDATE_ACTION];
-                    const receivedOrigin = value[KEY_ORIGIN];
-                    if (!receivedOrigin) {
-                        log.warn("no origin (remove)");
-                    }
-                    if (clientId === receivedOrigin) {
-                        log.debug(`do not echo my own removal`);
-                        return;
-                    }
-                    scheduler.addOk(_ => {
-                        rom.removeKey(key);
-                        delete versions[key]; // remove the version guard as late as possible
-                    });
+                const key            = payload[PARAM_KEY];
+                const value          = payload[PARAM_UPDATE_ACTION];
+                const receivedOrigin = value[KEY_ORIGIN];
+                if (!receivedOrigin) {
+                    log.warn("no origin (remove)");
                 }
+                if (clientId === receivedOrigin) {
+                    log.debug(`do not echo my own removal`);
+                    return;
+                }
+                scheduler.addOk(_ => {
+                    rom.removeKey(key);
+                    delete versions[key]; // remove the version guard as late as possible
+                });
+            }
                 break;
             default:
-                log.error(`cannot process received data: ${event.data}`)
+                log.error(`cannot process received data: ${event.data}`);
         }
     });
 
-    rom.onChange( ( key, value ) => { // also handles the keyAdded case implicitly
+    rom.onChange((key, value) => { // also handles the keyAdded case implicitly
         const version = versions[key] ?? 0;
         versions[key] = version + 1;
-        const data = {
-            [KEY_VERSION]         : versions[key],
-            [KEY_ORIGIN]          : clientId,
-            [PARAM_KEY]           : key,
-            [PARAM_UPDATE_ACTION] : value
+        const data    = {
+            [KEY_VERSION]:         versions[key],
+            [KEY_ORIGIN]:          clientId,
+            [PARAM_KEY]:           key,
+            [PARAM_UPDATE_ACTION]: value
         };
         log.debug(`sending update key ${key} value ${value} version ${versions[key]}`);
         client(baseUrl + '/' + PATH_UPDATE_ACTION, "POST", data)
-            .then(  _ => log.debug("done sending update"))
-            .catch( e => log.error("error sending update data: "+ JSON.stringify(data) + " " + e));
-    } );
+            .then(_ => log.debug("done sending update"))
+            .catch(e => log.error("error sending update data: " + JSON.stringify(data) + " " + e));
+    });
 
-    rom.onKeyRemoved( ( key ) => {
+    rom.onKeyRemoved((key) => {
         const data = {
-            [KEY_ORIGIN]          : clientId,
-            [PARAM_KEY]           : key
+            [KEY_ORIGIN]: clientId,
+            [PARAM_KEY]:  key
         };
         log.debug(`sending remove key ${key}`);
         client(baseUrl + '/' + PATH_REMOVE_ACTION, "DELETE", data)
-            .then(  _ => log.debug("done sending remove"))
-            .catch( e => log.error("error sending remove data: "+ JSON.stringify(data) + " " + e));
-    } );
+            .then(_ => log.debug("done sending remove"))
+            .catch(e => log.error("error sending remove data: " + JSON.stringify(data) + " " + e));
+    });
 };

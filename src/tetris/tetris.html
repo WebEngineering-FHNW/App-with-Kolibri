@@ -12,13 +12,12 @@
     import {GameController}        from "./game/gameController.js";
     import {projectGame}           from "./game/gameProjector.js";
     import {defaultConsoleLogging} from "../kolibri/logger/loggingSupport.js";
-    import {OM}                  from "./observableMap/om.js";
-    import {LOG_DEBUG, LOG_WARN} from "../kolibri/logger/logLevel.js";
+    import {LOG_DEBUG, LOG_WARN}   from "../kolibri/logger/logLevel.js";
+    import {ObservableMap}         from "../kolibri/observable/observableMap.js";
 
     defaultConsoleLogging("ch.fhnw.tetris", LOG_DEBUG);
 
-
-    const om = OM("tetris.html", 1); // 1 is the minimum here to make updates async
+    const om = ObservableMap("tetris.html", 1); // 1 is the minimum here to make updates async
 
     const gameController = GameController(om);
 

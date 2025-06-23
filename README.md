@@ -9,7 +9,7 @@ In order to stay up-to-date with kolibri:
 - add kolibri to as your "upstream" remote
           git remote add upstream https://github.com/webengineering-fhnw/Kolibri/
 - merge from upstream
-          git pull upstream master
+          git pull upstream main
 
 [App with Kolibri Home Page](https://webengineering-fhnw.github.io/App-with-Kolibri/index.html)
 

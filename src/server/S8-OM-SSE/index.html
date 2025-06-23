@@ -26,16 +26,16 @@
 
     import {defaultConsoleLogging} from "../../kolibri/logger/loggingSupport.js";
     import {LoggerFactory}         from "../../kolibri/logger/loggerFactory.js";
-    import {OM}                    from "../../tetris/observableMap/om.js";
     import {dom, select}           from "../../kolibri/util/dom.js";
     import {connect}               from "./connect.js";
     import {clientId}              from "../../kolibri/version.js";
+    import {ObservableMap}         from "../../kolibri/observable/observableMap.js";
 
     defaultConsoleLogging("ch.fhnw", LOG_WARN);
 
     const log = LoggerFactory("ch.fhnw.kolibri.remote.rom");
 
-    const om = OM("index.html");
+    const om = ObservableMap("index.html");
 
     connect(window.location.origin, om);
 

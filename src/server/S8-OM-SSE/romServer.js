@@ -14,8 +14,8 @@ import {addToAppenderList, setLoggingContext, setLoggingLevel} from "../../kolib
 import * as loglevel                                           from "../../kolibri/logger/logLevel.js";
 import {ConsoleAppender}                                       from "../../kolibri/logger/appender/consoleAppender.js";
 import {LoggerFactory}                                         from "../../kolibri/logger/loggerFactory.js";
-import {OM}                                                    from "../../tetris/observableMap/om.js";
 import {ownPropEqual}                                          from "../../tetris/util/util.js";
+import {ObservableMap}                                         from "../../kolibri/observable/observableMap.js";
 
 addToAppenderList(ConsoleAppender());
 setLoggingContext("ch.fhnw.tetris");
@@ -27,7 +27,7 @@ const port      = 8080;
 const hostname  = 'localhost';
 const baseURL   = `http://${hostname}:${port}`;
 
-const rom = OM("server", 10); // make the value updates async without much delay
+const rom = ObservableMap("server", 10); // make the value updates async without much delay
 
 // internal counter
 let eventId = 1;

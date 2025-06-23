@@ -20,7 +20,6 @@ import {PlayerController}    from "../player/playerController.js";
 import {GameStateController} from "../gameState/gameStateController.js";
 import {TetrominoController} from "../tetromino/tetrominoController.js";
 import {BoxController}       from "../box/boxController.js";
-import {Scheduler}           from "../../kolibri/dataflow/dataflow.js";
 
 export {
     GameController
@@ -40,7 +39,7 @@ const log = LoggerFactory("ch.fhnw.tetris.game.gameController");
 
 /**
  * @constructor
- * @param { OMType } om
+ * @param { ObservableMapType } om
  * @returns { GameControllerType }
  */
 const GameController = om => {
