@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Collaborative 3D Tetris</title>
+    <link href="tetris.css" rel="stylesheet"/>
+</head>
+<body>
+<button id="startButton" onclick="init()"
+        style="
+            font-size:          300%;
+            font-weight:        bold;
+            border:             2px solid darkblue;
+            border-radius:      .5em;
+            place-self:         center;
+            padding:            1em 3em;
+            background-color:   #fff2;
+            color:              white;
+"
+>
+    Join the 3D Tetris
+</button>
+
+<script>
+// we need the join button to prevent Safari from pre-rendering, which would create an additional user
+function init() {
+    startButton.remove();
+    import("./startRemote.js");
+}
+
+</script>
+</body>
+</html>

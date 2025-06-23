@@ -1,0 +1,6 @@
+import "./observableMap/asyncRelayTest.js"
+import "./observableMap/omTest.js"
+// import "./utilTest.js"
+// import "./shapeControllerTest.js"
+// import "./gameControllerTest.js"
+// import "./observableMap/observableMapTest.js"

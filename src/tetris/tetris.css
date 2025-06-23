@@ -1,0 +1,213 @@
+@import "scene3D/scene.css";
+
+:root {
+    --unit:      1cqmin;
+    --box-width: calc( 6 * var(--unit));
+
+}
+
+html {
+    overscroll-behavior:    none;
+    font-family:            system-ui;
+}
+
+header {
+    position:               fixed;
+    z-index:                10;
+    inset:                  1em 1em auto auto;
+    background-color:       #FFF2;
+    padding:                .5em 1em;
+    border-radius:          .5em;
+    color:                  aliceblue;
+    color-scheme:           dark;
+
+    display:                grid;
+    grid-template-columns:  1fr;
+    gap:                    .3em;
+    justify-items:          right;
+
+    &.active {
+        border:             2px solid white;
+    }
+
+    & div.playerList {
+        padding:            .3em .5em;
+        background-color:   #FFFFFF18;
+        border-radius:      .3em;
+
+        & ul {
+            overflow-y:      scroll;
+            max-height:      5lh;
+            max-width:       10ch;
+            list-style:      none;
+            padding:         0;
+            margin:          0;
+            & li {
+                text-wrap:   nowrap;
+            }
+        }
+    }
+}
+li.active {
+    text-decoration: underline;
+}
+
+body {
+    min-height:             100dvh;
+    display:                grid;
+    grid-template-columns:  100%;
+    grid-template-rows:     1fr max-content;
+    margin:                 0;
+    background:             linear-gradient(in srgb-linear, blue, orange);
+}
+
+footer {
+    padding:     1lh;
+    display:     grid;
+    place-items: center;
+    color:       white;
+    font-size:   120%;
+}
+
+.floor {
+    position:         absolute;
+    inset:            0;
+    width:            100%;
+    height:           100%;
+    background-image: repeating-conic-gradient(transparent 0deg 90deg, black 90deg 180deg);
+    background-size:  calc(var(--box-width) * 2)
+                      calc(var(--box-width) * 2);
+    opacity:          0.3;
+
+    & .toplight {
+        position:         absolute;
+        inset:            0;
+        background-image: radial-gradient(white 30%, black 80%);
+        opacity:          .85;
+    }
+}
+
+.tetromino {
+    transform-style: preserve-3d;
+    color:           transparent; /* avoid spiky artefacts */
+    grid-area:       1/1;
+    display:         grid;
+    --z-center:      calc(var(--box-width) / 2);
+    transform:       translateZ(var(--z-center)); /* or we would be half-a-box size too low */
+}
+
+/* provides the logical group */
+.box {
+    grid-area:       1/1;
+    --x:             0;
+    --y:             0;
+    --z:             12;
+    width:           var(--box-width);
+    aspect-ratio:    1 / 1;
+    display:         grid; /* child positioning (the faces) */
+    transform-style: preserve-3d; /* put children in our 3d space */
+    translate:       calc(var(--x) * var(--box-width))
+                     calc(var(--y) * var(--box-width))
+                     calc(var(--z) * var(--box-width));
+    transition:      all .1s ease-in-out;
+}
+.tetromino.ghost .box {
+    --z:            0;
+}
+
+.box.destroy {
+    scale:          10;
+    translate:      calc(var(--x) * var(--box-width))
+                    calc(var(--y) * var(--box-width))
+                    calc((-1/2)   * var(--box-width));
+    transition:     translate .7s     cubic-bezier(1, 0.7, 1, 1),
+                    scale     .6s .6s ease-out;
+}
+
+.box.destroy .face {
+    opacity:        0;
+    filter:         blur(.2cqmin);
+    transform:      rotateY(0deg) rotateX(0deg);
+    transition:     transform  1s .4s linear,
+                    opacity   .5s  1s linear,
+                    filter    .6s .5s linear;
+}
+
+
+/* all children (faces) go directly on top of each other */
+.face {
+    grid-area:     1/1;
+    background:    grey;
+    opacity:       .8;
+    border-radius: 3%;
+    border:        1px solid #C9FF;
+}
+
+/* the transform origin for rotate is center by default, so rotations must first */
+/* put the respective face in the the center, then rotate.            */
+.face:nth-child(1) {
+    transform: translateZ(var(--z-center));
+}
+
+/* move front to center */
+.face:nth-child(2) {
+    transform: rotateY(180deg) translateZ(var(--z-center));
+}
+
+/* center, then around Y-axis to the back */
+.face:nth-child(3) {
+    transform: rotateY(-90deg) translateZ(var(--z-center));
+}
+
+/* center, then around Y-axis to the left */
+.face:nth-child(4) {
+    transform: rotateY(90deg) translateZ(var(--z-center));
+}
+
+/* center, then around Y-axis to the right */
+.face:nth-child(5) {
+    transform: rotateX(90deg) translateZ(var(--z-center));
+}
+
+/* center, then around X-axis to the top */
+.face:nth-child(6) {
+    transform: rotateX(-90deg) translateZ(var(--z-center));
+}
+
+/* center, then around X-axis to the bottom */
+
+
+.charI      .face {background-color: cyan;}
+.charT      .face {background-color: red;}
+.charO      .face {background-color: blueviolet;}
+.charS      .face {background-color: yellow;}
+.charZ      .face {background-color: lime;}
+.charL      .face {background-color: orange;}
+.charF      .face {background-color: white;}
+.branch     .face {background-color: magenta;}
+.screwRight .face {background-color: yellow;}
+.screwLeft  .face {background-color: lime;}
+
+.ghost .face  {
+    background-color: transparent;
+    border:           none;
+}
+
+.ghost.show .face:nth-child(2) { /* floor face */
+    background-color: yellow;
+    box-shadow:       0 0 3cqmin yellow;
+    opacity:          1;
+}
+
+.plane {
+    border: 4px solid #99Fe;
+
+    &.show {
+        background: #99F9;
+    }
+}
+
+.yz-plane {
+    transform-origin: left top;
+    transform:        rotateY(-90deg);
+}

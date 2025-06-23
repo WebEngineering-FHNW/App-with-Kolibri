@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Local 3D Tetris</title>
+    <link href="tetris.css" rel="stylesheet"/>
+</head>
+<body>
+
+<script type="module">
+
+    import {GameController}        from "./game/gameController.js";
+    import {projectGame}           from "./game/gameProjector.js";
+    import {defaultConsoleLogging} from "../kolibri/logger/loggingSupport.js";
+    import {OM}                  from "./observableMap/om.js";
+    import {LOG_DEBUG, LOG_WARN} from "../kolibri/logger/logLevel.js";
+
+    defaultConsoleLogging("ch.fhnw.tetris", LOG_DEBUG);
+
+
+    const om = OM("tetris.html", 1); // 1 is the minimum here to make updates async
+
+    const gameController = GameController(om);
+
+    gameController.startGame(_ => {
+        document.body.append(...projectGame(gameController));
+    });
+
+</script>
+</body>
+</html>

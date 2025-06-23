@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dolphin</title>
+    <style>
+        #inputs {
+            display:                grid;
+            grid-template-columns:  max-content max-content max-content;
+            gap:                    .5em 1em;
+            margin-block:           .5em;
+            font-family:            system-ui;
+        }
+    </style>
+</head>
+<body>
+<h1>Dolphin</h1>
+<button id="add">add</button>
+<div id="inputs">
+</div>
+
+
+<output id="out"></output>
+
+<script type="module">
+
+    import {defaultConsoleLogging} from "../../kolibri/logger/loggingSupport.js";
+    import {LoggerFactory}         from "../../kolibri/logger/loggerFactory.js";
+    import {OM}                    from "../../tetris/observableMap/om.js";
+    import {dom, select}           from "../../kolibri/util/dom.js";
+    import {connect}               from "./connect.js";
+    import {clientId}              from "../../kolibri/version.js";
+
+    defaultConsoleLogging("ch.fhnw", LOG_WARN);
+
+    const log = LoggerFactory("ch.fhnw.kolibri.remote.rom");
+
+    const om = OM("index.html");
+
+    connect(window.location.origin, om);
+
+    om.onKeyAdded( key => { // whenever there is a new key that we care about
+        // create view
+        const [label, input, button] = dom(`
+            <label for="${key}">key: ${key.substring(key.length-5)}</label>
+            <input id=${key}>
+            <button>x</button>
+            `);
+        inputs.append(label, input, button);
+
+        // data binding
+        om.onChange( ( changedKey, value ) => {
+            if (key === changedKey) {
+                input.value = value;
+            }
+        });
+        om.onKeyRemoved( removedKey => {
+            if (removedKey === key) {
+                label.remove();
+                input.remove();
+                button.remove();
+            }
+        });
+
+        // view binding
+        input.oninput  = _ => om.setValue(key, input.value);
+        button.onclick = _ => om.removeKey(key);
+    });
+
+    let addCount = 0;
+    add.onclick = _ => {
+        const newId = clientId+ "-" + (++addCount);
+        om.setValue("key_"+newId, "initial");
+    }
+
+
+
+
+
+
+</script>
+
+
+</body>
+</html>
