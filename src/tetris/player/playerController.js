@@ -158,7 +158,7 @@ const PlayerController = (om, omPublishStrategy, onSetupFinished) => {
                 return;
             }
             if (PLAYER_ACTIVE_ID === key) {
-                activePlayerIdObs.setValue(value); // value is the id
+                activePlayerIdObs.setValue(value.toString()); // value is the id but OM stores it as an object
             }
         });
     };

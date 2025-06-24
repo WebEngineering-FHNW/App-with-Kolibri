@@ -8,7 +8,7 @@ import {projectGameState}         from "../gameState/gameStateProjector.js";
 
 export {projectGame};
 
-const log = LoggerFactory("ch.fhnw.kolibri.tetris.gameProjector");
+const log = LoggerFactory("ch.fhnw.tetris.gameProjector");
 
 /**
  * Create the control panel view and bind to the controller actions
@@ -63,7 +63,7 @@ const projectControlPanel = gameController => {
     // Using direct property assignment (onclick) overwrites any previous listeners
     // Only the last assignment will be executed when the button is clicked
     startButton.onclick = _ => {
-        startButton.setAttribute("disabled", "");
+        startButton.setAttribute("disabled", ""); // double-click protection
         gameController.restart( ()=> {
             if (!playerController.areWeInCharge()) return;
             startButton.removeAttribute("disabled");

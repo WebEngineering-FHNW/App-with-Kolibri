@@ -47,7 +47,7 @@ const GameStateController = (om, omPublishStrategy) => {
 // --- game state --- --- --- --- --- --- --- --- ---
 
     /** @type { IObservable<GameStateModelType> } */
-    let gameStateObs = Observable(NO_GAME_STATE);
+    const gameStateObs = Observable(NO_GAME_STATE);
 
     const updateScore = changeFn => {
         const oldGameState = gameStateObs.getValue();
@@ -72,6 +72,7 @@ const GameStateController = (om, omPublishStrategy) => {
         }
         const newGameState       = /** @type { GameStateModelType } */ {...oldGameState};
         newGameState.fallingDown = newValue;
+        gameStateObs.setValue(newGameState); // eager update ???
         publish(newGameState);   // lazy update to not start the fall task twice
     };
 

@@ -151,6 +151,7 @@ const GameController = om => {
      * Principle game loop implementation: let the current tetromino fall down slowly and check for the end of the game.
      */
     const fallTask = () => {
+        console.warn("fallTask");
         if (! playerController.areWeInCharge()) {
             log.info("stop falling since we are not in charge");
             currentlyFalling = false;
@@ -168,7 +169,11 @@ const GameController = om => {
     };
 
     const registerNextFallTask = () => {
-        if (currentlyFalling) return; // do not fall twice the speed
+        console.warn("registerNextFallTask");
+        if (currentlyFalling) {
+            console.warn("we already fall => avoid falling twice");
+            return;
+        } // do not fall twice the speed
         currentlyFalling = true;
         setTimeout(fallTask, 1 * 1000);
     };
@@ -242,6 +247,7 @@ const GameController = om => {
     const restart  = (onFinishedCallback) => {
         if (!playerController.areWeInCharge()) return;
         gameStateController.setFallingDown(false);      // hold on
+        currentlyFalling = false; // todo: only works on eager update on setFallingDown
         tetrominoController.setNoCurrentTetromino();
 
         // do not proceed before all backing Lists are empty
@@ -277,6 +283,12 @@ const GameController = om => {
     playerController.onWeHaveBecomeActive( _ => {
         registerNextFallTask();  // we are now responsible for keeping the fall task alive
     });
+    // gameStateController.onGameStateChanged( gameState => {
+    //     if (!playerController.areWeInCharge()) return;
+    //     if (gameState.fallingDown) {
+    //         registerNextFallTask(); // will itself check whether we are already falling
+    //     }
+    // });
 
 
     /**

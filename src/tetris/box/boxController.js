@@ -30,7 +30,7 @@ const BOX_PREFIX = "BOX-";
 
 /**
  * @constructor
- * @param { OMType } om
+ * @param { ObservableMapType } om
  * @param { Function } omPublishStrategy - strategy
  * @returns { BoxControllerType }
  */

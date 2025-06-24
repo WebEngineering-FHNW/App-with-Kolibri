@@ -43,7 +43,7 @@ const TETROMINO_CURRENT_ID  = /** @type { ForeignKeyType } */ PREFIX_IMMORTAL + 
 
 /**
  * @constructor
- * @param { OMType }            om
+ * @param { ObservableMapType } om
  * @param { Function }          omPublishStrategy - the om set value strategy
  * @param { BoxControllerType } boxController
  * @returns { TetrominoControllerType }
@@ -55,7 +55,11 @@ const TetrominoController = (om, omPublishStrategy, boxController) => {
     /**
      * @param { TetrominoModelType } tetromino
      */
-    const publish = tetromino => omPublishStrategy ( _=> om.setValue(tetromino.id, tetromino) ) ;
+    const publish = tetromino => omPublishStrategy ( _=> {
+        console.warn(tetromino.zPos);
+        handleTetrominoUpdate(tetromino);
+        om.setValue(tetromino.id, tetromino);
+    }) ;
     const publishReferrer = (referrer, reference) => omPublishStrategy ( _=> om.setValue(referrer, reference) );
     /** @param {TetrominoModelType} tetromino */
     const publishRemove = tetromino => omPublishStrategy( _ => om.removeKey(tetromino.id));
@@ -145,19 +149,21 @@ const TetrominoController = (om, omPublishStrategy, boxController) => {
     * Observable to keep the projected views separate from the controller.
     * The value is undefined before any player has started the game.
     */
-    let tetrominoCurrentIdObs = Observable(MISSING_FOREIGN_KEY);
+    const tetrominoCurrentIdObs = Observable(MISSING_FOREIGN_KEY);
 
     const findTetrominoById = tetroId => {
         return tetrominoBackingList.find( it => it.id === tetroId);
     };
 
     const handleTetrominoUpdate = tetromino => {
+        console.warn("handleTetrominoUpdate");
         publishUpdatedBoxPositions(tetromino);
 
         const knownTetroIndex = tetrominoBackingList.findIndex( it => it.id === tetromino.id);
         if (knownTetroIndex >= 0) {
-            tetrominoBackingList[knownTetroIndex] = tetromino;
-            tetrominoChangedObs.setValue(tetromino);
+            console.warn("known tetro update");
+            tetrominoBackingList[knownTetroIndex] = tetromino; // todo: is this really needed?
+            tetrominoChangedObs.setValue({...tetromino}); // todo: does it need a new object identity to enforce onChange?
             return;
         }
         log.info(`new tetromino: ${JSON.stringify(tetromino)}`);
@@ -174,7 +180,8 @@ const TetrominoController = (om, omPublishStrategy, boxController) => {
 
         [0, 1, 2, 3].map( boxIndex => {
             const boxId  = /** @type { ForeignKeyType } */ BOX_PREFIX + tetroId + "-" + boxIndex;
-            const box    = Box({id:boxId, tetroId, xPos:0, yPos:0, zPos:12 });
+            const {xPos, yPos, zPos} = finalBoxPosition(tetromino, boxIndex);
+            const box = Box({id:boxId, tetroId, xPos, yPos, zPos });
             boxController.updateBox(box);
         });
         publishReferrer(TETROMINO_CURRENT_ID, tetroId);
@@ -187,7 +194,7 @@ const TetrominoController = (om, omPublishStrategy, boxController) => {
         }
         [0, 1, 2, 3]
             .map(n => ({...boxes[n], ...finalBoxPosition(tetromino, n)}))
-            .forEach(publish);
+            .forEach(boxController.updateBox);
     };
 
     const startListening = () => {
@@ -203,7 +210,7 @@ const TetrominoController = (om, omPublishStrategy, boxController) => {
                 return;
             }
             if (TETROMINO_CURRENT_ID === key){
-                tetrominoCurrentIdObs.setValue(value); // value is the id
+                tetrominoCurrentIdObs.setValue(value.toString()); // value is the id but OM stores it as an object
             }
         });
 
