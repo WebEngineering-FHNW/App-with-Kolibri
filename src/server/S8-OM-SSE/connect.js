@@ -24,7 +24,7 @@ const log = LoggerFactory("ch.fhnw.tetris.remote.connect");
  */
 const connect = (baseUrl, om) => {
 
-    const rom = ObservableMap("remote", 10); // debounce on the remote proxy
+    const rom = ObservableMap("remote");
 
     const versions = {}; // keys to their latest known version number
 

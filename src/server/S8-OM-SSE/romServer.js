@@ -27,7 +27,7 @@ const port      = 8080;
 const hostname  = 'localhost';
 const baseURL   = `http://${hostname}:${port}`;
 
-const rom = ObservableMap("server", 10); // make the value updates async without much delay
+const rom = ObservableMap("server");
 
 // internal counter
 let eventId = 1;

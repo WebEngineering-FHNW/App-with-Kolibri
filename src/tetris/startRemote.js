@@ -7,7 +7,7 @@ import {ObservableMap}         from "../kolibri/observable/observableMap.js";
 
 defaultConsoleLogging("ch.fhnw.tetris", LOG_INFO);
 
-const om = ObservableMap("index.html", 10); // 1 in minimum to make updates async
+const om = ObservableMap("index.html");
 
 connect(window.location.origin, om);
 
