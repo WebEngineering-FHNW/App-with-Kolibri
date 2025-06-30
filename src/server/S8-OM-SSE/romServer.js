@@ -18,10 +18,10 @@ import {ownPropEqual}                                          from "../../tetri
 import {ObservableMap}                                         from "../../kolibri/observable/observableMap.js";
 
 addToAppenderList(ConsoleAppender());
-setLoggingContext("ch.fhnw.tetris");
-setLoggingLevel(loglevel.LOG_INFO);
+setLoggingContext("ch.fhnw.kolibri.remote");
+setLoggingLevel(loglevel.LOG_DEBUG);
 
-const log = LoggerFactory("ch.fhnw.tetris.romServer");
+const log = LoggerFactory("ch.fhnw.kolibri.remote.romServer");
 
 const port      = 8080;
 const hostname  = 'localhost';

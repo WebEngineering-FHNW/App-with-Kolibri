@@ -13,7 +13,7 @@ import {ObservableMap} from "../../kolibri/observable/observableMap.js";
 
 export {connect};
 
-const log = LoggerFactory("ch.fhnw.tetris.remote.connect");
+const log = LoggerFactory("ch.fhnw.kolibri.remote.connect");
 
 /**
  * Setting up the connection between the observable map and the romServer such that
@@ -55,7 +55,7 @@ const connect = (baseUrl, om) => {
                     log.debug(`do not echo my own changes`);
                     return;
                 }
-                if (receivedVersion < versions[key]) {
+                if (receivedVersion < versions[key]) { // todo dk: this should be <=
                     log.debug(`ignore update: new version < old version:  ${receivedVersion} <= ${versions[key]}.`);
                     return;
                 }
@@ -89,6 +89,7 @@ const connect = (baseUrl, om) => {
         }
     });
 
+    // todo dk: value change should never imply adding (zombie issue)
     rom.onChange((key, value) => { // also handles the keyAdded case implicitly
         const version = versions[key] ?? 0;
         versions[key] = version + 1;
