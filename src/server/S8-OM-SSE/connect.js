@@ -27,8 +27,9 @@ const connect = (baseUrl, om) => {
     const rom = ObservableMap("remote");
 
     const versions = {}; // keys to their latest known version number
+    const remoteSymbol = Symbol("remote"); // used to tell whether a value was received from remote
 
-    const scheduler = AsyncRelay(rom)(om);
+    const scheduler = AsyncRelay(rom)(om); // todo dk: it might be more efficient to directly listen on the om and avoid the rom
 
     const eventSource = new EventSource(baseUrl + '/' + PATH_REMOTE_OBSERVABLE);
 
@@ -63,7 +64,12 @@ const connect = (baseUrl, om) => {
                     log.debug("version is equal but value might still have changed (?)");
                 }
                 scheduler.addOk(_ => {
-                    rom.setValue(key, value[KEY_DATA]);
+                    let dataValue = value[KEY_DATA];
+                    if(! (dataValue  instanceof Object)) { // todo remove dupl with obsMap
+                        dataValue = Object(dataValue);
+                    }
+                    dataValue[remoteSymbol] = true;        // tag the value with a symbol that we can pick up to avoid echo
+                    rom.setValue(key, dataValue);
                     versions[key] = receivedVersion; // this line must be exactly here or data will get missing
                 });
                 break;
@@ -91,6 +97,10 @@ const connect = (baseUrl, om) => {
 
     // todo dk: value change should never imply adding (zombie issue)
     rom.onChange((key, value) => { // also handles the keyAdded case implicitly
+        if(value[remoteSymbol]) {  // todo: think about enforcing immutable values for all obsMaps
+            log.debug(`prevent echo of our own changes back to the server, key: ${key}`);
+            return;
+        }
         const version = versions[key] ?? 0;
         versions[key] = version + 1;
         const data    = {
