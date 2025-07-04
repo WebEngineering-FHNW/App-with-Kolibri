@@ -198,9 +198,9 @@ const projectMain = gameController => {
         if (box.id === MISSING_FOREIGN_KEY) return;
         const boxDiv = main.querySelector(`.box[data-id="${box.id}"]`);
         if(!boxDiv) {
-            log.warn("unknown div for box "+box.id+" . Trying to create one.");
+            // log.warn("unknown div for box "+box.id+" . Trying to create one.");
+            log.warn("unknown div for box "+box.id+" . Likely, tetro has not been added, yet. Later updates will resolve this.");
             // handleNewBoxDiv(box); // this might happen for change requests on removed boxes.
-            // todo: think about maintaining a list of removed box keys...
             return;
         }
         updateBoxDivPosition(box, boxDiv);

@@ -69,6 +69,7 @@ const BoxController = (om, omPublishStrategy) => {
     };
 
     const updateBox = newBox => {
+        boxChangedObs.setValue(newBox);
         publish(newBox);
     };
 

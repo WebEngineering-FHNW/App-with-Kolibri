@@ -47,7 +47,8 @@ const PlayerController = (om, omPublishStrategy, onSetupFinished) => {
 
     /** @param { PlayerType } player */
     const publish = player => omPublishStrategy ( _=> om.setValue(player.id, player) ) ;
-    const publishReferrer = (referrer, reference) => omPublishStrategy ( _=> om.setValue(referrer, reference) );
+    const publishReferrer = (referrer, reference) =>
+        omPublishStrategy ( _=> om.setValue(referrer, Object(reference)) );
     /** @param {ForeignKeyType} playerId */
     const publishRemoveKey = playerId => omPublishStrategy( _ => om.removeKey(playerId));
 

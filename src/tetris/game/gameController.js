@@ -151,7 +151,6 @@ const GameController = om => {
      * Principle game loop implementation: let the current tetromino fall down slowly and check for the end of the game.
      */
     const fallTask = () => {
-        console.warn("fallTask");
         if (! playerController.areWeInCharge()) {
             log.info("stop falling since we are not in charge");
             currentlyFalling = false;
@@ -169,7 +168,6 @@ const GameController = om => {
     };
 
     const registerNextFallTask = () => {
-        console.warn("registerNextFallTask");
         if (currentlyFalling) {
             console.warn("we already fall => avoid falling twice");
             return;
