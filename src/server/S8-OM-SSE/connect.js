@@ -56,7 +56,7 @@ const connect = (baseUrl, om) => {
                     log.debug(`do not echo my own changes`);
                     return;
                 }
-                if (receivedVersion < versions[key]) { // todo dk: this should be <=
+                if (receivedVersion <= versions[key]) {
                     log.debug(`ignore update: new version < old version:  ${receivedVersion} <= ${versions[key]}.`);
                     return;
                 }
