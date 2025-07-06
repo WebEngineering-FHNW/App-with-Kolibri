@@ -61,8 +61,6 @@ const ObservableMap = (name) => {
 
     const hasKey = key => backingMap.hasOwnProperty(key);
 
-    const knownToBeDeletedKeys = []; // todo dk: this is most likely a bad idea as it disallows removing and adding again
-
     const setKeyValue = (key, value) => {
         if (! (value instanceof Object)) {  // e.g. value is a plain String
             log.warn(`value '${value}' is not an object and will be wrapped. Consider Object(value).`);
@@ -77,9 +75,6 @@ const ObservableMap = (name) => {
                 value:        name,                 // ... therefore, we are the origin
                 enumerable:   false,                // origin should not live through shallow copies
             });
-        }
-        if (knownToBeDeletedKeys.includes(key)) {
-            return;                                 // do not resurrect zombies
         }
         const keyIsNew   = !hasKey(key);
         const oldStr = JSON.stringify(backingMap[key]);
@@ -111,10 +106,6 @@ const ObservableMap = (name) => {
         if (!hasKey(key)) {
             return;
         }
-        if(knownToBeDeletedKeys.length > 200) {
-            knownToBeDeletedKeys.splice(100); // only keep the last 100 at most
-        }
-        knownToBeDeletedKeys.unshift(key);
         const notifyAll = () => {
             const removedValue = backingMap[key];
             delete backingMap[key];
