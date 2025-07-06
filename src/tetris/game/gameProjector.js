@@ -184,17 +184,13 @@ const projectMain = gameController => {
     gameController.boxController.onBoxAdded(handleNewBoxDiv);
     gameController.boxController.onBoxRemoved( box=> {
         const boxDiv   = main.querySelector(`.box[data-id="${box.id}"]`);
-        if (!boxDiv) {
-            alert("cannot find box div to remove");
+        if (!boxDiv) { // difficult to say when this might happen, but better be defensive
+            log.error("cannot find div to remove for box id " + box.id);
             return;
-        } // difficult to say when this might happen, but better be defensive
+        }
         boxDiv.classList.add("destroy");
         setTimeout( _=> { // remove only after visualization is done
             boxDiv.remove();
-            // const tetroDiv = main.querySelector(`.tetromino[data-id="${box.tetroId}"]`); // remove tetro if it has no more children
-            // if (tetroDiv && tetroDiv.children.length < 1) {
-            //     tetroDiv.remove();
-            // }
         }, 1500); // todo take from config, make sure it aligns with css anim/transition timing
 
     });
@@ -202,9 +198,7 @@ const projectMain = gameController => {
         if (box.id === MISSING_FOREIGN_KEY) return;
         const boxDiv = main.querySelector(`.box[data-id="${box.id}"]`);
         if(!boxDiv) {
-            log.warn("unknown div for box "+box.id+" . Likely, tetro has not been added, yet. Later updates will resolve this.");
-            // log.warn("unknown div for box "+box.id+" . Trying to create one.");
-            // handleNewBoxDiv(box); // this might happen for change requests on removed boxes.
+            log.debug("unknown div for box "+box.id+" . Likely, tetro has not been added, yet. Later updates will resolve this.");
             return;
         }
         updateBoxDivPosition(box, boxDiv);

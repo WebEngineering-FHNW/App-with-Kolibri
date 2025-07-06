@@ -100,7 +100,6 @@ const BoxController = (om, omPublishStrategy) => {
         }
         log.debug(`new box: ${JSON.stringify(box)}`);
         boxesListObs.add(box);
-        // tetrominoController will listen and be notified to keep box positions consistent. todo dk ???
     };
 
     const startListening = () => {
