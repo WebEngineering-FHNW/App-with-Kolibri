@@ -184,15 +184,19 @@ const projectMain = gameController => {
     gameController.boxController.onBoxAdded(handleNewBoxDiv);
     gameController.boxController.onBoxRemoved( box=> {
         const boxDiv   = main.querySelector(`.box[data-id="${box.id}"]`);
-        if (!boxDiv) return; // difficult to say when this might happen, but better be defensive
+        if (!boxDiv) {
+            alert("cannot find box div to remove");
+            return;
+        } // difficult to say when this might happen, but better be defensive
         boxDiv.classList.add("destroy");
         setTimeout( _=> { // remove only after visualization is done
             boxDiv.remove();
+            // const tetroDiv = main.querySelector(`.tetromino[data-id="${box.tetroId}"]`); // remove tetro if it has no more children
+            // if (tetroDiv && tetroDiv.children.length < 1) {
+            //     tetroDiv.remove();
+            // }
         }, 1500); // todo take from config, make sure it aligns with css anim/transition timing
-        const tetroDiv = main.querySelector(`.tetromino[data-id="${box.tetroId}"]`); // remove tetro if it has no more children
-        if (tetroDiv && tetroDiv.children.length < 1) {
-            tetroDiv.remove();
-        }
+
     });
     gameController.boxController.onBoxChanged( box => {
         if (box.id === MISSING_FOREIGN_KEY) return;

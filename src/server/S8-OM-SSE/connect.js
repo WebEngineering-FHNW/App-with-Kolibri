@@ -80,10 +80,6 @@ const connect = (baseUrl, om) => {
                 if (!receivedOrigin) {
                     log.warn("no origin (remove)");
                 }
-                if (clientId === receivedOrigin) {
-                    log.debug(`do not echo my own removal`);
-                    return;
-                }
                 scheduler.addOk(_ => {
                     rom.removeKey(key);
                     delete versions[key]; // remove the version guard as late as possible

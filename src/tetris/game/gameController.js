@@ -255,16 +255,16 @@ const GameController = om => {
             boxController      .removeBoxesWhere( _box => true); // remove all boxes
             tetrominoController.removeAll();
 
-            const removalsFinished = tetrominoController.isEmpty() && boxController.isEmpty();
-            if (removalsFinished) {
+            // const removalsFinished = tetrominoController.isEmpty() && boxController.isEmpty();
+            // if (removalsFinished) {
                 gameStateController.resetGameState();
                 tetrominoController.makeNewCurrentTetromino();
                 gameStateController.setFallingDown(true);
                 registerNextFallTask();                     // proceed
                 onFinishedCallback();
-            } else {
-                setTimeout(waitForCleanup, 50);
-            }
+            // } else {
+            //     setTimeout(waitForCleanup, 50);
+            // }
         };
         waitForCleanup();
     };
