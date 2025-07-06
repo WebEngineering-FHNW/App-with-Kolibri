@@ -84,6 +84,7 @@ const TetrominoController = (observableMap, omPublishStrategy, boxController) =>
 
     const getCurrentTetrominoFromObservableMap = id => {
         let result = NO_TETROMINO;
+        if(NO_TETROMINO.id === id) { return result; }
         observableMap.getValue(id)
           ( _     => log.warn("no tetromino with current id "+id))
           ( tetro => result = tetro);
@@ -146,14 +147,11 @@ const TetrominoController = (observableMap, omPublishStrategy, boxController) =>
     boxController.onBoxAdded(box => {
         const tetromino = tetrominoBackingList.find(tetro => tetro.id === box.tetroId);
         if (tetromino) {
-            // todo dk: really needed ?
             publishUpdatedBoxPositions(tetromino);
         } else {
             log.warn("cannot find tetro for box with tetroId " + box.tetroId);
         }
     });
-
-
 
     const isEmpty = () => {
         return tetrominoBackingList.length < 1;
@@ -178,8 +176,6 @@ const TetrominoController = (observableMap, omPublishStrategy, boxController) =>
 
     const updateTetromino = tetromino => {
         publish(tetromino);
-        // when we update a tetromino, we must also recalculate and update its boxes
-        // publishUpdatedBoxPositions(tetromino);
     };
 
     /**
@@ -216,7 +212,7 @@ const TetrominoController = (observableMap, omPublishStrategy, boxController) =>
         const shapeName = shapeNames[Math.floor(Math.random() * shapeNames.length)];
         const shape     = shapesByName[shapeName];
         const tetroId   = /** @type { ForeignKeyType } */ TETROMINO_PREFIX + clientId + "-" + (runningNum++);
-        const tetromino =  Tetromino({id:tetroId, shapeName, shape, xPos:0, yPos:0, zPos:12});
+        const tetromino = Tetromino({id:tetroId, shapeName, shape, xPos:0, yPos:0, zPos:12});
         updateTetromino(tetromino);
         publishReferrer(TETROMINO_CURRENT_ID, tetroId); // must come after tetro with this id is known
     };
