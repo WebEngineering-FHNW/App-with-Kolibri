@@ -69,7 +69,7 @@ const BoxController = (om, omPublishStrategy) => {
     };
 
     const updateBox = newBox => {
-        boxChangedObs.setValue(newBox);
+        // boxChangedObs.setValue(newBox);
         publish(newBox);
     };
 
@@ -100,7 +100,7 @@ const BoxController = (om, omPublishStrategy) => {
         }
         log.debug(`new box: ${JSON.stringify(box)}`);
         boxesListObs.add(box);
-        // tetrominoController will listen and be notified to keep box positions consistent.
+        // tetrominoController will listen and be notified to keep box positions consistent. todo dk ???
     };
 
     const startListening = () => {
@@ -113,7 +113,7 @@ const BoxController = (om, omPublishStrategy) => {
         });
         om.onChange( (key,value) => {
             if (key.startsWith(BOX_PREFIX)){
-                handleBoxUpdate(value); // todo dk: why is this called at all if the om does not call back the origin?
+                handleBoxUpdate(value);
             }
         });
     };

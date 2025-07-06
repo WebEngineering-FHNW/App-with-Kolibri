@@ -20,6 +20,7 @@ import {PlayerController}    from "../player/playerController.js";
 import {GameStateController} from "../gameState/gameStateController.js";
 import {TetrominoController} from "../tetromino/tetrominoController.js";
 import {BoxController}       from "../box/boxController.js";
+import {NO_TETROMINO}        from "../tetromino/tetrominoModel.js";
 
 export {
     GameController
@@ -125,8 +126,8 @@ const GameController = om => {
      */
     const movePosition = moveFunction => {
         const currentTetromino = tetrominoController.getCurrentTetromino();
-        if (!currentTetromino) return;
-        const newTetromino = {...currentTetromino}; // we might not actually need a copy, but it's cleaner
+        if (!currentTetromino || currentTetromino === NO_TETROMINO) return;
+        const newTetromino = {...currentTetromino};
 
         const {x, y, z} = moveFunction({x: currentTetromino.xPos, y: currentTetromino.yPos, z: currentTetromino.zPos});
 

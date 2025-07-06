@@ -82,21 +82,25 @@ const TetrominoController = (observableMap, omPublishStrategy, boxController) =>
      * @type { IObservable<TetrominoModelType>} */
     const currentTetrominoObs = Observable(NO_TETROMINO);
 
+    const getCurrentTetrominoFromObservableMap = id => {
+        let result = NO_TETROMINO;
+        observableMap.getValue(id)
+          ( _     => log.warn("no tetromino with current id "+id))
+          ( tetro => result = tetro);
+        return result;
+    };
+    tetrominoCurrentIdObs.onChange( newId => currentTetrominoObs.setValue(getCurrentTetrominoFromObservableMap(newId)));
+
     /**
      * Whenever the observable map changes, we have to synchronize our local observables.
-     * Whenever the local observables change, we have to tell the observable map for synchronization.
      */
     const startListening = () => {
 
         observableMap.onKeyRemoved( key => {
             if (key.startsWith(TETROMINO_PREFIX)){
                 const tetromino = tetrominoBackingList.find( it => it.id === key);
-                if(! tetromino) { return; } // no infinite cycle
                 tetrominoListObs.del(tetromino);
             }
-        });
-        tetrominoListObs.onDel( removedTetromino => {
-            observableMap.removeKey(removedTetromino.id);
         });
 
         observableMap.onChange( (key,value) => {
@@ -111,12 +115,12 @@ const TetrominoController = (observableMap, omPublishStrategy, boxController) =>
     };
 
     const handleTetrominoUpdate = tetromino => {
-        publishUpdatedBoxPositions(tetromino);
 
         const knownTetroIndex = tetrominoBackingList.findIndex( it => it.id === tetromino.id);
         if (knownTetroIndex >= 0) {
-            tetrominoBackingList[knownTetroIndex] = tetromino; // todo: is this really needed?
+            tetrominoBackingList[knownTetroIndex] = tetromino;
             currentTetrominoObs.setValue(tetromino);
+            publishUpdatedBoxPositions(tetromino); // whenever a tetromino changes, we have to update its boxes
             return;
         }
         log.info(`new tetromino: ${JSON.stringify(tetromino)}`);
@@ -130,11 +134,11 @@ const TetrominoController = (observableMap, omPublishStrategy, boxController) =>
      * @param { TetrominoModelType } tetromino
      */
     const publish = tetromino => omPublishStrategy ( _=> {
-        handleTetrominoUpdate(tetromino); // todo dk: this should not be needed if we get the appropriate om feedback
         observableMap.setValue(tetromino.id, tetromino);
     }) ;
     const publishReferrer = (referrer, reference) =>
-        omPublishStrategy ( _=> observableMap.setValue(referrer, Object(reference)) ); // ensure reference is an object
+        omPublishStrategy ( _=>
+             observableMap.setValue(referrer, Object(reference)) ); // ensure reference is an object
     /** @param {TetrominoModelType} tetromino */
     const publishRemove = tetromino => omPublishStrategy( _ => observableMap.removeKey(tetromino.id));
 
@@ -142,6 +146,7 @@ const TetrominoController = (observableMap, omPublishStrategy, boxController) =>
     boxController.onBoxAdded(box => {
         const tetromino = tetrominoBackingList.find(tetro => tetro.id === box.tetroId);
         if (tetromino) {
+            // todo dk: really needed ?
             publishUpdatedBoxPositions(tetromino);
         } else {
             log.warn("cannot find tetro for box with tetroId " + box.tetroId);
@@ -169,19 +174,12 @@ const TetrominoController = (observableMap, omPublishStrategy, boxController) =>
      */
     const getCurrentTetromino = () => {
         return currentTetrominoObs.getValue();
-        // let result = undefined;
-        // let id     = undefined;
-        // om.getValue(TETROMINO_CURRENT_ID)                               // find referrer
-        //   ( _ => log.warn("no current tetromino id"))
-        //   ( n => id = n);
-        // observableMap.getValue(id)                                                 // find reference
-        //   ( _     => log.warn("no tetromino with current id "+id))
-        //   ( tetro => result = tetro);
-        // return result;
     };
 
     const updateTetromino = tetromino => {
         publish(tetromino);
+        // when we update a tetromino, we must also recalculate and update its boxes
+        // publishUpdatedBoxPositions(tetromino);
     };
 
     /**
@@ -209,11 +207,9 @@ const TetrominoController = (observableMap, omPublishStrategy, boxController) =>
     };
 
 
-
     const findTetrominoById = tetroId => {
         return tetrominoBackingList.find( it => it.id === tetroId);
     };
-
 
     let runningNum  = 0;
     const makeNewCurrentTetromino = () => {
@@ -221,28 +217,19 @@ const TetrominoController = (observableMap, omPublishStrategy, boxController) =>
         const shape     = shapesByName[shapeName];
         const tetroId   = /** @type { ForeignKeyType } */ TETROMINO_PREFIX + clientId + "-" + (runningNum++);
         const tetromino =  Tetromino({id:tetroId, shapeName, shape, xPos:0, yPos:0, zPos:12});
-        publish(tetromino);
-        publishReferrer(TETROMINO_CURRENT_ID, tetroId);
+        updateTetromino(tetromino);
+        publishReferrer(TETROMINO_CURRENT_ID, tetroId); // must come after tetro with this id is known
+    };
 
+    const publishUpdatedBoxPositions = tetromino => {
         [0, 1, 2, 3].map( boxIndex => {
+            const tetroId = tetromino.id;
             const boxId  = /** @type { ForeignKeyType } */ BOX_PREFIX + tetroId + "-" + boxIndex;
             const {xPos, yPos, zPos} = finalBoxPosition(tetromino, boxIndex);
             const box = Box({id:boxId, tetroId, xPos, yPos, zPos });
             boxController.updateBox(box);
         });
     };
-
-    const publishUpdatedBoxPositions = tetromino => {
-        // get the 4 boxes of this tetromino from the relational model
-        const boxes = [0, 1, 2, 3].map( n => boxController.findBox(tetromino.id, n));
-        if (boxes.some( box => box === undefined)){ // not all boxes ready for update
-            return;
-        }
-        [0, 1, 2, 3]
-            .map(n => ({...boxes[n], ...finalBoxPosition(tetromino, n)}))
-            .forEach(boxController.updateBox);
-    };
-
 
     return {
         startListening,

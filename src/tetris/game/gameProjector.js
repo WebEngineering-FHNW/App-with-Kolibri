@@ -136,7 +136,6 @@ const projectMain = gameController => {
         }
         const [tetroDiv]  = dom(`<div class="tetromino ${tetromino.shapeName}" data-id="${tetromino.id}"></div>`);
         coordsDiv.append(tetroDiv);
-        console.warn("tetro div added", tetromino.id);
         return tetroDiv;
     };
     gameController.tetrominoController.onTetrominoAdded( tetromino => {
@@ -164,10 +163,9 @@ const projectMain = gameController => {
 
     const handleNewBoxDiv = (box, count) => {
             if (box.id === MISSING_FOREIGN_KEY) return;
-            console.warn("box added", box.id);
             if (count === undefined) count = 0;
             if (count++ > 4) {
-                console.error(`cannot add box ${box.id} after ${count} retries`);
+                log.error(`cannot add box ${box.id} after ${count} retries`);
                 return;
             } // max recursive count
             const tetroDiv    = mayAddTetroDiv(gameController.tetrominoController.findTetrominoById(box.tetroId));
