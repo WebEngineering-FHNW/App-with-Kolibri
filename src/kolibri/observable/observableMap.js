@@ -61,7 +61,7 @@ const ObservableMap = (name) => {
 
     const hasKey = key => backingMap.hasOwnProperty(key);
 
-    const knownToBeDeletedKeys = [];
+    const knownToBeDeletedKeys = []; // todo dk: this is most likely a bad idea as it disallows removing and adding again
 
     const setKeyValue = (key, value) => {
         if (! (value instanceof Object)) {  // e.g. value is a plain String
@@ -72,12 +72,10 @@ const ObservableMap = (name) => {
             log.debug(`value change originated from ourselves name ${name} key ${key} value ${value}`);
             return;                          // avoid infinite "echos"
         }
-        if ( value[originSymbol] === undefined) { // this value change has no origin, yet
+        if ( value[originSymbol] === undefined) {   // this value change has no origin, yet
             Object.defineProperty(value, originSymbol, {
-              enumerable:   false,                // origin should live through shallow copies
-              configurable: false,
-              writable:     false,
-              value:        name,                 // ... therefore, we are the origin
+                value:        name,                 // ... therefore, we are the origin
+                enumerable:   false,                // origin should not live through shallow copies
             });
         }
         if (knownToBeDeletedKeys.includes(key)) {

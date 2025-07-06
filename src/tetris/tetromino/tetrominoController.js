@@ -116,7 +116,7 @@ const TetrominoController = (observableMap, omPublishStrategy, boxController) =>
         const knownTetroIndex = tetrominoBackingList.findIndex( it => it.id === tetromino.id);
         if (knownTetroIndex >= 0) {
             tetrominoBackingList[knownTetroIndex] = tetromino; // todo: is this really needed?
-            currentTetrominoObs.setValue({...tetromino}); // todo: does it need a new object identity to enforce onChange?
+            currentTetrominoObs.setValue(tetromino);
             return;
         }
         log.info(`new tetromino: ${JSON.stringify(tetromino)}`);
@@ -130,7 +130,7 @@ const TetrominoController = (observableMap, omPublishStrategy, boxController) =>
      * @param { TetrominoModelType } tetromino
      */
     const publish = tetromino => omPublishStrategy ( _=> {
-        handleTetrominoUpdate(tetromino);
+        handleTetrominoUpdate(tetromino); // todo dk: this should not be needed if we get the appropriate om feedback
         observableMap.setValue(tetromino.id, tetromino);
     }) ;
     const publishReferrer = (referrer, reference) =>
@@ -222,6 +222,7 @@ const TetrominoController = (observableMap, omPublishStrategy, boxController) =>
         const tetroId   = /** @type { ForeignKeyType } */ TETROMINO_PREFIX + clientId + "-" + (runningNum++);
         const tetromino =  Tetromino({id:tetroId, shapeName, shape, xPos:0, yPos:0, zPos:12});
         publish(tetromino);
+        publishReferrer(TETROMINO_CURRENT_ID, tetroId);
 
         [0, 1, 2, 3].map( boxIndex => {
             const boxId  = /** @type { ForeignKeyType } */ BOX_PREFIX + tetroId + "-" + boxIndex;
@@ -229,7 +230,6 @@ const TetrominoController = (observableMap, omPublishStrategy, boxController) =>
             const box = Box({id:boxId, tetroId, xPos, yPos, zPos });
             boxController.updateBox(box);
         });
-        publishReferrer(TETROMINO_CURRENT_ID, tetroId);
     };
 
     const publishUpdatedBoxPositions = tetromino => {

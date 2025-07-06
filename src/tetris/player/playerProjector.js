@@ -32,6 +32,7 @@ const projectPlayerList = playerController => {
 
     // when active player changes - put him/her on top of the list
     playerController.onActivePlayerIdChanged(/** @type { ForeignKeyType } */ playerId => {
+        if(MISSING_FOREIGN_KEY === playerId) { return; }
         const [activePlayerLi] = select(playerList, `[data-id="${playerId}"]`);
         if (!activePlayerLi) {
             return;

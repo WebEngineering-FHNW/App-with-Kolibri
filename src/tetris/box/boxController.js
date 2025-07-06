@@ -113,7 +113,7 @@ const BoxController = (om, omPublishStrategy) => {
         });
         om.onChange( (key,value) => {
             if (key.startsWith(BOX_PREFIX)){
-                handleBoxUpdate(value);
+                handleBoxUpdate(value); // todo dk: why is this called at all if the om does not call back the origin?
             }
         });
     };
