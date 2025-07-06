@@ -169,10 +169,9 @@ const GameController = om => {
     };
 
     const registerNextFallTask = () => {
-        if (currentlyFalling) {
-            console.warn("we already fall => avoid falling twice");
+        if (currentlyFalling) {  // we already fall => avoid falling twice
             return;
-        } // do not fall twice the speed
+        }
         currentlyFalling = true;
         setTimeout(fallTask, 1 * 1000);
     };
@@ -246,27 +245,17 @@ const GameController = om => {
     const restart  = (onFinishedCallback) => {
         if (!playerController.areWeInCharge()) return;
         gameStateController.setFallingDown(false);      // hold on
-        currentlyFalling = false; // todo: only works on eager update on setFallingDown
+        currentlyFalling = false;
         tetrominoController.setNoCurrentTetromino();
 
-        // do not proceed before all backing Lists are empty
-        const waitForCleanup = () => {
-            if (!playerController.areWeInCharge()) return; // things might have changed meanwhile
-            boxController      .removeBoxesWhere( _box => true); // remove all boxes
-            tetrominoController.removeAll();
+        boxController.removeBoxesWhere(_box => true); // remove all boxes
+        tetrominoController.removeAll();
 
-            // const removalsFinished = tetrominoController.isEmpty() && boxController.isEmpty();
-            // if (removalsFinished) {
-                gameStateController.resetGameState();
-                tetrominoController.makeNewCurrentTetromino();
-                gameStateController.setFallingDown(true);
-                registerNextFallTask();                     // proceed
-                onFinishedCallback();
-            // } else {
-            //     setTimeout(waitForCleanup, 50);
-            // }
-        };
-        waitForCleanup();
+        gameStateController.resetGameState();
+        tetrominoController.makeNewCurrentTetromino();
+        gameStateController.setFallingDown(true);
+        registerNextFallTask();                     // proceed
+        onFinishedCallback();
     };
 
     const onSetupFinished = () => {
@@ -282,12 +271,14 @@ const GameController = om => {
     playerController.onWeHaveBecomeActive( _ => {
         registerNextFallTask();  // we are now responsible for keeping the fall task alive
     });
-    // gameStateController.onGameStateChanged( gameState => {
-    //     if (!playerController.areWeInCharge()) return;
-    //     if (gameState.fallingDown) {
-    //         registerNextFallTask(); // will itself check whether we are already falling
-    //     }
-    // });
+
+    // this can happen when some other player leaves and we are put in charge from the outside
+    gameStateController.onGameStateChanged( gameState => {
+        if (!playerController.areWeInCharge()) return;
+        if (gameState.fallingDown) {
+            registerNextFallTask(); // will itself check whether we are already falling
+        }
+    });
 
 
     /**
