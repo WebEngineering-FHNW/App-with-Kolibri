@@ -10,6 +10,7 @@ import {client}        from "../../kolibri/rest/restClient.js";
 import {clientId}      from "../../kolibri/version.js";
 import {AsyncRelay}    from "../../kolibri/observable/asyncRelay.js";
 import {ObservableMap} from "../../kolibri/observable/observableMap.js";
+import {Scheduler}     from "../../kolibri/dataflow/dataflow.js";
 
 export {connect};
 
@@ -30,6 +31,7 @@ const connect = (baseUrl, om) => {
     const remoteSymbol = Symbol("remote"); // used to tell whether a value was received from remote
 
     const scheduler = AsyncRelay(rom)(om); // todo dk: it might be more efficient to directly listen on the om and avoid the rom
+    const sendingScheduler = Scheduler();  // make sure that we are sending at most one request at a time
 
     const eventSource = new EventSource(baseUrl + '/' + PATH_REMOTE_OBSERVABLE);
 
@@ -105,10 +107,14 @@ const connect = (baseUrl, om) => {
             [PARAM_KEY]:           key,
             [PARAM_UPDATE_ACTION]: value
         };
-        log.debug(`sending update key ${key} value ${value} version ${versions[key]}`);
-        client(baseUrl + '/' + PATH_UPDATE_ACTION, "POST", data)
-            .then(_ => log.debug("done sending update"))
-            .catch(e => log.error("error sending update data: " + JSON.stringify(data) + " " + e));
+        sendingScheduler.add( done => {
+            log.debug(`sending update key ${key} value ${value} version ${versions[key]}`);
+            client(baseUrl + '/' + PATH_UPDATE_ACTION, "POST", data)
+                .then(     _ => log.debug("done sending update"))
+                .catch(    e => log.error("error sending update data: " + JSON.stringify(data) + " " + e))
+                .finally( () => done() );
+        });
+
     });
 
     rom.onKeyRemoved((key) => {
@@ -116,9 +122,12 @@ const connect = (baseUrl, om) => {
             [KEY_ORIGIN]: clientId,
             [PARAM_KEY]:  key
         };
-        log.debug(`sending remove key ${key}`);
-        client(baseUrl + '/' + PATH_REMOVE_ACTION, "DELETE", data)
-            .then(_ => log.debug("done sending remove"))
-            .catch(e => log.error("error sending remove data: " + JSON.stringify(data) + " " + e));
+        sendingScheduler.add( done => {
+            log.debug(`sending remove key ${key}`);
+            client(baseUrl + '/' + PATH_REMOVE_ACTION, "DELETE", data)
+                .then(     _ => log.debug("done sending remove"))
+                .catch(    e => log.error("error sending remove data: " + JSON.stringify(data) + " " + e))
+                .finally( () => done() );
+        });
     });
 };
